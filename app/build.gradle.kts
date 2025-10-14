@@ -41,8 +41,8 @@ android {
     }
 
     buildFeatures {
-        // viewBinding = true
         buildConfig = true
+        dataBinding = true
         compose = true
     }
 
@@ -59,13 +59,6 @@ android {
             "-opt-in=kotlinx.coroutines.FlowPreview"
         )
     }
-
-    // 2. XÓA TOÀN BỘ KHỐI `composeOptions` NÀY
-    /*
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
-    }
-    */
 
     packaging {
         resources {
@@ -98,9 +91,9 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
-    // Tích hợp Activity & ViewModel với Compose
-    val activity_version = "1.9.0"
-    implementation("androidx.activity:activity-compose:$activity_version")
+    // Compose Integration
+    val activityVersion = "1.9.0"
+    implementation("androidx.activity:activity-compose:$activityVersion")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
 
     // ===== ARCHITECTURE COMPONENTS =====
@@ -122,20 +115,18 @@ dependencies {
 
     // ===== NETWORKING =====
     val retrofitVersion = "2.9.0"
+    val okhttpVersion = "4.12.0"
     implementation("com.squareup.retrofit2:retrofit:$retrofitVersion")
     implementation("com.squareup.retrofit2:converter-gson:$retrofitVersion")
-    val okhttpVersion = "4.12.0"
     implementation("com.squareup.okhttp3:okhttp:$okhttpVersion")
     implementation("com.squareup.okhttp3:logging-interceptor:$okhttpVersion")
+    implementation("com.github.chuckerteam.chucker:library:3.5.2")
 
-    // OneFin SDK (Giữ nguyên)
+    // ===== OneFin SDKs =====
     implementation(files("libs/onefin-1.0.0.aar"))
     implementation(files("libs/paylib-1.0.0.aar"))
     implementation(files("libs/payment-1.0.0.aar"))
     implementation(files("libs/printerlibrary-1.0.19.aar"))
-
-    // Gson
-    implementation("com.google.code.gson:gson:2.10.1")
 
     // ===== COROUTINES =====
     val coroutinesVersion = "1.7.3"
@@ -151,6 +142,7 @@ dependencies {
 
     // ===== SECURITY =====
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("org.bouncycastle:bcprov-jdk15to18:1.78.1")
 
     // ===== IMAGE LOADING =====
     implementation("io.coil-kt:coil-compose:2.6.0")
@@ -158,23 +150,27 @@ dependencies {
     // ===== ANIMATIONS =====
     implementation("com.airbnb.android:lottie-compose:6.3.0")
 
-    // ThreeTenABP (Java 8 Time API backport)
+    // ===== TIME & LOGGING =====
     implementation("com.jakewharton.threetenabp:threetenabp:1.4.6")
-
-    // ===== LOGGING =====
     implementation("com.jakewharton.timber:timber:5.0.1")
 
     // ===== SPLASH SCREEN =====
     implementation("androidx.core:core-splashscreen:1.0.1")
 
-    // WorkManager & Hilt
+    // ===== WORK MANAGER =====
     val workVersion = "2.9.0"
     implementation("androidx.work:work-runtime-ktx:$workVersion")
     implementation("androidx.hilt:hilt-work:1.1.0")
     ksp("androidx.hilt:hilt-compiler:1.1.0")
 
-    // Rabbit
+    // ===== RABBITMQ =====
     implementation("com.rabbitmq:amqp-client:5.21.0")
+
+    // ===== DEPENDENCY INJECTION (Koin) =====
+    implementation("io.insert-koin:koin-core:3.5.6")
+    implementation("io.insert-koin:koin-android:3.5.6")
+    implementation("androidx.databinding:databinding-runtime:8.6.0")
+    implementation("com.jakewharton.retrofit:retrofit2-kotlin-coroutines-adapter:0.9.2")
 }
 
 ksp {

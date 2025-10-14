@@ -1,6 +1,7 @@
 package com.onefin.posapp.ui.home
 
 import android.app.Activity
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -23,30 +24,41 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.onefin.posapp.R
+import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.core.utils.VietQRHelper
 import com.onefin.posapp.ui.base.BaseActivity
 import com.onefin.posapp.ui.theme.PosAppTheme
 import dagger.hilt.android.AndroidEntryPoint
+import java.io.Serializable
 
 @AndroidEntryPoint
 class QRCodeDisplayActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val amount = intent.getLongExtra("AMOUNT", 0L)
-        val accountName = intent.getStringExtra("ACCOUNT_NAME") ?: ""
-        val accountNumber = intent.getStringExtra("ACCOUNT_NUMBER") ?: ""
-        val bankNapasId = intent.getStringExtra("BANK_NAPAS_ID") ?: ""
+        val rawObject: java.io.Serializable? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getSerializableExtra("REQUEST_DATA", Serializable::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getSerializableExtra("REQUEST_DATA")
+        }
 
-        setContent {
-            PosAppTheme {
-                QRCodeDisplayScreen(
-                    amount = amount,
-                    accountName = accountName,
-                    accountNumber = accountNumber,
-                    bankNapasId = bankNapasId
-                )
+        @Suppress("UNCHECKED_CAST")
+        val requestData = rawObject as? PaymentAppRequest
+        if (requestData != null) {
+            val account = storageService.getAccount()
+            if (account != null) {
+                setContent {
+                    PosAppTheme {
+                        QRCodeDisplayScreen(
+                            accountName = account.terminal.accountName,
+                            bankNapasId = account.terminal.bankNapasId,
+                            accountNumber = account.terminal.accountNumber,
+                            amount = requestData.merchantRequestData.amount,
+                        )
+                    }
+                }
             }
         }
     }

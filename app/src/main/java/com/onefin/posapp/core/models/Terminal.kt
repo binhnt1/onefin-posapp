@@ -31,13 +31,13 @@ data class Terminal(
     val bankName: String? = null,
     
     @SerializedName("AccountName")
-    val accountName: String? = null,
+    val accountName: String = "",
     
     @SerializedName("BankNapasId")
-    val bankNapasId: String? = null,
+    val bankNapasId: String = "",
     
     @SerializedName("AccountNumber")
-    val accountNumber: String? = null,
+    val accountNumber: String = "",
     
     @SerializedName("SystemConfig")
     val systemConfig: SystemConfig? = null,

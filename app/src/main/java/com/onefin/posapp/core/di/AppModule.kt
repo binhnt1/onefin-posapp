@@ -94,4 +94,12 @@ object AppModule {
     ): com.onefin.posapp.core.services.RabbitMQService {
         return com.onefin.posapp.core.services.RabbitMQService(storageService)
     }
+
+    @Provides
+    @Singleton
+    fun providePaymentHelper(
+        gson: Gson
+    ): com.onefin.posapp.core.utils.PaymentHelper {
+        return com.onefin.posapp.core.utils.PaymentHelper(gson)
+    }
 }

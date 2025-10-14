@@ -1,6 +1,6 @@
 package com.onefin.posapp.ui.home.components
 
-import android.app.Activity
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,10 +38,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.onefin.posapp.R
+import com.onefin.posapp.core.models.data.PaymentAction
+import com.onefin.posapp.core.models.data.PaymentRequest
+import com.onefin.posapp.core.models.data.PaymentRequestType
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.PaymentHelper
 import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.ui.home.QRCodeDisplayActivity
+import com.onefin.posapp.ui.transaction.TransparentPaymentActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -174,18 +178,26 @@ fun AmountEntrySheet(
                             icon = Icons.Default.CreditCard,
                             onClick = {
                                 if (isValidAmount && !isProcessing) {
-                                    isProcessing = true
-                                    paymentHelper.startCardPayment(
-                                        amount = amountValue,
-                                        activity = context as Activity,
-                                        orderId = "ORDER_${System.currentTimeMillis()}"
-                                    )
-                                    onDismiss()
+                                    val account = storageService.getAccount()
+                                    if (account != null) {
+                                        val paymentRequest = PaymentRequest(
+                                            amount = amountValue,
+                                            actionValue = PaymentAction.SALE,
+                                            typeValue = PaymentRequestType.CARD,
+                                        )
+                                        val requestData = paymentHelper.buildPaymentAppRequest(account, paymentRequest)
+                                        val intent = Intent(context, TransparentPaymentActivity::class.java).apply {
+                                            putExtra("REQUEST_DATA", requestData)
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(intent)
+                                        onDismiss()
+                                    }
                                 }
                             },
                             isPrimary = true,
                             enabled = isValidAmount && !isProcessing,
-                            modifier = Modifier.weight(1f) // Chiếm 1/2 chiều rộng của Row
+                            modifier = Modifier.weight(1f)
                         )
                         PaymentOptionButton(
                             text = stringResource(R.string.payment_generate_qr),
@@ -194,18 +206,23 @@ fun AmountEntrySheet(
                                 if (isValidAmount && !isProcessing) {
                                     val account = storageService.getAccount()
                                     if (account != null) {
-                                        val intent = android.content.Intent(context, QRCodeDisplayActivity::class.java)
-                                        intent.putExtra("AMOUNT", amountValue)
-                                        intent.putExtra("ACCOUNT_NAME", account.terminal.accountName)
-                                        intent.putExtra("ACCOUNT_NUMBER", account.terminal.accountNumber)
-                                        intent.putExtra("BANK_NAPAS_ID", account.terminal.bankNapasId)
+                                        val paymentRequest = PaymentRequest(
+                                            amount = amountValue,
+                                            actionValue = PaymentAction.SALE,
+                                            typeValue = PaymentRequestType.QR,
+                                        )
+                                        val requestData = paymentHelper.buildPaymentAppRequest(account, paymentRequest)
+                                        val intent = Intent(context, QRCodeDisplayActivity::class.java).apply {
+                                            putExtra("REQUEST_DATA", requestData)
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
                                         context.startActivity(intent)
                                         onDismiss()
                                     }
                                 }
                             },
                             enabled = isValidAmount && !isProcessing,
-                            modifier = Modifier.weight(1f) // Chiếm 1/2 chiều rộng của Row
+                            modifier = Modifier.weight(1f)
                         )
                     }
                     PaymentOptionButton(
@@ -213,17 +230,25 @@ fun AmountEntrySheet(
                         icon = Icons.Default.CardMembership,
                         onClick = {
                             if (isValidAmount && !isProcessing) {
-                                isProcessing = true
-                                paymentHelper.startMemberPayment(
-                                    amount = amountValue,
-                                    activity = context as Activity,
-                                    orderId = "ORDER_${System.currentTimeMillis()}"
-                                )
-                                onDismiss()
+                                val account = storageService.getAccount()
+                                if (account != null) {
+                                    val paymentRequest = PaymentRequest(
+                                        amount = amountValue,
+                                        actionValue = PaymentAction.SALE,
+                                        typeValue = PaymentRequestType.MEMBER,
+                                    )
+                                    val requestData = paymentHelper.buildPaymentAppRequest(account, paymentRequest)
+                                    val intent = Intent(context, TransparentPaymentActivity::class.java).apply {
+                                        putExtra("REQUEST_DATA", requestData)
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(intent)
+                                    onDismiss()
+                                }
                             }
                         },
                         enabled = isValidAmount && !isProcessing,
-                        modifier = Modifier.fillMaxWidth() // Chiếm toàn bộ chiều rộng
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
 

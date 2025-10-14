@@ -59,6 +59,12 @@
             android:exported="false"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.OnefinPosApp.LogoutDialogActivity" />
+
+        <activity
+            android:name=".ui.transaction.TransparentPaymentActivity"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            android:launchMode="singleTop"
+            android:excludeFromRecents="true" />
     </application>
 
 </manifest>
