@@ -7,6 +7,7 @@ import com.onefin.posapp.ui.transaction.TransactionActivity
 import com.onefin.posapp.ui.settlement.SettlementActivity
 import com.onefin.posapp.ui.history.HistoryActivity
 import com.onefin.posapp.ui.billpayment.BillPaymentActivity
+import com.onefin.posapp.ui.login.LoginActivity
 import com.onefin.posapp.ui.report.ReportActivity
 
 object NavigationHelper {
@@ -33,6 +34,11 @@ object NavigationHelper {
 
     fun navigateToReport(context: Context) {
         val intent = Intent(context, ReportActivity::class.java)
+        context.startActivity(intent)
+    }
+
+    fun navigateToLogin(context: Context) {
+        val intent = Intent(context, LoginActivity::class.java)
         context.startActivity(intent)
     }
 

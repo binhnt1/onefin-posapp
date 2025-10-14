@@ -21,16 +21,16 @@ class PaymentHelper @Inject constructor(
         const val REQUEST_CODE_PAYMENT = 1001
         
         // Payment types
-        const val TYPE_CARD = "card"
         const val TYPE_QR = "qr"
+        const val TYPE_CARD = "card"
         const val TYPE_MEMBER = "member"
         
         // Intent extras keys
         private const val EXTRA_TYPE = "type"
         private const val EXTRA_ACTION = "action"
         private const val EXTRA_REQUEST_DATA = "merchant_request_data"
-        private const val EXTRA_PAYMENT_RESPONSE = "payment_response_data"
         private const val EXTRA_MEMBER_RESPONSE = "member_response_data"
+        private const val EXTRA_PAYMENT_RESPONSE = "payment_response_data"
     }
     
     private var isSDKInitialized = false
@@ -68,26 +68,6 @@ class PaymentHelper @Inject constructor(
     ) {
         val requestData = buildMap {
             put("type", TYPE_CARD)
-            put("action", 0)
-            put("amount", amount)
-            put("orderId", orderId)
-            putAll(additionalData)
-        }
-        
-        startPayment(activity, requestData)
-    }
-    
-    /**
-     * Start QR payment
-     */
-    fun startQRPayment(
-        activity: Activity,
-        amount: Long,
-        orderId: String,
-        additionalData: Map<String, Any> = emptyMap()
-    ) {
-        val requestData = buildMap {
-            put("type", TYPE_QR)
             put("action", 0)
             put("amount", amount)
             put("orderId", orderId)

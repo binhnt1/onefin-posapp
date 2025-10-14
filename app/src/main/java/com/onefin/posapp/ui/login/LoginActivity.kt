@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.onefin.posapp.core.models.Account
 import com.onefin.posapp.R
+import com.onefin.posapp.core.managers.RabbitMQManager
 import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.DeviceHelper
@@ -54,14 +55,11 @@ class LoginActivity : BaseActivity() {
     lateinit var deviceHelper: DeviceHelper
 
     @Inject
-    lateinit var storageService: StorageService
-
-    @Inject
     lateinit var validationHelper: ValidationHelper
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        rabbitMQManager.stop()
         setContent {
             PosAppTheme {
                 Surface(

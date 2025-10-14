@@ -11,18 +11,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.ui.base.BaseActivity
-import com.onefin.posapp.ui.login.LoginActivity
 import com.onefin.posapp.ui.theme.PosAppTheme
 import dagger.hilt.android.AndroidEntryPoint
-import android.content.Intent
 import com.onefin.posapp.ui.base.BaseScreen
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class TransactionActivity : BaseActivity() {
-
-    @Inject
-    lateinit var storageService: StorageService
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,13 +25,7 @@ class TransactionActivity : BaseActivity() {
         setContent {
             PosAppTheme {
                 TransactionScreen(
-                    storageService = storageService,
-                    onLogout = {
-                        val intent = Intent(this@TransactionActivity, LoginActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        startActivity(intent)
-                        finish()
-                    }
+                    storageService = storageService
                 )
             }
         }
@@ -45,12 +34,10 @@ class TransactionActivity : BaseActivity() {
 
 @Composable
 fun TransactionScreen(
-    storageService: StorageService,
-    onLogout: () -> Unit
+    storageService: StorageService
 ) {
     BaseScreen(
-        storageService = storageService,
-        onLogout = onLogout
+        storageService = storageService
     ) { paddingValues, account ->
         Box(
             modifier = Modifier

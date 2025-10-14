@@ -1,5 +1,6 @@
 package com.onefin.posapp.core.services
 
+import android.util.Log
 import com.rabbitmq.client.*
 import kotlinx.coroutines.*
 import javax.inject.Inject
@@ -29,12 +30,10 @@ class RabbitMQService @Inject constructor(
 
         listenerJob = CoroutineScope(Dispatchers.IO).launch {
             try {
-                // Khởi tạo connection nếu chưa có hoặc đã đóng
                 if (connection == null || !connection!!.isOpen) {
                     connection = createConnection(posSerial)
                 }
 
-                // Khởi tạo channel nếu chưa có hoặc đã đóng
                 if (channel == null || !channel!!.isOpen) {
                     channel = connection?.createChannel()
                 }
@@ -43,13 +42,11 @@ class RabbitMQService @Inject constructor(
                 val routingKey = "Serial_$posSerial"
 
                 // Tự động tạo queue nếu chưa tồn tại
-                channel?.queueDeclare(
-                    queueName,
-                    true,   // durable: Queue không bị mất khi RabbitMQ server restart
-                    false,  // exclusive: Các kết nối khác có thể truy cập queue
-                    false,  // autoDelete: Queue không bị xóa khi không còn consumer
-                    null    // arguments
-                )
+                try {
+                    channel?.queueDeclarePassive(queueName)
+                } catch (ex: Exception) {
+                    channel?.queueDeclare(queueName, true, false, false, null)
+                }
 
                 // Xóa các message cũ trong queue
                 channel?.queuePurge(queueName)

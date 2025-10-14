@@ -97,7 +97,6 @@ fun QRCodeDisplayScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // ---- THAY ĐỔI 1: BỎ ĐỔ BÓNG, THÊM VIỀN ----
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),

@@ -42,45 +42,49 @@ import androidx.compose.ui.graphics.ImageBitmap
 import com.onefin.posapp.core.models.Account
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.set
+import com.onefin.posapp.core.managers.RabbitMQManager
+import com.onefin.posapp.core.managers.SnackbarManager
+import com.onefin.posapp.ui.components.GlobalSnackbarHost
 
 @AndroidEntryPoint
 class HomeActivity : BaseActivity() {
 
     @Inject
-    lateinit var storageService: StorageService
+    lateinit var paymentHelper: PaymentHelper
 
     @Inject
-    lateinit var paymentHelper: PaymentHelper
+    lateinit var snackbarManager: SnackbarManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        rabbitMQManager.startAfterLogin()
         setContent {
             PosAppTheme {
                 HomeScreen(
-                    storageService = storageService,
                     paymentHelper = paymentHelper,
-                    onLogout = {
-                        val intent = Intent(this@HomeActivity, LoginActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        startActivity(intent)
-                        finish()
-                    }
+                    storageService = storageService
+                )
+
+                // Global Snackbar Host để hiển thị notification
+                GlobalSnackbarHost(
+                    snackbarManager = snackbarManager
                 )
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
     }
 }
 
 @Composable
 fun HomeScreen(
-    storageService: StorageService,
     paymentHelper: PaymentHelper,
-    onLogout: () -> Unit
+    storageService: StorageService,
 ) {
     BaseScreen(
-        storageService = storageService,
-        onLogout = onLogout
+        storageService = storageService
     ) { paddingValues, account ->
         if (account != null) {
             HomeContent(

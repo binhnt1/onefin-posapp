@@ -83,4 +83,15 @@ object AppModule {
     ): com.onefin.posapp.core.utils.DeviceHelper {
         return com.onefin.posapp.core.utils.DeviceHelper(context)
     }
+
+    /**
+     * Provide RabbitMQService
+     */
+    @Provides
+    @Singleton
+    fun provideRabbitMQService(
+        storageService: com.onefin.posapp.core.services.StorageService
+    ): com.onefin.posapp.core.services.RabbitMQService {
+        return com.onefin.posapp.core.services.RabbitMQService(storageService)
+    }
 }

@@ -31,14 +31,18 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun AppDrawer(
-    account: Account?,
-    storageService: StorageService,
     onCloseDrawer: () -> Unit,
-    onLogoutSuccess: () -> Unit
+    storageService: StorageService,
 ) {
     val context = LocalContext.current
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var account by remember { mutableStateOf<Account?>(null) }
     val scope = rememberCoroutineScope()
+
+    // Load account from storage
+    LaunchedEffect(Unit) {
+        account = storageService.getAccount()
+    }
 
     ModalDrawerSheet(
         drawerContainerColor = Color(0xFFFAFAFA),
@@ -54,7 +58,7 @@ fun AppDrawer(
 
             if (account != null) {
                 ProfileSection(
-                    account = account,
+                    account = account!!,
                     onLogoutClick = { showLogoutDialog = true }
                 )
             } else {
@@ -69,7 +73,7 @@ fun AppDrawer(
             HorizontalDivider(thickness = 1.dp, color = Color(0xFFE5E7EB))
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Menu Items - tự xử lý navigation
+            // Menu Items
             DrawerMenuItem(
                 icon = Icons.Default.Description,
                 title = stringResource(R.string.menu_transactions),
@@ -131,7 +135,7 @@ fun AppDrawer(
                         showLogoutDialog = false
                         scope.launch {
                             storageService.clearAll()
-                            onLogoutSuccess()
+                            NavigationHelper.navigateToLogin(context)
                         }
                     }
                 ) {
@@ -179,7 +183,7 @@ private fun ProfileSection(
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        // Tên và email
+        // Name and email
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = account.terminal.name,
@@ -195,7 +199,7 @@ private fun ProfileSection(
             )
         }
 
-        // Icon logout
+        // Logout icon
         IconButton(onClick = onLogoutClick) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.Logout,

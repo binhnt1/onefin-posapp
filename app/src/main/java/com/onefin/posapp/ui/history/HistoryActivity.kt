@@ -1,6 +1,5 @@
 package com.onefin.posapp.ui.history
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -13,7 +12,6 @@ import androidx.compose.ui.unit.sp
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.ui.base.BaseActivity
 import com.onefin.posapp.ui.base.BaseScreen
-import com.onefin.posapp.ui.login.LoginActivity
 import com.onefin.posapp.ui.theme.PosAppTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -21,8 +19,6 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class HistoryActivity : BaseActivity() {
 
-    @Inject
-    lateinit var storageService: StorageService
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,13 +26,7 @@ class HistoryActivity : BaseActivity() {
         setContent {
             PosAppTheme {
                 HistoryScreen(
-                    storageService = storageService,
-                    onLogout = {
-                        val intent = Intent(this@HistoryActivity, LoginActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        startActivity(intent)
-                        finish()
-                    }
+                    storageService = storageService
                 )
             }
         }
@@ -45,12 +35,10 @@ class HistoryActivity : BaseActivity() {
 
 @Composable
 fun HistoryScreen(
-    storageService: StorageService,
-    onLogout: () -> Unit
+    storageService: StorageService
 ) {
     BaseScreen(
-        storageService = storageService,
-        onLogout = onLogout
+        storageService = storageService
     ) { paddingValues, account ->
         Box(
             modifier = Modifier

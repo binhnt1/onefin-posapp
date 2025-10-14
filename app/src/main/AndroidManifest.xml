@@ -54,6 +54,11 @@
             android:name=".ui.home.QRCodeDisplayActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
+        <activity
+            android:name=".ui.modals.LogoutDialogActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.OnefinPosApp.LogoutDialogActivity" />
     </application>
 
 </manifest>

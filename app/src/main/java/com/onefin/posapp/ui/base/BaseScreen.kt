@@ -14,7 +14,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun BaseScreen(
     storageService: StorageService,
-    onLogout: () -> Unit,
     content: @Composable (PaddingValues, Account?) -> Unit
 ) {
     var account by remember { mutableStateOf<Account?>(null) }
@@ -31,12 +30,10 @@ fun BaseScreen(
         drawerState = drawerState,
         drawerContent = {
             AppDrawer(
-                account = account,
-                storageService = storageService,
                 onCloseDrawer = {
                     scope.launch { drawerState.close() }
                 },
-                onLogoutSuccess = onLogout
+                storageService = storageService,
             )
         },
         modifier = Modifier.fillMaxSize()

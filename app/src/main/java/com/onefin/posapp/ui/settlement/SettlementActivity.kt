@@ -21,22 +21,13 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class SettlementActivity : BaseActivity() {
 
-    @Inject
-    lateinit var storageService: StorageService
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
             PosAppTheme {
                 SettlementScreen(
-                    storageService = storageService,
-                    onLogout = {
-                        val intent = Intent(this@SettlementActivity, LoginActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        startActivity(intent)
-                        finish()
-                    }
+                    storageService = storageService
                 )
             }
         }
@@ -45,12 +36,10 @@ class SettlementActivity : BaseActivity() {
 
 @Composable
 fun SettlementScreen(
-    storageService: StorageService,
-    onLogout: () -> Unit
+    storageService: StorageService
 ) {
     BaseScreen(
-        storageService = storageService,
-        onLogout = onLogout
+        storageService = storageService
     ) { paddingValues, account ->
         Box(
             modifier = Modifier
