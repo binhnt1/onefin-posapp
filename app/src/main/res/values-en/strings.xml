@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OneFin POS</string>
+
+    <!-- Login Screen -->
+    <string name="login_title">Login</string>
+    <string name="label_username">Username</string>
+    <string name="label_password">Password</string>
+    <string name="hint_username">Enter username</string>
+    <string name="hint_password">Enter password</string>
+    <string name="btn_login">Login</string>
+    <string name="serial_label">Serial: %1$s</string>
+    <string name="device_label">Device: %1$s</string>
+    <string name="login_failed">Login failed: %1$s</string>
+
+    <!-- Validation Messages -->
+    <string name="error_email_empty">Please enter email.</string>
+    <string name="error_email_invalid">Invalid email format.</string>
+    <string name="error_password_empty">Please enter password.</string>
+    <string name="error_password_min_length">Password must be at least %1$d characters.</string>
+    <string name="error_phone_empty">Please enter phone number.</string>
+    <string name="error_phone_invalid">Invalid phone number.</string>
+    <string name="error_field_required">%1$s cannot be empty.</string>
+    <string name="error_field_min_length">%1$s must be at least %2$d characters.</string>
+    <string name="error_field_max_length">%1$s cannot exceed %2$d characters.</string>
+    <string name="error_number_only">Only numbers allowed.</string>
+    <string name="error_number_empty">Please enter a number.</string>
+    <string name="error_amount_empty">Please enter amount.</string>
+    <string name="error_amount_invalid">Invalid amount.</string>
+    <string name="error_amount_min">Amount must be greater than or equal to %1$d.</string>
+    <string name="error_amount_max">Amount cannot exceed %1$d.</string>
+    <string name="error_confirm_password_empty">Please confirm password.</string>
+    <string name="error_confirm_password_not_match">Password confirmation does not match.</string>
+
+    <!-- Drawer Menu -->
+    <string name="menu_transactions">Transaction List</string>
+    <string name="menu_settlement">Transaction Settlement</string>
+    <string name="menu_history">Payment History</string>
+    <string name="menu_bill_payment">Bill Payment Service</string>
+    <string name="menu_report">Report</string>
+    <string name="menu_logout">Logout</string>
+    <string name="dialog_logout_title">Confirm Logout</string>
+    <string name="dialog_logout_message">Are you sure you want to logout?</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_logout">Logout</string>
+
+    <!-- Default Field Name -->
+    <string name="field_default">This field</string>
+    
+    <!-- Language -->
+    <string name="language_vietnamese">Vietnamese</string>
+    <string name="language_english">English</string>
+</resources>

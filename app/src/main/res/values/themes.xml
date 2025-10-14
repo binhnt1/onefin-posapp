@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+<!-- Main App Theme -->
+<style name="Theme.OnefinPosApp" parent="Theme.Material3.Light.NoActionBar">
+    <item name="colorPrimary">#4CAF50</item>
+    <item name="android:statusBarColor">@android:color/white</item>
+    <item name="android:windowLightStatusBar">true</item>
+</style>
+
+<!-- Splash Theme - Hiển thị ngay khi app khởi động -->
+<style name="Theme.OnefinPosApp.Splash" parent="Theme.OnefinPosApp">
+    <item name="android:windowBackground">@drawable/splash_background</item>
+    <item name="android:windowNoTitle">true</item>
+    <item name="android:windowActionBar">false</item>
+    <item name="android:windowFullscreen">false</item>
+    <item name="android:windowContentOverlay">@null</item>
+    <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+</style>
+</resources>

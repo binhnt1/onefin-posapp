@@ -1,0 +1,104 @@
+package com.onefin.posapp.core.utils
+
+import android.content.Context
+import android.os.Build
+import android.provider.Settings
+import com.onefin.posapp.core.models.data.DeviceInfo
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class DeviceHelper @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
+
+    fun getDeviceSerial(): String {
+        return getSunmiSerial() ?: getAndroidId()
+    }
+
+    private fun getSunmiSerial(): String? {
+        return try {
+            val systemPropertiesClass = Class.forName("android.os.SystemProperties")
+            val getMethod = systemPropertiesClass.getMethod("get", String::class.java)
+
+            val serial = when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
+                    getMethod.invoke(systemPropertiesClass, "ro.sunmi.serial") as? String
+                }
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O -> {
+                    try {
+                        Build.getSerial()
+                    } catch (e: SecurityException) {
+                        getMethod.invoke(systemPropertiesClass, "ro.sunmi.serial") as? String
+                    }
+                }
+                else -> {
+                    @Suppress("DEPRECATION")
+                    getMethod.invoke(systemPropertiesClass, "ro.serialno") as? String
+                }
+            }
+
+            if (serial.isNullOrEmpty()) null else serial
+
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun getAndroidId(): String {
+        return try {
+            val androidId = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ANDROID_ID
+            )
+
+            if (androidId.isNullOrEmpty() || androidId == "9774d56d682e549c") {
+                generateUUID()
+            } else {
+                androidId
+            }
+        } catch (e: Exception) {
+            generateUUID()
+        }
+    }
+
+    private fun generateUUID(): String {
+        return UUID.randomUUID().toString()
+    }
+
+    fun getDeviceModel(): String {
+        return "${Build.MANUFACTURER} ${Build.MODEL}".trim()
+    }
+
+    fun getDeviceBrand(): String {
+        return Build.BRAND
+    }
+
+    fun getAndroidVersion(): String {
+        return Build.VERSION.RELEASE
+    }
+
+    fun getSdkVersion(): Int {
+        return Build.VERSION.SDK_INT
+    }
+
+    fun isSunmiDevice(): Boolean {
+        return Build.MANUFACTURER.equals("SUNMI", ignoreCase = true) ||
+                Build.BRAND.equals("SUNMI", ignoreCase = true)
+    }
+
+    fun getDeviceInfo(): DeviceInfo {
+        return DeviceInfo(
+            serial = getDeviceSerial(),
+            manufacturer = Build.MANUFACTURER,
+            brand = Build.BRAND,
+            model = Build.MODEL,
+            device = Build.DEVICE,
+            androidVersion = Build.VERSION.RELEASE,
+            sdkVersion = Build.VERSION.SDK_INT,
+            isSunmi = isSunmiDevice()
+        )
+    }
+}

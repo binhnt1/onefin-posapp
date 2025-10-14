@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OneFin POS</string>
+
+    <!-- Login Screen -->
+    <string name="login_title">Đăng nhập</string>
+    <string name="label_username">Tên đăng nhập</string>
+    <string name="label_password">Mật khẩu</string>
+    <string name="hint_username">Nhập tên</string>
+    <string name="hint_password">Nhập mật khẩu</string>
+    <string name="btn_login">Đăng nhập</string>
+    <string name="serial_label">Serial: %1$s</string>
+    <string name="device_label">Thiết bị: %1$s</string>
+    <string name="login_failed">Đăng nhập thất bại: %1$s</string>
+
+    <!-- Validation Messages -->
+    <string name="error_email_empty">Vui lòng nhập email.</string>
+    <string name="error_email_invalid">Định dạng email không hợp lệ.</string>
+    <string name="error_password_empty">Vui lòng nhập mật khẩu.</string>
+    <string name="error_password_min_length">Mật khẩu phải có ít nhất %1$d ký tự.</string>
+    <string name="error_phone_empty">Vui lòng nhập số điện thoại.</string>
+    <string name="error_phone_invalid">Số điện thoại không hợp lệ.</string>
+    <string name="error_field_required">%1$s không được để trống.</string>
+    <string name="error_field_min_length">%1$s phải có ít nhất %2$d ký tự.</string>
+    <string name="error_field_max_length">%1$s không được vượt quá %2$d ký tự.</string>
+    <string name="error_number_only">Chỉ được nhập số.</string>
+    <string name="error_number_empty">Vui lòng nhập số.</string>
+    <string name="error_amount_empty">Vui lòng nhập số tiền.</string>
+    <string name="error_amount_invalid">Số tiền không hợp lệ.</string>
+    <string name="error_amount_min">Số tiền phải lớn hơn hoặc bằng %1$d.</string>
+    <string name="error_amount_max">Số tiền không được vượt quá %1$d.</string>
+    <string name="error_confirm_password_empty">Vui lòng xác nhận mật khẩu.</string>
+    <string name="error_confirm_password_not_match">Mật khẩu xác nhận không khớp.</string>
+
+    <!-- Drawer Menu -->
+    <string name="menu_transactions">Danh sách giao dịch</string>
+    <string name="menu_settlement">Kết toán giao dịch</string>
+    <string name="menu_history">Lịch sử thanh toán</string>
+    <string name="menu_bill_payment">Thanh toán hóa đơn dịch vụ</string>
+    <string name="menu_report">Báo cáo</string>
+    <string name="menu_logout">Đăng xuất</string>
+    <string name="dialog_logout_title">Xác nhận đăng xuất</string>
+    <string name="dialog_logout_message">Bạn có chắc chắn muốn đăng xuất khỏi hệ thống không?</string>
+    <string name="btn_cancel">Hủy</string>
+    <string name="btn_logout">Đăng xuất</string>
+
+    <!-- Default Field Name -->
+    <string name="field_default">Trường này</string>
+    
+    <!-- Language -->
+    <string name="language_vietnamese">Tiếng Việt</string>
+    <string name="language_english">Tiếng Anh</string>
+</resources>
