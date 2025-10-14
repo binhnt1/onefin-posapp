@@ -23,7 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.onefin.core.models.Account
+import com.onefin.posapp.core.models.Account
 import com.onefin.posapp.R
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.NavigationHelper

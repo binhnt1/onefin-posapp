@@ -27,7 +27,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.onefin.core.models.Account
+import com.onefin.posapp.core.models.Account
 import com.onefin.posapp.R
 import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.services.StorageService

@@ -13,6 +13,23 @@
     <string name="device_label">Device: %1$s</string>
     <string name="login_failed">Login failed: %1$s</string>
 
+    <!-- Home Screen -->
+    <string name="home_enter_amount">Enter Amount</string>
+    <string name="home_generate_qr">Generate QR Code</string>
+    <string name="home_currency_vnd">VND</string>
+    <string name="home_close">Close</string>
+    <string name="home_error_load_account">Unable to load account information.</string>
+    <string name="payment_swipe_card">Card</string>
+    <string name="payment_generate_qr">VietQR</string>
+    <string name="payment_membership_card">Member Card</string>
+    <string name="qr_display_close_button">Close</string>
+    <string name="qr_display_scan_instruction">Please scan the code to pay.</string>
+    <string name="qr_display_single_use_note">Note: QR is for single use only</string>
+    <string name="qr_display_amount_label">AMOUNT</string>
+    <string name="qr_display_cancel_transaction">Cancel Transaction</string>
+    <string name="qr_payment_description">Thanh toan hoa don</string>
+
+
     <!-- Validation Messages -->
     <string name="error_email_empty">Please enter email.</string>
     <string name="error_email_invalid">Invalid email format.</string>
@@ -50,4 +67,12 @@
     <!-- Language -->
     <string name="language_vietnamese">Vietnamese</string>
     <string name="language_english">English</string>
+
+    <!-- Number Pad -->
+    <string name="numpad_clear">C</string>
+    <string name="numpad_backspace">⌫</string>
+
+    <!-- Amount Entry -->
+    <string name="amount_placeholder">0</string>
+    <string name="amount_creating_qr">Creating QR Code…</string>
 </resources>

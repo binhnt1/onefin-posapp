@@ -6,7 +6,7 @@ import com.onefin.posapp.core.config.StorageKeys
 import javax.inject.Inject
 import javax.inject.Singleton
 import androidx.core.content.edit
-import com.onefin.core.models.Account
+import com.onefin.posapp.core.models.Account
 
 @Singleton
 class StorageService @Inject constructor(

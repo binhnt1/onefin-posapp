@@ -102,13 +102,15 @@ class PaymentHelper @Inject constructor(
      */
     fun startMemberPayment(
         activity: Activity,
-        memberId: String,
+        amount: Long,
+        orderId: String,
         additionalData: Map<String, Any> = emptyMap()
     ) {
         val requestData = buildMap {
             put("type", TYPE_MEMBER)
             put("action", 0)
-            put("memberId", memberId)
+            put("amount", amount)
+            put("orderId", orderId)
             putAll(additionalData)
         }
         

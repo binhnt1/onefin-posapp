@@ -50,6 +50,10 @@
         <activity android:name=".ui.report.ReportActivity"
             android:exported="false"
             android:screenOrientation="portrait"  />
+        <activity
+            android:name=".ui.home.QRCodeDisplayActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
     </application>
 
 </manifest>

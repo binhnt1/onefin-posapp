@@ -4,7 +4,7 @@ object VietQRHelper {
     fun buildVietQRString(
         bankNapasId: String,
         accountNumber: String,
-        amount: Int = 0,
+        amount: Long = 0,
         info: String = ""
     ): String {
         // --- Merchant Account Information (ID 38) ---

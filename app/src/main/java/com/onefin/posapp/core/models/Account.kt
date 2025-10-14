@@ -1,7 +1,6 @@
-package com.onefin.core.models
+package com.onefin.posapp.core.models
 
 import com.google.gson.annotations.SerializedName
-import com.onefin.posapp.core.models.Terminal
 import java.text.SimpleDateFormat
 import java.util.*
 

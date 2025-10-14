@@ -5,7 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.onefin.core.models.Account
+import com.onefin.posapp.core.models.Account
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.ui.components.AppDrawer
 import com.onefin.posapp.ui.components.AppTopBar

@@ -13,6 +13,22 @@
     <string name="device_label">Thiết bị: %1$s</string>
     <string name="login_failed">Đăng nhập thất bại: %1$s</string>
 
+    <!-- Home Screen -->
+    <string name="home_enter_amount">Nhập số tiền</string>
+    <string name="home_generate_qr">Tạo mã QR</string>
+    <string name="home_currency_vnd">VNĐ</string>
+    <string name="home_close">Đóng</string>
+    <string name="home_error_load_account">Không thể tải thông tin tài khoản.</string>
+    <string name="payment_swipe_card">Quẹt thẻ</string>
+    <string name="payment_generate_qr">Tạo VietQR</string>
+    <string name="payment_membership_card">Thẻ Thành viên</string>
+    <string name="qr_display_close_button">Đóng</string>
+    <string name="qr_display_scan_instruction">Vui lòng quét mã để thanh toán.</string>
+    <string name="qr_display_single_use_note">Lưu ý QR chỉ dùng 1 lần</string>
+    <string name="qr_display_amount_label">SỐ TIỀN</string>
+    <string name="qr_display_cancel_transaction">Hủy giao dịch</string>
+    <string name="qr_payment_description">Thanh toan hoa don</string>
+
     <!-- Validation Messages -->
     <string name="error_email_empty">Vui lòng nhập email.</string>
     <string name="error_email_invalid">Định dạng email không hợp lệ.</string>
@@ -50,4 +66,12 @@
     <!-- Language -->
     <string name="language_vietnamese">Tiếng Việt</string>
     <string name="language_english">Tiếng Anh</string>
+
+    <!-- Number Pad -->
+    <string name="numpad_clear">C</string>
+    <string name="numpad_backspace">⌫</string>
+
+    <!-- Amount Entry -->
+    <string name="amount_placeholder">0</string>
+    <string name="amount_creating_qr">Đang tạo mã QR…</string>
 </resources>
