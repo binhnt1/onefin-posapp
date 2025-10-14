@@ -172,6 +172,9 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:$workVersion")
     implementation("androidx.hilt:hilt-work:1.1.0")
     ksp("androidx.hilt:hilt-compiler:1.1.0")
+
+    // Rabbit
+    implementation("com.rabbitmq:amqp-client:5.21.0")
 }
 
 ksp {

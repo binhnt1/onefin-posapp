@@ -143,10 +143,10 @@ fun QRCodeDisplayScreen(
 
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 20.dp),
+                        modifier = Modifier.padding(vertical = 12.dp),
                         color = Color(0xFFEAECF0)
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = accountName.uppercase(),
                         fontSize = 18.sp,
@@ -161,7 +161,7 @@ fun QRCodeDisplayScreen(
                     )
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 20.dp),
+                        modifier = Modifier.padding(vertical = 12.dp),
                         color = Color(0xFFEAECF0)
                     )
 

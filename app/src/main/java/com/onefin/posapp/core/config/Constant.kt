@@ -32,3 +32,9 @@ object LanguageConstants {
     const val VIETNAMESE = "vi"
     const val DEFAULT_LANGUAGE = VIETNAMESE
 }
+
+object RabbitConstants {
+    const val DEFAULT_RABBIT_URL = "amqp://sit-posapp:ARGcn5nnmkTE@14.241.228.156:5672/posapp"
+    const val EXCHANGE_NAME = "Pos_App_Service"
+    const val RECONNECT_DELAY = 5000L
+}
