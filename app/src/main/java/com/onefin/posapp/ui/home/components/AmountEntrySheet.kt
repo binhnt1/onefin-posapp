@@ -69,6 +69,20 @@ fun AmountEntrySheet(
 
     val isValidAmount = amountValue > 0
 
+    // Kiểm tra thiết bị P2
+    val isP2 = remember {
+        android.os.Build.MODEL.lowercase().contains("p2")
+    }
+
+    // Định nghĩa các giá trị padding động (giảm 50% cho P2)
+    val headerPaddingHorizontal = if (isP2) 8.dp else 16.dp
+    val headerPaddingVertical = if (isP2) 6.dp else 12.dp
+    val contentPadding = if (isP2) 8.dp else 16.dp
+    val amountDisplayPaddingVertical = if (isP2) 12.dp else 24.dp
+    val currencyPaddingBottom = if (isP2) 16.dp else 32.dp
+    val defaultSpacerHeight = if (isP2) 6.dp else 12.dp
+    val bottomSpacerHeight = if (isP2) 8.dp else 16.dp
+
     ModalBottomSheet(
         onDismissRequest = { if (!isProcessing) onDismiss() },
         sheetState = sheetState,
@@ -86,7 +100,7 @@ fun AmountEntrySheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = headerPaddingHorizontal, vertical = headerPaddingVertical),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -115,7 +129,7 @@ fun AmountEntrySheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(contentPadding),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Amount display
@@ -125,14 +139,14 @@ fun AmountEntrySheet(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF101828),
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(vertical = 24.dp)
+                    modifier = Modifier.padding(vertical = amountDisplayPaddingVertical)
                 )
 
                 Text(
                     text = stringResource(R.string.home_currency_vnd),
                     fontSize = 16.sp,
                     color = Color(0xFF475467),
-                    modifier = Modifier.padding(bottom = 32.dp)
+                    modifier = Modifier.padding(bottom = currencyPaddingBottom)
                 )
 
                 // Number pad
@@ -154,7 +168,7 @@ fun AmountEntrySheet(
                     }
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(defaultSpacerHeight))
 
                 QuickAmountSelector(
                     onAmountSelected = { selectedAmount ->
@@ -164,14 +178,14 @@ fun AmountEntrySheet(
                     }
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(defaultSpacerHeight))
 
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(defaultSpacerHeight)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(defaultSpacerHeight)
                     ) {
                         PaymentOptionButton(
                             text = stringResource(R.string.payment_swipe_card),
@@ -252,7 +266,7 @@ fun AmountEntrySheet(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(bottomSpacerHeight))
             }
         }
     }

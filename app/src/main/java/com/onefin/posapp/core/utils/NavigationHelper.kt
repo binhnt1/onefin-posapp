@@ -5,8 +5,8 @@ import android.content.Intent
 import android.widget.Toast
 import com.onefin.posapp.ui.transaction.TransactionActivity
 import com.onefin.posapp.ui.settlement.SettlementActivity
-import com.onefin.posapp.ui.history.HistoryActivity
 import com.onefin.posapp.ui.billpayment.BillPaymentActivity
+import com.onefin.posapp.ui.history.PaymentHistoryActivity
 import com.onefin.posapp.ui.login.LoginActivity
 import com.onefin.posapp.ui.report.ReportActivity
 
@@ -23,7 +23,7 @@ object NavigationHelper {
     }
 
     fun navigateToHistory(context: Context) {
-        val intent = Intent(context, HistoryActivity::class.java)
+        val intent = Intent(context, PaymentHistoryActivity::class.java)
         context.startActivity(intent)
     }
 

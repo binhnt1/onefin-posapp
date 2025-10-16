@@ -32,4 +32,22 @@ object DateTimeFormatter {
             dateTimeString
         }
     }
+
+    fun formatCustomDateTime(dateTimeString: String?): String {
+        if (dateTimeString.isNullOrEmpty()) return ""
+
+        return try {
+            val formatted = com.onefin.posapp.core.utils.DateTimeFormatter.formatDateTime(dateTimeString)
+            // Convert from "dd/MM/yyyy HH:mm:ss" to "HH:mm, dd/MM/yyyy"
+            val parts = formatted.split(" ")
+            if (parts.size >= 2) {
+                val time = parts[1].substring(0, 5) // HH:mm only
+                "${time}, ${parts[0]}"
+            } else {
+                formatted
+            }
+        } catch (e: Exception) {
+            dateTimeString
+        }
+    }
 }

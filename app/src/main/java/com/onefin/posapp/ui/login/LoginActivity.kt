@@ -29,7 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.onefin.posapp.core.models.Account
 import com.onefin.posapp.R
-import com.onefin.posapp.core.managers.RabbitMQManager
+import com.onefin.posapp.core.models.ResultApi
+import com.onefin.posapp.core.models.data.DeviceType
 import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.DeviceHelper
@@ -37,6 +38,7 @@ import com.onefin.posapp.core.utils.LocaleHelper
 import com.onefin.posapp.core.utils.ValidationHelper
 import com.onefin.posapp.ui.base.BaseActivity
 import com.onefin.posapp.ui.home.HomeActivity
+import com.onefin.posapp.ui.modals.AlertDialog
 import com.onefin.posapp.ui.theme.PosAppTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -47,9 +49,6 @@ class LoginActivity : BaseActivity() {
 
     @Inject
     lateinit var apiService: ApiService
-
-    @Inject
-    lateinit var localeHelper: LocaleHelper
 
     @Inject
     lateinit var deviceHelper: DeviceHelper
@@ -105,7 +104,6 @@ fun LoginScreen(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
-        // Header với Logo (1.5 phần - giảm xuống)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -120,7 +118,6 @@ fun LoginScreen(
             )
         }
 
-        // Form đăng nhập (3.5 phần - tăng lên)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -149,7 +146,6 @@ fun StaticHeader(
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Language Toggle ở góc trái trên
         Row(
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -182,7 +178,6 @@ fun StaticHeader(
             )
         }
 
-        // Mask image ở góc phải trên
         Image(
             painter = painterResource(id = R.drawable.mask),
             contentDescription = "Mask",
@@ -192,7 +187,6 @@ fun StaticHeader(
                 .padding(top = 10.dp, end = 10.dp)
         )
 
-        // Logo ở giữa
         Image(
             painter = painterResource(id = R.drawable.logo_small),
             contentDescription = "Logo",
@@ -256,12 +250,15 @@ fun LoginForm(
 ) {
     val context = LocalContext.current
     var username by remember { mutableStateOf("mailinh@yopmail.com") }
-    var password by remember { mutableStateOf("A1a@a#a\$") }
+    var password by remember { mutableStateOf("A1a@a#a$") }
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var deviceModel by remember { mutableStateOf("") }
     var deviceSerial by remember { mutableStateOf("") }
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+    val isP2 = remember { deviceHelper.getDeviceType() == DeviceType.SUNMI_P2 }
 
     // Load device info
     LaunchedEffect(Unit) {
@@ -272,6 +269,12 @@ fun LoginForm(
             if (!deviceSerial.isEmpty())
                 storageService.saveSerial(deviceSerial)
         }
+
+        // hard-coded for demo
+        password = "A1a@a#a$"
+        username = "182313@yopmail.com"
+        deviceSerial = "1902390100182313"
+        storageService.saveSerial(deviceSerial)
     }
 
     // Clear error when typing
@@ -282,51 +285,61 @@ fun LoginForm(
         if (passwordError != null) passwordError = null
     }
 
+    // Show error dialog
+    if (showErrorDialog) {
+        AlertDialog(
+            content = errorMessage,
+            onDismiss = { showErrorDialog = false }
+        )
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Device Model
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Smartphone,
-                contentDescription = "Device",
-                tint = Color.Gray,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = stringResource(R.string.device_label, deviceModel),
-                color = Color(0xFF616161),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
-            )
+        if (!isP2) {
+            // Device Model
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Smartphone,
+                    contentDescription = "Device",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.device_label, deviceModel),
+                    color = Color(0xFF616161),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Serial
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Smartphone,
+                    contentDescription = "Serial",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.serial_label, deviceSerial),
+                    color = Color(0xFF616161),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Serial
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Smartphone,
-                contentDescription = "Serial",
-                tint = Color.Gray,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = stringResource(R.string.serial_label, deviceSerial),
-                color = Color(0xFF616161),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
 
         // Username Field
         Text(
@@ -409,10 +422,10 @@ fun LoginForm(
                                 "UserName" to username.trim(),
                                 "Password" to password.trim()
                             )
-                            val data = apiService.post("/api/security/signIn", body)
+                            val resultApi = apiService.post("/api/security/signIn", body) as ResultApi<*>
 
                             val account = com.google.gson.Gson().fromJson(
-                                com.google.gson.Gson().toJson(data),
+                                com.google.gson.Gson().toJson(resultApi.data),
                                 Account::class.java
                             )
 
@@ -421,7 +434,8 @@ fun LoginForm(
 
                             onLoginSuccess()
                         } catch (e: Exception) {
-                            emailError = context.getString(R.string.login_failed, e.message ?: "")
+                            errorMessage = e.message ?: context.getString(R.string.login_failed)
+                            showErrorDialog = true
                         } finally {
                             isLoading = false
                         }

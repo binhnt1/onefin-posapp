@@ -2,6 +2,7 @@ package com.onefin.posapp.core.services
 
 import com.onefin.posapp.core.models.ResultApi
 import android.content.SharedPreferences
+import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.onefin.posapp.core.config.ApiConstants
@@ -22,6 +23,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.onefin.posapp.core.models.ApiException
 import com.onefin.posapp.core.models.BusinessException
+import timber.log.Timber
 
 @Singleton
 class ApiService @Inject constructor(
@@ -98,7 +100,8 @@ class ApiService @Inject constructor(
             val urlBuilder = StringBuilder("$baseUrl$endpoint")
             queryParams?.let { params ->
                 if (params.isNotEmpty()) {
-                    urlBuilder.append("?")
+                    val separator = if (urlBuilder.contains("?")) "&" else "?"
+                    urlBuilder.append(separator)
                     params.entries.forEachIndexed { index, entry ->
                         if (index > 0) urlBuilder.append("&")
                         urlBuilder.append("${entry.key}=${entry.value}")
@@ -200,6 +203,7 @@ class ApiService @Inject constructor(
 
         // 3. Decrypt
         val decryptedData = EncryptHelper.decrypt(apiResponse.data, sharedPreferences)
+        Timber.tag("ApiService").d("Decrypted Data: $decryptedData")
 
         // 4. Parse ResultApi
         val resultApi = gson.fromJson<ResultApi<Any>>(
@@ -209,7 +213,7 @@ class ApiService @Inject constructor(
 
         // 5. Handle result type
         return when (resultApi.type) {
-            ResultType.SUCCESS -> resultApi.data
+            ResultType.SUCCESS -> resultApi
             ResultType.ERROR -> throw BusinessException(resultApi.description)
             ResultType.EXCEPTION -> throw ApiException(resultApi.description)
         }

@@ -9,15 +9,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.onefin.posapp.R
 import com.onefin.posapp.ui.theme.PosAppTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -157,7 +158,7 @@ fun LogoutCountdownDialog(
                                 color = Color(0xFF4CAF50)
                             )
                             Text(
-                                text = "giây",
+                                text = stringResource(R.string.countdown_seconds_label),
                                 fontSize = 12.sp,
                                 color = Color(0xFF6B7280)
                             )
@@ -169,13 +170,13 @@ fun LogoutCountdownDialog(
 
                 // Progress indicator
                 LinearProgressIndicator(
-                progress = { countdown / 5f },
-                modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(4.dp),
-                color = Color(0xFF4CAF50),
-                trackColor = Color(0xFFE5E7EB),
-                strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
+                    progress = { countdown / 5f },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp),
+                    color = Color(0xFF4CAF50),
+                    trackColor = Color(0xFFE5E7EB),
+                    strokeCap = ProgressIndicatorDefaults.LinearStrokeCap,
                 )
             }
         }

@@ -23,3 +23,9 @@ data class DeviceInfo(
         """.trimIndent()
     }
 }
+
+enum class DeviceType {
+    SUNMI_P2,
+    SUNMI_P3,
+    OTHER;
+}

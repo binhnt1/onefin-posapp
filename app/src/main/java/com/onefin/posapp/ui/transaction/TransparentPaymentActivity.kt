@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.onefin.posapp.R
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.utils.PaymentHelper
 import dagger.hilt.android.AndroidEntryPoint
@@ -44,7 +45,8 @@ class TransparentPaymentActivity : AppCompatActivity() {
                 Timber.tag("PAYMENT").d(response)
             },
             onError = { code, message ->
-                Toast.makeText(this, "Lỗi: $message", Toast.LENGTH_SHORT).show()
+                val errorMessage = getString(R.string.error_generic_format, message)
+                Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
             }
         )
         finish()

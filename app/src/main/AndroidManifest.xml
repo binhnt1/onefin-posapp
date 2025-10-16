@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.BIND_JOB_SERVICE" />
+    <uses-permission android:name="com.sunmi.peripheral.printer.BIND_PRINTER_SERVICE" />
 
     <application
         android:name=".PosApplication"
@@ -38,10 +40,16 @@
         <activity android:name=".ui.transaction.TransactionActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
+        <activity android:name=".ui.transaction.TransactionDetailActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
         <activity android:name=".ui.settlement.SettlementActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
-        <activity android:name=".ui.history.HistoryActivity"
+        <activity android:name=".ui.history.PaymentHistoryActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"  />
+        <activity android:name=".ui.history.PaymentHistoryDetailActivity"
             android:exported="false"
             android:screenOrientation="portrait"  />
         <activity android:name=".ui.billpayment.BillPaymentActivity"
@@ -52,6 +60,10 @@
             android:screenOrientation="portrait"  />
         <activity
             android:name=".ui.home.QRCodeDisplayActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".ui.payment.PaymentSuccessActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
@@ -66,5 +78,10 @@
             android:launchMode="singleTop"
             android:excludeFromRecents="true" />
     </application>
-
+    <queries>
+        <package android:name="com.sunmi.peripheral" />
+        <intent>
+            <action android:name="com.sunmi.peripheral.printer.SunmiPrinterService" />
+        </intent>
+    </queries>
 </manifest>

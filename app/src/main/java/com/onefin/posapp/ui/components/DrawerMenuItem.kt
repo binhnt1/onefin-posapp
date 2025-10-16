@@ -16,16 +16,17 @@ import androidx.compose.ui.unit.sp
 fun DrawerMenuItem(
     icon: ImageVector,
     title: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    enabled: Boolean = true
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(12.dp),
-        color = Color.White,
+            .padding(horizontal = 24.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = if (enabled) Color.White else Color(0xFFF3F4F6),
         border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
-        onClick = onClick
+        onClick = if (enabled) onClick else ({})
     ) {
         Row(
             modifier = Modifier
@@ -36,14 +37,14 @@ fun DrawerMenuItem(
             Icon(
                 imageVector = icon,
                 contentDescription = title,
-                tint = Color(0xFF10B981), // Màu xanh lá giống ảnh
+                tint = if (enabled) Color(0xFF10B981) else Color(0xFFD1D5DB),
                 modifier = Modifier.size(28.dp)
             )
             Spacer(modifier = Modifier.width(20.dp))
             Text(
                 text = title,
                 fontSize = 16.sp,
-                color = Color(0xFF374151)
+                color = if (enabled) Color(0xFF374151) else Color(0xFF9CA3AF)
             )
         }
     }

@@ -10,6 +10,9 @@ import jakarta.inject.Inject
 abstract class BaseActivity : ComponentActivity() {
 
     @Inject
+    lateinit var localeHelper: LocaleHelper
+
+    @Inject
     lateinit var storageService: StorageService
 
     @Inject

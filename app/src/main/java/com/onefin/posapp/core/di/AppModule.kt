@@ -102,4 +102,47 @@ object AppModule {
     ): com.onefin.posapp.core.utils.PaymentHelper {
         return com.onefin.posapp.core.utils.PaymentHelper(gson)
     }
+
+    /**
+     * Provide ActivityTracker
+     */
+    @Provides
+    @Singleton
+    fun provideActivityTracker(): com.onefin.posapp.core.managers.ActivityTracker {
+        return com.onefin.posapp.core.managers.ActivityTracker()
+    }
+
+    /**
+     * Provide TTSManager
+     */
+    @Provides
+    @Singleton
+    fun provideTTSManager(
+        @ApplicationContext context: Context
+    ): com.onefin.posapp.core.managers.TTSManager {
+        return com.onefin.posapp.core.managers.TTSManager(context)
+    }
+
+    /**
+     * Provide PrinterHelper
+     */
+    @Provides
+    @Singleton
+    fun providePrinterHelper(
+        @ApplicationContext context: Context
+    ): com.onefin.posapp.core.utils.PrinterHelper {
+        return com.onefin.posapp.core.utils.PrinterHelper(context)
+    }
+
+    /**
+     * Provide ReceiptPrinter
+     */
+    @Provides
+    @Singleton
+    fun provideReceiptPrinter(
+        @ApplicationContext context: Context,
+        printerHelper: com.onefin.posapp.core.utils.PrinterHelper
+    ): com.onefin.posapp.core.utils.ReceiptPrinter {
+        return com.onefin.posapp.core.utils.ReceiptPrinter(context, printerHelper)
+    }
 }

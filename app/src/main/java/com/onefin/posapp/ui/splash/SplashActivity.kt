@@ -56,11 +56,7 @@ class SplashActivity : ComponentActivity() {
 
     private fun checkLoginAndNavigate() {
         lifecycleScope.launch {
-            // Delay 3 giây
-            delay(5000)
-
             val token = storageService.getToken()
-
             val intent = if (!token.isNullOrEmpty()) {
                 Intent(this@SplashActivity, HomeActivity::class.java)
             } else {

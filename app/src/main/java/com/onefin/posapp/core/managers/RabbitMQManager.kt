@@ -6,29 +6,33 @@ import com.google.gson.Gson
 import com.onefin.posapp.core.models.data.PaymentAction
 import com.onefin.posapp.core.models.data.PaymentRequest
 import com.onefin.posapp.core.models.data.PaymentRequestType
+import com.onefin.posapp.core.models.data.PaymentSuccessData
 import com.onefin.posapp.core.models.data.RabbitNotify
 import com.onefin.posapp.core.models.data.RabbitNotifyType
 import com.onefin.posapp.core.services.RabbitMQService
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.PaymentHelper
-import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.ui.home.QRCodeDisplayActivity
 import com.onefin.posapp.ui.login.LoginActivity
 import com.onefin.posapp.ui.modals.LogoutDialogActivity
+import com.onefin.posapp.ui.payment.PaymentSuccessActivity
 import com.onefin.posapp.ui.transaction.TransparentPaymentActivity
 import dagger.hilt.android.qualifiers.ApplicationContext
+import org.json.JSONObject
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class RabbitMQManager @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val gson: Gson,
+    private val ttsManager: TTSManager,
     private val paymentHelper: PaymentHelper,
     private val storageService: StorageService,
     private val snackbarManager: SnackbarManager,
     private val rabbitMQService: RabbitMQService,
+    private val activityTracker: ActivityTracker,
 ) {
 
     companion object {
@@ -97,8 +101,12 @@ class RabbitMQManager @Inject constructor(
                     RabbitNotifyType.LOCK_USER -> {
                         handleLogout(notify)
                     }
+                    RabbitNotifyType.QR_SUCCESS -> {
+                        handleQRSuccess(notify)
+                    }
                     RabbitNotifyType.REQUEST_PAYMENT -> {
                         handlePaymentRequest(notify)
+                        snackbarManager.showFromRabbitNotify(notify)
                     }
                     else -> {
                         snackbarManager.showFromRabbitNotify(notify)
@@ -108,6 +116,46 @@ class RabbitMQManager @Inject constructor(
 
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Error handling rabbit message")
+        }
+    }
+
+    private fun handleQRSuccess(notify: RabbitNotify) {
+        // Đọc nội dung lên loa
+        ttsManager.speak(notify.content)
+
+        val jsonObject = notify.jsonObject
+        if (jsonObject.isNullOrEmpty()) {
+            return
+        }
+
+        try {
+            val json = JSONObject(jsonObject)
+            val amount = json.optLong("Amount", 0L)
+            val transactionTime = json.optString("TransactionTime", notify.dateTime)
+            val transactionId = json.optString("TransactionId", "")
+
+            val paymentData = PaymentSuccessData(
+                amount = amount,
+                transactionTime = transactionTime,
+                transactionId = transactionId
+            )
+
+            if (PaymentSuccessActivity.isVisible()) {
+                // Nếu đang hiển thị, update data
+                PaymentSuccessActivity.updateData(paymentData)
+                return
+            }
+
+            // Kiểm tra xem có đang ở màn hình QRCodeDisplayActivity không
+            if (activityTracker.isActivityOfType(QRCodeDisplayActivity::class.java)) {
+                // Đóng màn hình QRCodeDisplay
+                activityTracker.getCurrentActivity()?.finish()
+            }
+
+            // Mở màn hình PaymentSuccess
+            PaymentSuccessActivity.start(context, paymentData)
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Error parsing QR success data")
         }
     }
 

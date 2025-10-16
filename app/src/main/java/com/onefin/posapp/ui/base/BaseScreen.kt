@@ -7,12 +7,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.onefin.posapp.core.models.Account
 import com.onefin.posapp.core.services.StorageService
+import com.onefin.posapp.core.utils.LocaleHelper
 import com.onefin.posapp.ui.components.AppDrawer
 import com.onefin.posapp.ui.components.AppTopBar
 import kotlinx.coroutines.launch
 
 @Composable
 fun BaseScreen(
+    localeHelper: LocaleHelper,
     storageService: StorageService,
     content: @Composable (PaddingValues, Account?) -> Unit
 ) {
@@ -33,6 +35,7 @@ fun BaseScreen(
                 onCloseDrawer = {
                     scope.launch { drawerState.close() }
                 },
+                localeHelper = localeHelper,
                 storageService = storageService,
             )
         },

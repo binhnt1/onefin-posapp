@@ -3,7 +3,9 @@ package com.onefin.posapp.core.utils
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
+import androidx.annotation.RequiresPermission
 import com.onefin.posapp.core.models.data.DeviceInfo
+import com.onefin.posapp.core.models.data.DeviceType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
 import javax.inject.Inject
@@ -11,13 +13,14 @@ import javax.inject.Singleton
 
 @Singleton
 class DeviceHelper @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
 
     fun getDeviceSerial(): String {
         return getSunmiSerial() ?: getAndroidId()
     }
 
+    @RequiresPermission("android.permission.READ_PRIVILEGED_PHONE_STATE")
     private fun getSunmiSerial(): String? {
         return try {
             val systemPropertiesClass = Class.forName("android.os.SystemProperties")
@@ -89,6 +92,15 @@ class DeviceHelper @Inject constructor(
                 Build.BRAND.equals("SUNMI", ignoreCase = true)
     }
 
+    fun getDeviceType(): DeviceType {
+        val model = getDeviceModel().lowercase()
+        return when {
+            model.contains("p2") -> DeviceType.SUNMI_P2
+            model.contains("p3") -> DeviceType.SUNMI_P3
+            else -> DeviceType.OTHER
+        }
+    }
+
     fun getDeviceInfo(): DeviceInfo {
         return DeviceInfo(
             serial = getDeviceSerial(),
@@ -98,7 +110,7 @@ class DeviceHelper @Inject constructor(
             device = Build.DEVICE,
             androidVersion = Build.VERSION.RELEASE,
             sdkVersion = Build.VERSION.SDK_INT,
-            isSunmi = isSunmiDevice()
+            isSunmi = isSunmiDevice(),
         )
     }
 }

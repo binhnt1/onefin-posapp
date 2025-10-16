@@ -3,12 +3,14 @@ package com.onefin.posapp.core.utils
 import android.content.Context
 import com.onefin.posapp.R
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.text.SimpleDateFormat
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class ValidationHelper @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     fun validateEmail(email: String): String? {
         return when {
@@ -90,6 +92,29 @@ class ValidationHelper @Inject constructor(
             password != confirmPassword -> 
                 context.getString(R.string.error_confirm_password_not_match)
             else -> null
+        }
+    }
+
+    fun isValidDate(dateString: String): Boolean {
+        if (dateString.length != 10) return false
+        try {
+            val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+            sdf.isLenient = false
+            sdf.parse(dateString)
+            return true
+        } catch (e: Exception) {
+            return false
+        }
+    }
+
+    fun isValidDateRange(fromDate: String, toDate: String): Boolean {
+        return try {
+            val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+            val from = sdf.parse(fromDate)
+            val to = sdf.parse(toDate)
+            from != null && to != null && !from.after(to)
+        } catch (e: Exception) {
+            false
         }
     }
 }

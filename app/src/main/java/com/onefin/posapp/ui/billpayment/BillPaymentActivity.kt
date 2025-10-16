@@ -12,11 +12,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import com.onefin.posapp.core.services.StorageService
+import com.onefin.posapp.core.utils.LocaleHelper
 import com.onefin.posapp.ui.base.BaseActivity
 import com.onefin.posapp.ui.base.BaseScreen
 import com.onefin.posapp.ui.theme.PosAppTheme
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class BillPaymentActivity : BaseActivity() {
@@ -27,6 +27,7 @@ class BillPaymentActivity : BaseActivity() {
         setContent {
             PosAppTheme {
                 BillPaymentScreen(
+                    localeHelper = localeHelper,
                     storageService = storageService
                 )
             }
@@ -36,9 +37,11 @@ class BillPaymentActivity : BaseActivity() {
 
 @Composable
 fun BillPaymentScreen(
+    localeHelper: LocaleHelper,
     storageService: StorageService
 ) {
     BaseScreen(
+        localeHelper = localeHelper,
         storageService = storageService
     ) { paddingValues, account ->
         Box(

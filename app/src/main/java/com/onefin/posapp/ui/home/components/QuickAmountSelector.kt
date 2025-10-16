@@ -9,15 +9,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.onefin.posapp.R
 
 @Composable
 fun QuickAmountSelector(
     onAmountSelected: (String) -> Unit
 ) {
     val amounts = listOf(100_000L, 200_000L, 500_000L, 1_000_000L)
+    val thousandSuffix = stringResource(R.string.amount_thousand_suffix)
+    val millionSuffix = stringResource(R.string.amount_million_suffix)
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -35,8 +39,8 @@ fun QuickAmountSelector(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 12.dp)
             ) {
                 val displayText = when {
-                    amount >= 1_000_000 -> "${amount / 1_000_000}Tr"
-                    else -> "${amount / 1_000}N"
+                    amount >= 1_000_000 -> "${amount / 1_000_000}$millionSuffix"
+                    else -> "${amount / 1_000}$thousandSuffix"
                 }
                 Text(
                     text = displayText,

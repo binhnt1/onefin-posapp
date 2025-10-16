@@ -1,6 +1,8 @@
 package com.onefin.posapp.ui.home
 
-import android.content.Intent
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -17,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -28,7 +31,6 @@ import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.VietQRHelper
 import com.onefin.posapp.ui.base.BaseActivity
 import com.onefin.posapp.ui.base.BaseScreen
-import com.onefin.posapp.ui.login.LoginActivity
 import com.onefin.posapp.ui.theme.PosAppTheme
 import com.onefin.posapp.ui.home.components.AmountEntrySheet
 import com.onefin.posapp.core.utils.PaymentHelper
@@ -38,16 +40,25 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import androidx.compose.ui.graphics.asImageBitmap
 import android.graphics.Bitmap
+import android.os.Build
+import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.ImageBitmap
 import com.onefin.posapp.core.models.Account
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.set
-import com.onefin.posapp.core.managers.RabbitMQManager
 import com.onefin.posapp.core.managers.SnackbarManager
+import com.onefin.posapp.core.managers.TTSManager
+import com.onefin.posapp.core.utils.LocaleHelper
 import com.onefin.posapp.ui.components.GlobalSnackbarHost
+import com.onefin.posapp.ui.modals.NoNetworkDialog
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @AndroidEntryPoint
 class HomeActivity : BaseActivity() {
+
+    @Inject
+    lateinit var ttsManager: TTSManager
 
     @Inject
     lateinit var paymentHelper: PaymentHelper
@@ -55,17 +66,20 @@ class HomeActivity : BaseActivity() {
     @Inject
     lateinit var snackbarManager: SnackbarManager
 
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         rabbitMQManager.startAfterLogin()
         setContent {
             PosAppTheme {
                 HomeScreen(
+                    ttsManager = ttsManager,
+                    localeHelper = localeHelper,
                     paymentHelper = paymentHelper,
-                    storageService = storageService
+                    storageService = storageService,
                 )
 
-                // Global Snackbar Host để hiển thị notification
                 GlobalSnackbarHost(
                     snackbarManager = snackbarManager
                 )
@@ -75,15 +89,65 @@ class HomeActivity : BaseActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        networkCallback?.let {
+            val connectivityManager = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+            connectivityManager.unregisterNetworkCallback(it)
+        }
     }
 }
 
 @Composable
 fun HomeScreen(
+    ttsManager: TTSManager,
+    localeHelper: LocaleHelper,
     paymentHelper: PaymentHelper,
     storageService: StorageService,
 ) {
+    val context = LocalContext.current
+    var isNetworkAvailable by remember { mutableStateOf(true) }
+    var showNetworkDialog by remember { mutableStateOf(false) }
+    var countdown by remember { mutableIntStateOf(15) }
+
+    val networkErrorMessage = stringResource(R.string.network_dialog_message)
+    val networkRestoredMessage = stringResource(R.string.network_dialog_title)
+
+    LaunchedEffect(Unit) {
+        isNetworkAvailable = checkNetworkConnection(context)
+        showNetworkDialog = !isNetworkAvailable
+
+        if (!isNetworkAvailable) {
+            ttsManager.speak(networkErrorMessage)
+        }
+    }
+
+    LaunchedEffect(showNetworkDialog) {
+        while (showNetworkDialog && isActive) {
+            countdown = 10
+            repeat(10) {
+                if (!isActive || !showNetworkDialog) return@LaunchedEffect
+                delay(1000)
+                countdown--
+            }
+
+            isNetworkAvailable = checkNetworkConnection(context)
+            if (isNetworkAvailable) {
+                showNetworkDialog = false
+                ttsManager.speak(networkRestoredMessage)
+            } else {
+                ttsManager.speak(networkErrorMessage)
+            }
+        }
+    }
+
+    if (showNetworkDialog) {
+        NoNetworkDialog(
+            countdown = countdown,
+            onDismiss = { /* Không cho dismiss */ }
+        )
+    }
+
     BaseScreen(
+        localeHelper = localeHelper,
         storageService = storageService
     ) { paddingValues, account ->
         if (account != null) {
@@ -91,6 +155,7 @@ fun HomeScreen(
                 account = account,
                 paymentHelper = paymentHelper,
                 storageService = storageService,
+                isNetworkAvailable = isNetworkAvailable,
                 modifier = Modifier.padding(paddingValues)
             )
         } else {
@@ -114,17 +179,23 @@ fun HomeContent(
     account: Account,
     paymentHelper: PaymentHelper,
     storageService: StorageService,
+    isNetworkAvailable: Boolean,
     modifier: Modifier = Modifier
 ) {
+
+    val isP2 = remember {
+        Build.MODEL.lowercase().contains("p2")
+    }
+    val logoHeight = if (isP2) 24.dp else 40.dp
+    val cancelButtonHeight = if (isP2) 48.dp else 56.dp
     val vietQRString = remember(account) {
         VietQRHelper.buildVietQRString(
-            bankNapasId = account.terminal.bankNapasId ?: "",
-            accountNumber = account.terminal.accountNumber ?: ""
+            bankNapasId = account.terminal.bankNapasId,
+            accountNumber = account.terminal.accountNumber
         )
     }
 
     var showAmountSheet by remember { mutableStateOf(false) }
-
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -133,129 +204,136 @@ fun HomeContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 15.dp),
+                .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Card container
             Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
+                    .fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
                 color = Color(0xFFF9FAFB),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD0D5DD))
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 15.dp, end = 15.dp, top = 24.dp, bottom = 32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Logo row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.logo_small),
-                            contentDescription = "Logo",
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp),
-                            contentScale = ContentScale.Fit
-                        )
-
-                        Spacer(modifier = Modifier.width(20.dp))
-
-                        Image(
-                            painter = painterResource(id = R.drawable.vietqr_logo),
-                            contentDescription = "VietQR Logo",
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp),
-                            contentScale = ContentScale.Fit
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // QR Code
-                    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-                    val qrSize = screenWidth - (5.dp * 2) - (5.dp * 2)
-
-                    QRCodeImage(
-                        data = vietQRString,
-                        size = qrSize
-                    )
-
-                    // Divider
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        thickness = 1.dp,
-                        color = Color(0xFFEAECF0)
-                    )
-
-                    // Account name
-                    Text(
-                        text = account.terminal.accountName?.uppercase() ?: "",
-                        textAlign = TextAlign.Center,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF101828)
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Account number
-                    Text(
-                        text = account.terminal.accountNumber ?: "",
-                        fontSize = 16.sp,
-                        color = Color(0xFF475467),
-                        letterSpacing = 1.2.sp
-                    )
-
-                    // Divider
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        thickness = 1.dp,
-                        color = Color(0xFFEAECF0)
-                    )
-
-                    // Button
-                    Button(
-                        onClick = { showAmountSheet = true },
+                Box {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF12B76A)
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = ButtonDefaults.buttonElevation(
-                            defaultElevation = 0.dp
-                        )
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = Color.White
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.logo_small),
+                                contentDescription = "Logo",
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(logoHeight),
+                                contentScale = ContentScale.Fit
+                            )
+
+                            // THAY ĐỔI: Giảm chiều rộng Spacer nếu là P2
+                            Spacer(modifier = Modifier.width(if (isP2) 10.dp else 20.dp))
+
+                            Image(
+                                painter = painterResource(id = R.drawable.vietqr_logo),
+                                contentDescription = "VietQR Logo",
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(logoHeight),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(if (isP2) 12.dp else 24.dp))
+
+                        var qrSize = LocalConfiguration.current.screenWidthDp.dp - 64.dp
+                        if (isP2) {
+                            qrSize *= 0.9f
+                        }
+
+                        QRCodeImage(
+                            data = vietQRString,
+                            size = qrSize
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.home_enter_amount),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFFF9FAFB)),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            HorizontalDivider(
+                                thickness = 1.dp,
+                                color = Color(0xFFEAECF0)
+                            )
+                            Spacer(modifier = Modifier.height(if (isP2) 6.dp else 12.dp))
+
+                            Text(
+                                text = account.terminal.accountName.uppercase(),
+                                textAlign = TextAlign.Center,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF101828)
+                            )
+                            Spacer(modifier = Modifier.height(if (isP2) 4.dp else 8.dp))
+                            Text(
+                                text = account.terminal.accountNumber,
+                                fontSize = 16.sp,
+                                color = Color(0xFF475467),
+                                letterSpacing = 1.2.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(if (isP2) 6.dp else 12.dp))
+                            HorizontalDivider(
+                                thickness = 1.dp,
+                                color = Color(0xFFEAECF0)
+                            )
+                            Spacer(modifier = Modifier.height(if (isP2) 6.dp else 12.dp))
+
+                            Button(
+                                onClick = {
+                                    if (isNetworkAvailable) {
+                                        showAmountSheet = true
+                                    }
+                                },
+                                enabled = isNetworkAvailable,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(cancelButtonHeight),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF12B76A),
+                                    disabledContainerColor = Color(0xFFD1D5DB)
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                elevation = ButtonDefaults.buttonElevation(
+                                    defaultElevation = 0.dp
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = if (isNetworkAvailable) Color.White else Color(0xFF9CA3AF)
+                                )
+                                // THAY ĐỔI: Giảm chiều rộng Spacer nếu là P2
+                                Spacer(modifier = Modifier.width(if (isP2) 4.dp else 8.dp))
+                                Text(
+                                    text = stringResource(R.string.home_enter_amount),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isNetworkAvailable) Color.White else Color(0xFF9CA3AF)
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
-    // Amount Entry Sheet
     if (showAmountSheet) {
         AmountEntrySheet(
             paymentHelper = paymentHelper,
@@ -302,4 +380,13 @@ fun generateQRCode(data: String, sizePx: Int): ImageBitmap? {
     } catch (e: Exception) {
         throw e
     }
+}
+
+fun checkNetworkConnection(context: Context): Boolean {
+    val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    val network = connectivityManager.activeNetwork ?: return false
+    val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
 }
