@@ -26,10 +26,10 @@ data class MerchantRequestData(
     val referenceId: String? = null,
 
     @SerializedName("tid")
-    val tid: String? = null,
+    var tid: String? = null,
 
     @SerializedName("mid")
-    val mid: String? = null,
+    var mid: String? = null,
 
     @SerializedName("ccy")
     val ccy: String? = "704",

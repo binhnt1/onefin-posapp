@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,6 +34,7 @@ fun PaymentMethodCard(
     item: ReportItem,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val textColor = Color(0xFF1F2937)
     val dividerColor = Color(0xFFE5E7EB)
     val borderColor = Color(0xFFD0D5DD)
@@ -73,7 +75,7 @@ fun PaymentMethodCard(
                 Spacer(modifier = Modifier.width(16.dp))
 
                 Text(
-                    text = item.getFormTypeText(),
+                    text = item.getFormTypeText(context),
                     fontSize = 22.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = textColor
@@ -90,7 +92,7 @@ fun PaymentMethodCard(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = item.getTransactionCountText(),
+                    text = item.getTransactionCountText(context),
                     fontSize = 16.sp,
                     color = textColor
                 )

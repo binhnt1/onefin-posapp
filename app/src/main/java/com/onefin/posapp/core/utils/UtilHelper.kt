@@ -34,6 +34,13 @@ object UtilHelper {
         val formatter = DecimalFormat("#,###", symbols)
         return formatter.format(number)
     }
+    fun formatCurrency(number: Long): String {
+        val symbols = DecimalFormatSymbols(Locale.Builder().setLanguage("vi").setRegion("VN").build())
+        symbols.groupingSeparator = '.'
+
+        val formatter = DecimalFormat("#,###", symbols)
+        return formatter.format(number)
+    }
     fun formatCardNumber(cardNumber: String?): String {
         if (cardNumber.isNullOrEmpty()) return ""
         if (cardNumber.contains("*")) return cardNumber

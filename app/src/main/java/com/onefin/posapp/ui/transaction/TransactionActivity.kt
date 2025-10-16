@@ -82,9 +82,9 @@ fun TransactionScreen(
 
             try {
                 val endpoint = when (selectedTab) {
-                    0 -> "/api/transaction/items"
-                    1 -> "/api/transaction/items/1"
-                    2 -> "/api/transaction/items/2"
+                    0 -> "/api/transaction/items/1"
+                    1 -> "/api/transaction/items/2"
+                    2 -> "/api/transaction/items?status=-1"
                     else -> "/api/transaction/items?status=-1"
                 }
 

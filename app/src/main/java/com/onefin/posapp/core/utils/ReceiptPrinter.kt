@@ -103,7 +103,7 @@ class ReceiptPrinter(
         )
 
         printerHelper.printTextWithFormat(
-            text = transaction.getFormTypeText(),
+            text = transaction.getFormTypeText(context),
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_NORMAL
         )
@@ -127,7 +127,7 @@ class ReceiptPrinter(
         printerHelper.printDivider("-", PAPER_WIDTH)
 
         if (transaction.formType == 1) {
-            printerHelper.printTwoColumns("Loại thẻ:", transaction.getCardTypeText())
+            printerHelper.printTwoColumns("Loại thẻ:", transaction.getCardTypeText(context))
 
             if (transaction.accountNumber.isNotEmpty()) {
                 printerHelper.printTwoColumns("Số thẻ:", transaction.getMaskedNumber())
@@ -183,7 +183,7 @@ class ReceiptPrinter(
     }
 
     private fun printStatusSection(transaction: Transaction) {
-        val statusInfo = transaction.getReceiptStatusInfo()
+        val statusInfo = transaction.getReceiptStatusInfo(context)
         printerHelper.printTwoColumns("Trạng thái:", statusInfo.text)
 
         val settledDate = transaction.getFormattedSettledDateTime()

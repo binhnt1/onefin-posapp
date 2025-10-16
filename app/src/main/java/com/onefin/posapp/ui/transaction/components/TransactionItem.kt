@@ -34,7 +34,7 @@ fun TransactionItem(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val statusInfo = transaction.getStatusInfo()
+    val statusInfo = transaction.getStatusInfo(context)
 
     val onDetailClick = {
         val intent = Intent(context, TransactionDetailActivity::class.java)

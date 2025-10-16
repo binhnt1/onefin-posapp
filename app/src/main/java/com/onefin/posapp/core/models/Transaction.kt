@@ -1,11 +1,11 @@
 package com.onefin.posapp.core.models
 
+import android.content.Context
 import androidx.compose.ui.graphics.Color
 import com.google.gson.annotations.SerializedName
 import com.onefin.posapp.R
 import com.onefin.posapp.core.models.data.StatusInfo
-import com.onefin.posapp.ui.base.AppContext
-import java.text.NumberFormat
+import com.onefin.posapp.core.utils.UtilHelper
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -65,19 +65,20 @@ data class Transaction(
         }
     }
 
-    fun getCardTypeText(): String {
+    fun getCardTypeText(context: Context): String {
         return when (source.lowercase()) {
-            "visa" -> AppContext.getString(R.string.card_type_visa)
-            "master", "mastercard" -> AppContext.getString(R.string.card_type_mastercard)
-            "jcb" -> AppContext.getString(R.string.card_type_jcb)
-            "napas" -> AppContext.getString(R.string.card_type_napas)
-            "member" -> AppContext.getString(R.string.card_type_member)
-            "vietqr" -> AppContext.getString(R.string.card_type_vietqr)
-            else -> AppContext.getString(R.string.card_type_default)
+            "visa" -> context.getString(R.string.card_type_visa)
+            "master", "mastercard" -> context.getString(R.string.card_type_mastercard)
+            "jcb" -> context.getString(R.string.card_type_jcb)
+            "napas" -> context.getString(R.string.card_type_napas)
+            "member" -> context.getString(R.string.card_type_member)
+            "vietqr" -> context.getString(R.string.card_type_vietqr)
+            else -> context.getString(R.string.card_type_default)
         }
     }
 
     fun getPaymentIconRes(): Int {
+        if (formType == 2) return R.drawable.icon_qr
         return when (source.lowercase()) {
             "visa" -> R.drawable.icon_visa
             "master", "mastercard" -> R.drawable.icon_master
@@ -89,12 +90,12 @@ data class Transaction(
         }
     }
 
-    fun getFormTypeText(): String {
+    fun getFormTypeText(context: Context): String {
         return when (formType) {
-            1 -> AppContext.getString(R.string.form_type_card)
-            2 -> AppContext.getString(R.string.form_type_qr)
-            3 -> AppContext.getString(R.string.form_type_member)
-            else -> AppContext.getString(R.string.form_type_unknown)
+            1 -> context.getString(R.string.form_type_card)
+            2 -> context.getString(R.string.form_type_qr)
+            3 -> context.getString(R.string.form_type_member)
+            else -> context.getString(R.string.form_type_unknown)
         }
     }
 
@@ -127,25 +128,25 @@ data class Transaction(
         }
     }
 
-    fun getStatusInfo(): StatusInfo {
+    fun getStatusInfo(context: Context): StatusInfo {
         return when (processStatus) {
             -1 -> StatusInfo(
-                text = AppContext.getString(R.string.status_canceled),
+                text = context.getString(R.string.status_canceled),
                 textColor = Color(0xFFB42318),
                 backgroundColor = Color(0xFFFEF3F2)
             )
             0, 1 -> StatusInfo(
-                text = AppContext.getString(R.string.status_success),
+                text = context.getString(R.string.status_success),
                 textColor = Color(0xFF067647),
                 backgroundColor = Color(0xFFECFDF3)
             )
             -3, -2, 2, 3, 4, 5, 6, 7 -> StatusInfo(
-                text = AppContext.getString(R.string.status_settled),
+                text = context.getString(R.string.status_settled),
                 textColor = Color(0xFF175CD3),
                 backgroundColor = Color(0xFFEFF8FF)
             )
             else -> StatusInfo(
-                text = AppContext.getString(R.string.status_unknown),
+                text = context.getString(R.string.status_unknown),
                 textColor = Color(0xFF6B7280),
                 backgroundColor = Color(0xFFF3F4F6)
             )
@@ -153,24 +154,24 @@ data class Transaction(
     }
 
     fun getFormattedAmount(): String {
-        val formatter = NumberFormat.getInstance(Locale.Builder().setLanguage("vi").setRegion("VN").build())
-        return "${formatter.format(totalTransAmt)}${AppContext.getString(R.string.currency_vnd)}"
+        val formatter = UtilHelper.formatCurrency(totalTransAmt)
+        return "${formatter.format(totalTransAmt)}đ"
     }
 
-    fun getReceiptStatusInfo(): StatusInfo {
+    fun getReceiptStatusInfo(context: Context): StatusInfo {
         return when (processStatus) {
             -1 -> StatusInfo(
-                text = AppContext.getString(R.string.status_canceled),
+                text = context.getString(R.string.status_canceled),
                 textColor = Color(0xFFB42318),
                 backgroundColor = Color(0xFFFEF3F2)
             )
             -3, -2, 0, 1, 2, 3, 4, 5, 6, 7 -> StatusInfo(
-                text = AppContext.getString(R.string.status_success),
+                text = context.getString(R.string.status_success),
                 textColor = Color(0xFF067647),
                 backgroundColor = Color(0xFFECFDF3)
             )
             else -> StatusInfo(
-                text = AppContext.getString(R.string.status_unknown),
+                text = context.getString(R.string.status_unknown),
                 textColor = Color(0xFF6B7280),
                 backgroundColor = Color(0xFFF3F4F6)
             )

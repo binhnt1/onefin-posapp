@@ -18,6 +18,7 @@
     <string name="home_generate_qr">Tạo mã QR</string>
     <string name="home_currency_vnd">VND</string>
     <string name="home_close">Đóng</string>
+    <string name="home_signin">Đang đăng nhập...</string>
     <string name="home_error_load_account">Không thể tải thông tin tài khoản.</string>
     <string name="payment_swipe_card">Quẹt thẻ</string>
     <string name="payment_generate_qr">Tạo VietQR</string>
@@ -28,6 +29,7 @@
     <string name="qr_display_amount_label">SỐ TIỀN</string>
     <string name="qr_display_cancel_transaction">Hủy giao dịch</string>
     <string name="qr_payment_description">Thanh toan hoa don</string>
+
 
     <!-- QR Screen -->
     <string name="payment_success_title">Giao dịch thành công</string>

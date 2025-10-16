@@ -18,6 +18,7 @@
     <string name="home_generate_qr">Generate QR Code</string>
     <string name="home_currency_vnd">VND</string>
     <string name="home_close">Close</string>
+    <string name="home_signin">Signin...</string>
     <string name="home_error_load_account">Unable to load account information.</string>
     <string name="payment_swipe_card">Swipe Card</string>
     <string name="payment_generate_qr">Generate VietQR</string>

@@ -4,7 +4,6 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -13,12 +12,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -49,8 +45,6 @@ class SplashActivity : ComponentActivity() {
                 SplashScreen()
             }
         }
-
-        // Kiểm tra đăng nhập và điều hướng sau 3 giây
         checkLoginAndNavigate()
     }
 
@@ -71,75 +65,10 @@ class SplashActivity : ComponentActivity() {
 
 @Composable
 fun SplashScreen() {
-    // Animation states
-    val infiniteTransition = rememberInfiniteTransition(label = "infinite")
-
-    // Logo scale animation (phóng to/thu nhỏ nhẹ)
-    val logoScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "logoScale"
-    )
-
-    // Gradient animation (thay đổi màu nền nhẹ)
-    val gradientOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "gradient"
-    )
-
-    // Logo fade in animation
-    val logoAlpha by animateFloatAsState(
-        targetValue = 1f,
-        animationSpec = tween(1000, easing = FastOutSlowInEasing),
-        label = "logoAlpha"
-    )
-
-    // Text fade in animation (chậm hơn logo một chút)
-    var textVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay(500)
-        textVisible = true
-    }
-
-    val textAlpha by animateFloatAsState(
-        targetValue = if (textVisible) 1f else 0f,
-        animationSpec = tween(1000, easing = FastOutSlowInEasing),
-        label = "textAlpha"
-    )
-
-    // Footer fade in animation
-    var footerVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay(1000)
-        footerVisible = true
-    }
-
-    val footerAlpha by animateFloatAsState(
-        targetValue = if (footerVisible) 1f else 0f,
-        animationSpec = tween(1000, easing = FastOutSlowInEasing),
-        label = "footerAlpha"
-    )
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color.White.copy(alpha = 1f - gradientOffset * 0.1f),
-                        Color(0xFFFAFAFA).copy(alpha = 1f - gradientOffset * 0.05f)
-                    )
-                )
-            )
+            .background(Color(0xFFFAFAFA))
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -148,10 +77,9 @@ fun SplashScreen() {
         ) {
             Spacer(modifier = Modifier.weight(1f))
 
-            // Logo chính với animation
+            // Logo và nội dung chính (không có animation)
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.alpha(logoAlpha)
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.logo),
@@ -159,28 +87,22 @@ fun SplashScreen() {
                     modifier = Modifier
                         .width(180.dp)
                         .padding(20.dp)
-                        .scale(logoScale)
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Text slogan với fade in
                 Text(
                     text = "Điểm đến tài chính của bạn",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFF795548),
-                    letterSpacing = 0.5.sp,
-                    modifier = Modifier.alpha(textAlpha)
+                    letterSpacing = 0.5.sp
                 )
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Loading indicator
                 CircularProgressIndicator(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .alpha(textAlpha),
+                    modifier = Modifier.size(32.dp),
                     color = Color(0xFF795548),
                     strokeWidth = 3.dp
                 )
@@ -188,11 +110,9 @@ fun SplashScreen() {
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Footer với fade in
+            // Footer (không có animation)
             Column(
-                modifier = Modifier
-                    .padding(bottom = 24.dp)
-                    .alpha(footerAlpha),
+                modifier = Modifier.padding(bottom = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Contact info

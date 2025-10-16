@@ -1,9 +1,9 @@
 package com.onefin.posapp.core.models
 
+import android.content.Context
 import com.google.gson.annotations.SerializedName
 import com.onefin.posapp.R
 import com.onefin.posapp.core.utils.UtilHelper
-import com.onefin.posapp.ui.base.AppContext
 
 data class ReportItem(
     @SerializedName("FormType")
@@ -16,19 +16,19 @@ data class ReportItem(
     val amount: Long
 ) {
     fun getFormattedAmount(): String {
-        return "${UtilHelper.formatCurrency(amount.toString())}${AppContext.getString(R.string.currency_vnd)}"
+        return "${UtilHelper.formatCurrency(amount.toString())}đ"
     }
 
-    fun getTransactionCountText(): String {
-        return AppContext.getString(R.string.transaction_count, count)
+    fun getTransactionCountText(context: Context): String {
+        return context.getString(R.string.transaction_count, count)
     }
 
-    fun getFormTypeText(): String {
+    fun getFormTypeText(context: Context): String {
         return when (formType) {
-            1 -> AppContext.getString(R.string.form_type_card)
-            2 -> AppContext.getString(R.string.form_type_qr)
-            3 -> AppContext.getString(R.string.form_type_member)
-            else -> AppContext.getString(R.string.form_type_unknown)
+            1 -> context.getString(R.string.form_type_card)
+            2 -> context.getString(R.string.form_type_qr)
+            3 -> context.getString(R.string.form_type_member)
+            else -> context.getString(R.string.form_type_unknown)
         }
     }
 
@@ -45,13 +45,13 @@ data class ReportItem(
 enum class DateRangeType {
     TODAY, YESTERDAY, LAST_7_DAYS, LAST_30_DAYS, CUSTOM;
 
-    fun getDisplayName(): String {
+    fun getDisplayName(context: Context): String {
         return when (this) {
-            TODAY -> AppContext.getString(R.string.date_range_today)
-            YESTERDAY -> AppContext.getString(R.string.date_range_yesterday)
-            LAST_7_DAYS -> AppContext.getString(R.string.date_range_last_7_days)
-            LAST_30_DAYS -> AppContext.getString(R.string.date_range_last_30_days)
-            CUSTOM -> AppContext.getString(R.string.date_range_custom)
+            TODAY -> context.getString(R.string.date_range_today)
+            YESTERDAY -> context.getString(R.string.date_range_yesterday)
+            LAST_7_DAYS -> context.getString(R.string.date_range_last_7_days)
+            LAST_30_DAYS -> context.getString(R.string.date_range_last_30_days)
+            CUSTOM -> context.getString(R.string.date_range_custom)
         }
     }
 }

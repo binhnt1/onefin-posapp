@@ -68,6 +68,34 @@ android {
             excludes += "/META-INF/LICENSE-notice.md"
         }
     }
+
+    flavorDimensions += "customer"
+
+    productFlavors {
+        // Flavor cho khách hàng A
+        create("mailinh") {
+            dimension = "customer"
+            versionNameSuffix = "-mailinh"
+            applicationIdSuffix = ".mailinh"
+            resValue("string", "app_name", "POS App - MaiLinh")
+            buildConfigField("String", "APP_KEY", "\"85ba2fcfe7fa4511a37a8f017a282fa8\"")
+        }
+
+        // Flavor cho khách hàng B
+        create("sgpt") {
+            dimension = "customer"
+            versionNameSuffix = "-sgpt"
+            applicationIdSuffix = ".sgpt"
+            resValue("string", "app_name", "POS App - SGPT")
+            buildConfigField("String", "APP_KEY", "\"21f7d3f50ab94f23a0b0b3e081fa8ced\"")
+        }
+
+        // Flavor mặc định (không có APP_KEY - phải login thủ công)
+        create("default") {
+            dimension = "customer"
+            buildConfigField("String", "APP_KEY", "\"\"")
+        }
+    }
 }
 
 dependencies {

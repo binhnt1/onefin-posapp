@@ -1,6 +1,7 @@
 package com.onefin.posapp.ui.home
 
 import android.content.Context
+import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Bundle
@@ -26,7 +27,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.onefin.posapp.R
+import com.onefin.posapp.BuildConfig
+import com.onefin.posapp.core.models.Account
+import com.onefin.posapp.core.models.ResultApi
+import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.VietQRHelper
 import com.onefin.posapp.ui.base.BaseActivity
@@ -43,16 +50,17 @@ import android.graphics.Bitmap
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.ImageBitmap
-import com.onefin.posapp.core.models.Account
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.set
 import com.onefin.posapp.core.managers.SnackbarManager
 import com.onefin.posapp.core.managers.TTSManager
 import com.onefin.posapp.core.utils.LocaleHelper
 import com.onefin.posapp.ui.components.GlobalSnackbarHost
+import com.onefin.posapp.ui.login.LoginActivity
 import com.onefin.posapp.ui.modals.NoNetworkDialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class HomeActivity : BaseActivity() {
@@ -66,6 +74,9 @@ class HomeActivity : BaseActivity() {
     @Inject
     lateinit var snackbarManager: SnackbarManager
 
+    @Inject
+    lateinit var apiService: ApiService
+
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,6 +89,7 @@ class HomeActivity : BaseActivity() {
                     localeHelper = localeHelper,
                     paymentHelper = paymentHelper,
                     storageService = storageService,
+                    apiService = apiService,
                 )
 
                 GlobalSnackbarHost(
@@ -102,11 +114,16 @@ fun HomeScreen(
     localeHelper: LocaleHelper,
     paymentHelper: PaymentHelper,
     storageService: StorageService,
+    apiService: ApiService,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
     var isNetworkAvailable by remember { mutableStateOf(true) }
     var showNetworkDialog by remember { mutableStateOf(false) }
     var countdown by remember { mutableIntStateOf(15) }
+    var isAutoLoggingIn by remember { mutableStateOf(false) }
+    var autoLoginAttempted by remember { mutableStateOf(false) }
 
     val networkErrorMessage = stringResource(R.string.network_dialog_message)
     val networkRestoredMessage = stringResource(R.string.network_dialog_title)
@@ -142,35 +159,205 @@ fun HomeScreen(
     if (showNetworkDialog) {
         NoNetworkDialog(
             countdown = countdown,
-            onDismiss = { /* Không cho dismiss */ }
+            onDismiss = { }
         )
     }
 
-    BaseScreen(
-        localeHelper = localeHelper,
-        storageService = storageService
-    ) { paddingValues, account ->
-        if (account != null) {
-            HomeContent(
-                account = account,
-                paymentHelper = paymentHelper,
-                storageService = storageService,
-                isNetworkAvailable = isNetworkAvailable,
-                modifier = Modifier.padding(paddingValues)
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
+    // Loading dialog cho auto login
+    if (isAutoLoggingIn) {
+        AutoLoginDialog()
+    }
+
+    // Kiểm tra login trước khi render BaseScreen
+    LaunchedEffect(Unit) {
+        if (!autoLoginAttempted) {
+            autoLoginAttempted = true
+
+            // Kiểm tra xem đã có account chưa
+            val currentAccount = storageService.getAccount()
+
+            if (currentAccount == null) {
+                // Chưa đăng nhập, kiểm tra APP_KEY
+                val appKey = BuildConfig.APP_KEY
+
+                if (appKey.isNotEmpty()) {
+                    // Có APP_KEY, thực hiện auto login
+                    isAutoLoggingIn = true
+
+                    scope.launch {
+                        try {
+                            val success = performAppKeyLogin(
+                                appKey = appKey,
+                                apiService = apiService,
+                                storageService = storageService
+                            )
+
+                            if (success) {
+                                // Đợi 5 giây trước khi đóng popup và reload
+                                delay(5000)
+                                isAutoLoggingIn = false
+
+                                // Reload HomeActivity
+                                val intent = Intent(context, HomeActivity::class.java).apply {
+                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                }
+                                context.startActivity(intent)
+                            } else {
+                                // Login thất bại, chuyển sang màn hình login
+                                isAutoLoggingIn = false
+                                navigateToLogin(context)
+                            }
+                        } catch (e: Exception) {
+                            // Có lỗi xảy ra, chuyển sang màn hình login
+                            isAutoLoggingIn = false
+                            navigateToLogin(context)
+                        }
+                    }
+                } else {
+                    // Không có APP_KEY, chuyển sang màn hình login
+                    navigateToLogin(context)
+                }
+            }
+        }
+    }
+
+    // Chỉ hiển thị BaseScreen khi đã đăng nhập
+    if (!isAutoLoggingIn && autoLoginAttempted) {
+        BaseScreen(
+            localeHelper = localeHelper,
+            storageService = storageService
+        ) { paddingValues: PaddingValues, account: Account? ->
+            if (account != null) {
+                HomeContent(
+                    account = account,
+                    paymentHelper = paymentHelper,
+                    storageService = storageService,
+                    isNetworkAvailable = isNetworkAvailable,
+                    modifier = Modifier.padding(paddingValues)
+                )
+            } else {
+                // Trường hợp account null sau khi đã login
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AutoLoginDialog() {
+    Dialog(
+        onDismissRequest = { },
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        )
+    ) {
+        Surface(
+            color = Color.White,
+            shape = RoundedCornerShape(20.dp),
+            shadowElevation = 8.dp,
+            modifier = Modifier.width(300.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Logo
+                Image(
+                    painter = painterResource(id = R.drawable.logo_small),
+                    contentDescription = "Logo",
+                    modifier = Modifier
+                        .height(60.dp)
+                        .fillMaxWidth(),
+                    contentScale = ContentScale.Fit
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Loading indicator với background
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .background(
+                            color = Color(0xFF12B76A).copy(alpha = 0.1f),
+                            shape = androidx.compose.foundation.shape.CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(50.dp),
+                        color = Color(0xFF12B76A),
+                        strokeWidth = 4.dp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Title
                 Text(
-                    text = stringResource(R.string.home_error_load_account),
-                    color = Color.Black
+                    text = "Đang đăng nhập hệ thống...",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF101828),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Subtitle
+                Text(
+                    text = "Vui lòng đợi trong giây lát",
+                    fontSize = 14.sp,
+                    color = Color(0xFF667085),
+                    textAlign = TextAlign.Center
                 )
             }
         }
+    }
+}
+
+fun navigateToLogin(context: Context) {
+    val intent = Intent(context, LoginActivity::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+    }
+    context.startActivity(intent)
+}
+
+// Hàm thực hiện login bằng APP_KEY
+suspend fun performAppKeyLogin(
+    appKey: String,
+    apiService: ApiService,
+    storageService: StorageService
+): Boolean {
+    return try {
+        // Gọi API AppSignIn
+        val body = mapOf(
+            "AppKey" to appKey
+        )
+
+        val resultApi = apiService.post("/api/security/AppSignIn", body) as ResultApi<*>
+
+        // Parse account từ response
+        val account = com.google.gson.Gson().fromJson(
+            com.google.gson.Gson().toJson(resultApi.data),
+            Account::class.java
+        )
+
+        // Lưu token và account
+        storageService.saveToken(account.token.accessToken)
+        storageService.saveAccount(account)
+
+        true
+    } catch (e: Exception) {
+        e.printStackTrace()
+        false
     }
 }
 
@@ -235,7 +422,6 @@ fun HomeContent(
                                 contentScale = ContentScale.Fit
                             )
 
-                            // THAY ĐỔI: Giảm chiều rộng Spacer nếu là P2
                             Spacer(modifier = Modifier.width(if (isP2) 10.dp else 20.dp))
 
                             Image(
@@ -318,7 +504,6 @@ fun HomeContent(
                                     modifier = Modifier.size(24.dp),
                                     tint = if (isNetworkAvailable) Color.White else Color(0xFF9CA3AF)
                                 )
-                                // THAY ĐỔI: Giảm chiều rộng Spacer nếu là P2
                                 Spacer(modifier = Modifier.width(if (isP2) 4.dp else 8.dp))
                                 Text(
                                     text = stringResource(R.string.home_enter_amount),

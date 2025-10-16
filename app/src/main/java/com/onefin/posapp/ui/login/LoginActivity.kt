@@ -191,6 +191,7 @@ fun StaticHeader(
             painter = painterResource(id = R.drawable.logo_small),
             contentDescription = "Logo",
             modifier = Modifier
+                .padding(top = 10.dp)
                 .width(200.dp)
                 .align(Alignment.Center)
         )

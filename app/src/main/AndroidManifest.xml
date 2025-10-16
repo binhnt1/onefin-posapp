@@ -2,9 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <uses-permission android:name="android.permission.BIND_JOB_SERVICE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="com.sunmi.peripheral.printer.BIND_PRINTER_SERVICE" />
 
     <application
@@ -19,10 +18,9 @@
 
         <!-- SPLASH ACTIVITY - LAUNCHER -->
         <activity
-            android:name=".ui.splash.SplashActivity"
+            android:name=".ui.home.HomeActivity"
             android:exported="true"
-            android:theme="@style/Theme.OnefinPosApp.Splash"
-            android:screenOrientation="portrait">
+            android:theme="@style/Theme.OnefinPosApp.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -31,45 +29,30 @@
 
         <activity
             android:name=".ui.login.LoginActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
-        <activity
-            android:name=".ui.home.HomeActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
+            android:exported="false" />
         <activity android:name=".ui.transaction.TransactionActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
+            android:exported="false" />
         <activity android:name=".ui.transaction.TransactionDetailActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
+            android:exported="false" />
         <activity android:name=".ui.settlement.SettlementActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
+            android:exported="false" />
         <activity android:name=".ui.history.PaymentHistoryActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"  />
+            android:exported="false"  />
         <activity android:name=".ui.history.PaymentHistoryDetailActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"  />
+            android:exported="false"  />
         <activity android:name=".ui.billpayment.BillPaymentActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"  />
+            android:exported="false"  />
         <activity android:name=".ui.report.ReportActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"  />
+            android:exported="false"  />
         <activity
             android:name=".ui.home.QRCodeDisplayActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
+            android:exported="false" />
         <activity
             android:name=".ui.payment.PaymentSuccessActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
+            android:exported="false" />
         <activity
             android:name=".ui.modals.LogoutDialogActivity"
             android:exported="false"
-            android:screenOrientation="portrait"
             android:theme="@style/Theme.OnefinPosApp.LogoutDialogActivity" />
 
         <activity
@@ -77,6 +60,35 @@
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"
             android:launchMode="singleTop"
             android:excludeFromRecents="true" />
+        <activity
+            android:name=".ui.external.ExternalPaymentActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Translucent"
+            android:launchMode="singleTask">
+
+            <!-- Cách 1: Action thường -->
+            <intent-filter>
+                <action android:name="com.onefin.posapp.ACTION_PAYMENT" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- Cách 2: Deep link (onefin://payment) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="onefin"
+                    android:host="payment" />
+            </intent-filter>
+
+            <!-- Cách 3: Mới - hỗ trợ app khác -->
+            <intent-filter>
+                <action android:name="com.onefin.paymentapp.MerchantAction" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="paymentapp" />
+            </intent-filter>
+        </activity>
     </application>
     <queries>
         <package android:name="com.sunmi.peripheral" />

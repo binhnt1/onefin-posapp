@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -44,9 +45,10 @@ fun TransactionDetailContent(
     notes: String,
     onNotesChange: (String) -> Unit
 ) {
+    val context = LocalContext.current
     val scrollState = rememberScrollState()
     val currencyFormat = DecimalFormat("#,###")
-    val statusInfo = transaction.getStatusInfo()
+    val statusInfo = transaction.getStatusInfo(context)
 
     Column(
         modifier = Modifier

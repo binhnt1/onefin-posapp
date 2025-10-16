@@ -8,8 +8,8 @@ import android.os.IBinder
 import com.onefin.posapp.core.managers.ActivityTracker
 import com.onefin.posapp.core.managers.RabbitMQManager
 import com.onefin.posapp.core.services.StorageService
+import com.onefin.posapp.core.utils.DeviceHelper
 import com.onefin.posapp.core.utils.PaymentHelper
-import com.onefin.posapp.ui.base.AppContext
 import com.sunmi.peripheral.printer.SunmiPrinterService
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
@@ -17,6 +17,10 @@ import javax.inject.Inject
 
 @HiltAndroidApp
 class PosApplication : Application() {
+
+    @Inject
+    lateinit var deviceHelper: DeviceHelper
+
     @Inject
     lateinit var paymentHelper: PaymentHelper
 
@@ -48,7 +52,7 @@ class PosApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        AppContext.init(this)
+        bindSerial()
 
         // Bind printer service
         bindPrinterService()
@@ -65,6 +69,21 @@ class PosApplication : Application() {
         registerActivityLifecycleCallbacks(activityTracker)
     }
 
+    private fun bindSerial() {
+        val deviceSerial = deviceHelper.getDeviceSerial()
+        if (!deviceSerial.isEmpty())
+            storageService.saveSerial(deviceSerial)
+    }
+
+    override fun onTerminate() {
+        super.onTerminate()
+        try {
+            unbindService(printerServiceConnection)
+            Timber.tag("PosApplication").d("Printer service unbound")
+        } catch (e: Exception) {
+            Timber.tag("PosApplication").e(e, "Error unbinding printer service")
+        }
+    }
     private fun bindPrinterService() {
         try {
             val intent = Intent()
@@ -87,16 +106,6 @@ class PosApplication : Application() {
             }
         } catch (e: Exception) {
             Timber.tag("PosApplication").e(e, "Error binding printer service")
-        }
-    }
-
-    override fun onTerminate() {
-        super.onTerminate()
-        try {
-            unbindService(printerServiceConnection)
-            Timber.tag("PosApplication").d("Printer service unbound")
-        } catch (e: Exception) {
-            Timber.tag("PosApplication").e(e, "Error unbinding printer service")
         }
     }
 }
