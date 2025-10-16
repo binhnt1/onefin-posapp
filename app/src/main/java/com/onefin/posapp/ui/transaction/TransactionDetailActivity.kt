@@ -110,7 +110,6 @@ fun TransactionDetailScreen(
                 val gson = com.google.gson.Gson()
                 val jsonString = gson.toJson(resultApi.data)
                 transaction = gson.fromJson(jsonString, Transaction::class.java)
-                notes = transaction?.remark ?: ""
             } catch (e: Exception) {
                 errorMessage = e.message ?: errorLoadingData
             } finally {

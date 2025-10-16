@@ -56,6 +56,7 @@ fun AmountEntrySheet(
 ) {
     var amountText by remember { mutableStateOf("") }
     var isProcessing by remember { mutableStateOf(false) }
+    var loadingButtonType by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -69,12 +70,10 @@ fun AmountEntrySheet(
 
     val isValidAmount = amountValue > 0
 
-    // Kiểm tra thiết bị P2
     val isP2 = remember {
         android.os.Build.MODEL.lowercase().contains("p2")
     }
 
-    // Định nghĩa các giá trị padding động (giảm 50% cho P2)
     val headerPaddingHorizontal = if (isP2) 8.dp else 16.dp
     val headerPaddingVertical = if (isP2) 6.dp else 12.dp
     val contentPadding = if (isP2) 8.dp else 16.dp
@@ -96,7 +95,6 @@ fun AmountEntrySheet(
                 .navigationBarsPadding()
                 .imePadding()
         ) {
-            // Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -125,14 +123,12 @@ fun AmountEntrySheet(
 
             HorizontalDivider(thickness = 1.dp, color = Color(0xFFEAECF0))
 
-            // Content
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(contentPadding),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Amount display
                 Text(
                     text = formattedAmount.ifEmpty { stringResource(R.string.amount_placeholder) },
                     fontSize = 48.sp,
@@ -149,7 +145,6 @@ fun AmountEntrySheet(
                     modifier = Modifier.padding(bottom = currencyPaddingBottom)
                 )
 
-                // Number pad
                 NumberPad(
                     onNumberClick = { number ->
                         if (!isProcessing) {
@@ -192,6 +187,8 @@ fun AmountEntrySheet(
                             icon = Icons.Default.CreditCard,
                             onClick = {
                                 if (isValidAmount && !isProcessing) {
+                                    isProcessing = true
+                                    loadingButtonType = "CARD"
                                     val account = storageService.getAccount()
                                     if (account != null) {
                                         val paymentRequest = PaymentRequest(
@@ -205,12 +202,14 @@ fun AmountEntrySheet(
                                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                         }
                                         context.startActivity(intent)
-                                        onDismiss()
                                     }
+                                    isProcessing = false
+                                    loadingButtonType = null
                                 }
                             },
                             isPrimary = true,
                             enabled = isValidAmount && !isProcessing,
+                            isLoading = loadingButtonType == "CARD",
                             modifier = Modifier.weight(1f)
                         )
                         PaymentOptionButton(
@@ -218,6 +217,8 @@ fun AmountEntrySheet(
                             icon = Icons.Default.QrCode,
                             onClick = {
                                 if (isValidAmount && !isProcessing) {
+                                    isProcessing = true
+                                    loadingButtonType = "QR"
                                     val account = storageService.getAccount()
                                     if (account != null) {
                                         val paymentRequest = PaymentRequest(
@@ -231,11 +232,13 @@ fun AmountEntrySheet(
                                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                         }
                                         context.startActivity(intent)
-                                        onDismiss()
                                     }
+                                    isProcessing = false
+                                    loadingButtonType = null
                                 }
                             },
                             enabled = isValidAmount && !isProcessing,
+                            isLoading = loadingButtonType == "QR",
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -244,6 +247,8 @@ fun AmountEntrySheet(
                         icon = Icons.Default.CardMembership,
                         onClick = {
                             if (isValidAmount && !isProcessing) {
+                                isProcessing = true
+                                loadingButtonType = "MEMBER"
                                 val account = storageService.getAccount()
                                 if (account != null) {
                                     val paymentRequest = PaymentRequest(
@@ -257,11 +262,13 @@ fun AmountEntrySheet(
                                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                     }
                                     context.startActivity(intent)
-                                    onDismiss()
                                 }
+                                isProcessing = false
+                                loadingButtonType = null
                             }
                         },
                         enabled = isValidAmount && !isProcessing,
+                        isLoading = loadingButtonType == "MEMBER",
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

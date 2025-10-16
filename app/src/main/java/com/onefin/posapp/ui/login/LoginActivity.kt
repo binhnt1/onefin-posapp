@@ -270,12 +270,6 @@ fun LoginForm(
             if (!deviceSerial.isEmpty())
                 storageService.saveSerial(deviceSerial)
         }
-
-        // hard-coded for demo
-        password = "A1a@a#a$"
-        username = "182313@yopmail.com"
-        deviceSerial = "1902390100182313"
-        storageService.saveSerial(deviceSerial)
     }
 
     // Clear error when typing

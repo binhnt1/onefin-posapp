@@ -1,6 +1,5 @@
 package com.onefin.posapp.core.services
 
-import android.util.Log
 import com.rabbitmq.client.*
 import kotlinx.coroutines.*
 import javax.inject.Inject

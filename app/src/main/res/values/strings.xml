@@ -49,8 +49,8 @@
     <string name="no_transactions_found">Không có giao dịch</string>
     <string name="title_transaction_detail">Chi tiết giao dịch</string>
     <string name="content_desc_back">Quay lại</string>
-    <string name="btn_send_bill">Gửi bill</string>
-    <string name="btn_print_receipt">In hóa đơn</string>
+    <string name="btn_send_bill">Gửi HĐ</string>
+    <string name="btn_print_receipt">In HĐ</string>
     <string name="error_no_account_info">Không tìm thấy thông tin tài khoản</string>
     <string name="error_printer_not_ready">Máy in chưa sẵn sàng. Vui lòng thử lại</string>
     <string name="success_print_receipt">In hóa đơn thành công</string>

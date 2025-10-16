@@ -2,6 +2,7 @@ package com.onefin.posapp.core.managers
 
 import android.app.Activity
 import android.app.Application
+import android.content.Intent
 import android.os.Bundle
 import java.lang.ref.WeakReference
 import javax.inject.Inject
@@ -19,6 +20,14 @@ class ActivityTracker @Inject constructor() : Application.ActivityLifecycleCallb
     fun isActivityOfType(activityClass: Class<*>): Boolean {
         val current = getCurrentActivity()
         return current != null && current::class.java == activityClass
+    }
+
+    fun isLaunchedExternally(): Boolean {
+        val currentActivity = getCurrentActivity() ?: return false
+        return currentActivity.intent?.let { intent ->
+            intent.flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0 &&
+                    intent.component?.packageName != currentActivity.packageName
+        } ?: false
     }
 
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}

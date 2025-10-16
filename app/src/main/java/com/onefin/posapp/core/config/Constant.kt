@@ -20,6 +20,9 @@ object ApiConstants {
 
 object PrefsName {
     const val APP_PREFS = "onefin_prefs"
+    const val APP_PREFS_EX = "onefin_prefs_ex"
+    const val PREF_EXTERNAL_PAYMENT_CONTEXT = "external_payment_context"
+    const val PREF_PENDING_PAYMENT_REQUEST = "pending_payment_request"
 }
 
 object RequestConstants {

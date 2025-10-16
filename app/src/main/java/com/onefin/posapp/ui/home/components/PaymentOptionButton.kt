@@ -25,6 +25,7 @@ fun PaymentOptionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    isLoading: Boolean = false,
     isPrimary: Boolean = false
 ) {
     val primaryColor = Color(0xFF12B76A)

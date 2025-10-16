@@ -27,8 +27,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.onefin.posapp.R
 import com.onefin.posapp.BuildConfig
 import com.onefin.posapp.core.models.Account
@@ -50,6 +48,7 @@ import android.graphics.Bitmap
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.set
 import com.onefin.posapp.core.managers.SnackbarManager
@@ -57,13 +56,16 @@ import com.onefin.posapp.core.managers.TTSManager
 import com.onefin.posapp.core.utils.LocaleHelper
 import com.onefin.posapp.ui.components.GlobalSnackbarHost
 import com.onefin.posapp.ui.login.LoginActivity
+import com.onefin.posapp.ui.modals.AutoLoginDialog
 import com.onefin.posapp.ui.modals.NoNetworkDialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class HomeActivity : BaseActivity() {
+
+    @Inject
+    lateinit var apiService: ApiService
 
     @Inject
     lateinit var ttsManager: TTSManager
@@ -74,9 +76,6 @@ class HomeActivity : BaseActivity() {
     @Inject
     lateinit var snackbarManager: SnackbarManager
 
-    @Inject
-    lateinit var apiService: ApiService
-
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,11 +84,12 @@ class HomeActivity : BaseActivity() {
         setContent {
             PosAppTheme {
                 HomeScreen(
+                    apiService = apiService,
                     ttsManager = ttsManager,
                     localeHelper = localeHelper,
                     paymentHelper = paymentHelper,
                     storageService = storageService,
-                    apiService = apiService,
+                    snackbarManager = snackbarManager,
                 )
 
                 GlobalSnackbarHost(
@@ -110,33 +110,38 @@ class HomeActivity : BaseActivity() {
 
 @Composable
 fun HomeScreen(
+    apiService: ApiService,
     ttsManager: TTSManager,
     localeHelper: LocaleHelper,
     paymentHelper: PaymentHelper,
     storageService: StorageService,
-    apiService: ApiService,
+    snackbarManager: SnackbarManager,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
 
+    // State management
     var isNetworkAvailable by remember { mutableStateOf(true) }
     var showNetworkDialog by remember { mutableStateOf(false) }
     var countdown by remember { mutableIntStateOf(15) }
     var isAutoLoggingIn by remember { mutableStateOf(false) }
     var autoLoginAttempted by remember { mutableStateOf(false) }
 
+    var cachedAccount by remember { mutableStateOf<Account?>(null) }
+    var screenAlpha by remember { mutableFloatStateOf(0f) }
+
     val networkErrorMessage = stringResource(R.string.network_dialog_message)
     val networkRestoredMessage = stringResource(R.string.network_dialog_title)
 
+    // Network check
     LaunchedEffect(Unit) {
         isNetworkAvailable = checkNetworkConnection(context)
         showNetworkDialog = !isNetworkAvailable
-
         if (!isNetworkAvailable) {
             ttsManager.speak(networkErrorMessage)
         }
     }
 
+    // Network reconnect logic
     LaunchedEffect(showNetworkDialog) {
         while (showNetworkDialog && isActive) {
             countdown = 10
@@ -145,7 +150,6 @@ fun HomeScreen(
                 delay(1000)
                 countdown--
             }
-
             isNetworkAvailable = checkNetworkConnection(context)
             if (isNetworkAvailable) {
                 showNetworkDialog = false
@@ -156,168 +160,89 @@ fun HomeScreen(
         }
     }
 
-    if (showNetworkDialog) {
-        NoNetworkDialog(
-            countdown = countdown,
-            onDismiss = { }
-        )
-    }
-
-    // Loading dialog cho auto login
-    if (isAutoLoggingIn) {
-        AutoLoginDialog()
-    }
-
-    // Kiểm tra login trước khi render BaseScreen
+    // Login logic
     LaunchedEffect(Unit) {
         if (!autoLoginAttempted) {
             autoLoginAttempted = true
 
-            // Kiểm tra xem đã có account chưa
             val currentAccount = storageService.getAccount()
+            if (currentAccount != null) {
+                cachedAccount = currentAccount
+                return@LaunchedEffect
+            }
 
-            if (currentAccount == null) {
-                // Chưa đăng nhập, kiểm tra APP_KEY
-                val appKey = BuildConfig.APP_KEY
+            val appKey = BuildConfig.APP_KEY
+            if (appKey.isEmpty()) {
+                delay(100)
+                navigateToLogin(context)
+                return@LaunchedEffect
+            }
 
-                if (appKey.isNotEmpty()) {
-                    // Có APP_KEY, thực hiện auto login
-                    isAutoLoggingIn = true
+            isAutoLoggingIn = true
+            try {
+                val success = performAppKeyLogin(
+                    appKey = appKey,
+                    apiService = apiService,
+                    storageService = storageService
+                )
 
-                    scope.launch {
-                        try {
-                            val success = performAppKeyLogin(
-                                appKey = appKey,
-                                apiService = apiService,
-                                storageService = storageService
-                            )
-
-                            if (success) {
-                                // Đợi 5 giây trước khi đóng popup và reload
-                                delay(5000)
-                                isAutoLoggingIn = false
-
-                                // Reload HomeActivity
-                                val intent = Intent(context, HomeActivity::class.java).apply {
-                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                                }
-                                context.startActivity(intent)
-                            } else {
-                                // Login thất bại, chuyển sang màn hình login
-                                isAutoLoggingIn = false
-                                navigateToLogin(context)
-                            }
-                        } catch (e: Exception) {
-                            // Có lỗi xảy ra, chuyển sang màn hình login
-                            isAutoLoggingIn = false
-                            navigateToLogin(context)
-                        }
-                    }
+                if (success) {
+                    cachedAccount = storageService.getAccount()
+                    delay(2000)
+                    isAutoLoggingIn = false
                 } else {
-                    // Không có APP_KEY, chuyển sang màn hình login
+                    isAutoLoggingIn = false
+                    delay(500)
                     navigateToLogin(context)
                 }
+            } catch (e: Exception) {
+                isAutoLoggingIn = false
+                delay(500)
+                navigateToLogin(context)
             }
         }
     }
 
-    // Chỉ hiển thị BaseScreen khi đã đăng nhập
-    if (!isAutoLoggingIn && autoLoginAttempted) {
-        BaseScreen(
-            localeHelper = localeHelper,
-            storageService = storageService
-        ) { paddingValues: PaddingValues, account: Account? ->
-            if (account != null) {
-                HomeContent(
-                    account = account,
-                    paymentHelper = paymentHelper,
-                    storageService = storageService,
-                    isNetworkAvailable = isNetworkAvailable,
-                    modifier = Modifier.padding(paddingValues)
-                )
-            } else {
-                // Trường hợp account null sau khi đã login
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
+    // UI Rendering
+    LaunchedEffect(cachedAccount) {
+        if (cachedAccount != null) {
+            screenAlpha = 0f
+            delay(2000)
+            screenAlpha = 1f
         }
     }
-}
 
-@Composable
-fun AutoLoginDialog() {
-    Dialog(
-        onDismissRequest = { },
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
-        )
-    ) {
-        Surface(
-            color = Color.White,
-            shape = RoundedCornerShape(20.dp),
-            shadowElevation = 8.dp,
-            modifier = Modifier.width(300.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Logo
-                Image(
-                    painter = painterResource(id = R.drawable.logo_small),
-                    contentDescription = "Logo",
-                    modifier = Modifier
-                        .height(60.dp)
-                        .fillMaxWidth(),
-                    contentScale = ContentScale.Fit
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Loading indicator với background
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .background(
-                            color = Color(0xFF12B76A).copy(alpha = 0.1f),
-                            shape = androidx.compose.foundation.shape.CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(50.dp),
-                        color = Color(0xFF12B76A),
-                        strokeWidth = 4.dp
+    when {
+        isAutoLoggingIn -> {
+            AutoLoginDialog()
+        }
+        showNetworkDialog -> {
+            NoNetworkDialog(countdown = countdown, onDismiss = { })
+        }
+        cachedAccount != null -> {
+            Box(modifier = Modifier.graphicsLayer(alpha = screenAlpha)) {
+                BaseScreen(
+                    localeHelper = localeHelper,
+                    storageService = storageService
+                ) { paddingValues: PaddingValues, _: Account? ->
+                    HomeContent(
+                        account = cachedAccount!!,
+                        paymentHelper = paymentHelper,
+                        storageService = storageService,
+                        isNetworkAvailable = isNetworkAvailable,
+                        modifier = Modifier.padding(paddingValues)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Title
-                Text(
-                    text = "Đang đăng nhập hệ thống...",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF101828),
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Subtitle
-                Text(
-                    text = "Vui lòng đợi trong giây lát",
-                    fontSize = 14.sp,
-                    color = Color(0xFF667085),
-                    textAlign = TextAlign.Center
-                )
+                GlobalSnackbarHost(snackbarManager = snackbarManager)
+            }
+        }
+        else -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
             }
         }
     }
