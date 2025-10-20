@@ -3,11 +3,18 @@ package com.onefin.posapp.core.utils
 import com.onefin.posapp.core.config.CardConstants
 import com.onefin.posapp.core.models.EvmConfig
 import com.onefin.posapp.core.models.Terminal
+import com.onefin.posapp.core.models.data.EmvCardData
+import com.onefin.posapp.core.models.data.MagneticCardData
 import com.onefin.posapp.core.models.data.PaymentAppRequest
+import com.onefin.posapp.core.models.data.PaymentAppResponse
+import com.onefin.posapp.core.models.data.PaymentResponseData
 import com.onefin.posapp.core.models.data.RequestSale
+import com.onefin.posapp.core.models.data.SaleResultData
+import com.onefin.posapp.core.models.enums.CardBrand
 import com.sunmi.pay.hardware.aidlv2.bean.CapkV2
 import com.sunmi.pay.hardware.aidlv2.bean.EmvTermParamV2
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
+import timber.log.Timber
 import java.util.Locale
 import java.util.UUID
 
@@ -68,15 +75,52 @@ object CardHelper {
         return "TXN${System.currentTimeMillis()}"
     }
 
-    fun extractExpiryFromTrack2(track2: String): String {
-        return try {
-            val parts = track2.split("D", "=")
-            if (parts.size >= 2 && parts[1].length >= 4) {
-                parts[1].substring(0, 4)
-            } else ""
-        } catch (e: Exception) {
-            ""
+
+    fun detectBrand(pan: String): String {
+        if (pan.isEmpty()) return CardBrand.UNKNOWN.displayName
+
+        // Remove spaces and non-digits
+        val cleanPan = pan.replace(Regex("[^0-9]"), "")
+
+        if (cleanPan.length < 6) return CardBrand.UNKNOWN.displayName
+
+        // Get BIN (Bank Identification Number) - first 6-8 digits
+        val bin6 = cleanPan.substring(0, 6)
+        val bin8 = if (cleanPan.length >= 8) cleanPan.substring(0, 8) else bin6
+
+        return when {
+            // NAPAS (Vietnam domestic) - 970xxx
+            bin6.startsWith("970") -> CardBrand.NAPAS.displayName
+
+            // VISA - starts with 4
+            cleanPan.startsWith("4") -> CardBrand.VISA.displayName
+
+            // MasterCard - 51-55, 2221-2720
+            bin6.substring(0, 2) in listOf("51", "52", "53", "54", "55") -> CardBrand.MASTERCARD.displayName
+            bin6.substring(0, 4).toIntOrNull()?.let { it in 2221..2720 } == true -> CardBrand.MASTERCARD.displayName
+
+            // JCB - starts with 35
+            bin6.startsWith("35") -> CardBrand.JCB.displayName
+
+            // American Express - 34, 37
+            bin6.substring(0, 2) in listOf("34", "37") -> CardBrand.AMEX.displayName
+
+            // UnionPay - starts with 62
+            cleanPan.startsWith("62") -> CardBrand.UNIONPAY.displayName
+
+            // Discover - 6011, 622126-622925, 644-649, 65
+            bin6.startsWith("6011") -> CardBrand.DISCOVER.displayName
+            bin8.toIntOrNull()?.let { it in 622126..622925 } == true -> CardBrand.DISCOVER.displayName
+            bin6.substring(0, 3).toIntOrNull()?.let { it in 644..649 } == true -> CardBrand.DISCOVER.displayName
+            bin6.startsWith("65") -> CardBrand.DISCOVER.displayName
+
+            else -> CardBrand.UNKNOWN.displayName
         }
+    }
+
+
+    fun validatePAN(pan: String): Boolean {
+        return pan.isNotEmpty() && pan.length in 13..19 && pan.all { it.isDigit() }
     }
 
     fun setEmvTlvs(emv: EMVOptV2, terminal: Terminal?) {
@@ -156,6 +200,125 @@ object CardHelper {
         emv.setTlvList(CardConstants.OP_NORMAL, globalTags, globalValues)
     }
 
+
+
+    fun parseEmvData(emvData: String): EmvCardData? {
+        try {
+            if (emvData.isEmpty()) return null
+
+            // Parse TLV để lấy tags map
+            val tags = parseEmvTlv(emvData)
+
+            Timber.d("🔍 Parsing EMV data, found tags: ${tags.keys.joinToString()}")
+
+            // 🔥 Strategy 1: Try Tag 5A for PAN
+            var pan = tags["5A"] ?: ""
+
+            // 🔥 Strategy 2: Try Tag 5F24 for expiry (format YYMMDD)
+            var expiry = tags["5F24"]?.let { exp ->
+                if (exp.length >= 4) {
+                    val yy = exp.substring(0, 2)
+                    val mm = exp.substring(2, 4)
+
+                    // Validate month
+                    val monthInt = mm.toIntOrNull()
+                    if (monthInt == null || monthInt < 1 || monthInt > 12) {
+                        Timber.w("Invalid month in Tag 5F24: $mm")
+                        return@let null
+                    }
+
+                    "$mm$yy"  // Convert YYMM → MMyy
+                } else {
+                    Timber.w("Tag 5F24 too short: $exp")
+                    null
+                }
+            }
+
+            // 🔥 Fallback: Parse from Tag 57 (Track 2 Equivalent) if needed
+            if (pan.isEmpty() || expiry == null) {
+                tags["57"]?.let { track2Hex ->
+                    val track2Data = parseTrack2FromHex(track2Hex)
+                    if (track2Data != null) {
+                        if (pan.isEmpty()) {
+                            pan = track2Data.pan
+                            Timber.d("📌 PAN from Tag 57: ****${pan.takeLast(4)}")
+                        }
+                        if (expiry == null) {
+                            expiry = track2Data.expiry
+                            Timber.d("📌 Expiry from Tag 57: $expiry")
+                        }
+                    }
+                }
+            }
+
+            // Validate we got the data
+            if (pan.isEmpty()) {
+                Timber.w("Cannot extract PAN from EMV data")
+                return null
+            }
+
+            if (expiry == null || expiry.isEmpty()) {
+                Timber.w("Cannot extract expiry from EMV data")
+                return null
+            }
+
+            Timber.d("✅ Parsed EMV: PAN=****${pan.takeLast(4)}, Expiry=$expiry (format: MMyy)")
+
+            return EmvCardData(pan, expiry)
+
+        } catch (e: Exception) {
+            Timber.e(e, "Error parsing EMV data")
+            return null
+        }
+    }
+    fun parseMagneticTrack2(track2: String): MagneticCardData? {
+        try {
+            val parts = track2.split("=", "D", "d")
+            if (parts.isEmpty()) return null
+
+            val pan = parts[0].trim()
+
+            if (pan.length < 13 || pan.length > 19 || !pan.all { it.isDigit() }) {
+                return null
+            }
+
+            // 🔥 FIX: Convert YYMM → MMyy
+            val expiry = if (parts.size > 1 && parts[1].length >= 4) {
+                val yymmFromTrack = parts[1].substring(0, 4)  // "2512" = YY=25, MM=12
+
+                // Validate
+                if (!yymmFromTrack.all { it.isDigit() }) {
+                    Timber.w("Invalid expiry format in track2: $yymmFromTrack")
+                    return null
+                }
+
+                val yy = yymmFromTrack.substring(0, 2)  // "25"
+                val mm = yymmFromTrack.substring(2, 4)  // "12"
+
+                // Validate month
+                val monthInt = mm.toIntOrNull()
+                if (monthInt == null || monthInt < 1 || monthInt > 12) {
+                    Timber.w("Invalid month in expiry: $mm")
+                    return null
+                }
+
+                "$mm$yy"  // ← Convert to MMyy: "1225"
+            } else {
+                Timber.w("Expiry data not found in track2")
+                ""
+            }
+
+            // Log để verify
+            Timber.d("🔍 Parsed expiry: $expiry (format: MMyy)")
+
+            return MagneticCardData(pan, expiry)
+
+        } catch (e: Exception) {
+            Timber.e(e, "Error parsing track2")
+            return null
+        }
+    }
+
     fun createTerminalParam(config: EvmConfig? = null): EmvTermParamV2 {
         return EmvTermParamV2().apply {
             capability = config?.terminalCap9F33 ?: "E0F8C8"
@@ -168,7 +331,6 @@ object CardHelper {
             TTQ = "26000080"
         }
     }
-
     fun buildRequestSale(request: PaymentAppRequest, card: RequestSale.Data.Card): RequestSale {
         val mode = getCardMode(card.type)
         val amount = request.merchantRequestData?.amount ?: 0
@@ -206,6 +368,33 @@ object CardHelper {
                 )
             )
         )
+    }
+
+    fun returnSaleResponse(saleResult: SaleResultData, originalRequest: PaymentAppRequest): PaymentAppResponse {
+
+        val additionalData = buildAdditionalData(saleResult)
+        val paymentResponseData = PaymentResponseData(
+            refNo = saleResult.data?.refNo,
+            additionalData = additionalData,
+            tip = saleResult.requestData?.tip,
+            tid = saleResult.requestData?.tid,
+            mid = saleResult.requestData?.mid,
+            description = saleResult.status?.message,
+            status = saleResult.status?.code ?: "99",
+            transactionId = saleResult.header?.transId,
+            billNumber = saleResult.requestData?.billNumber,
+            referenceId = saleResult.requestData?.referenceId,
+            transactionTime = saleResult.header?.transmitsDateTime,
+            amount = saleResult.data?.totalAmount?.toLongOrNull() ?: 0,
+            ccy = saleResult.data?.currency ?: saleResult.requestData?.currency,
+        )
+
+        val response = PaymentAppResponse(
+            type = originalRequest.type,
+            action = originalRequest.action,
+            paymentResponseData = paymentResponseData
+        )
+        return response
     }
 
     private fun getCardMode(cardType: String?): String {
@@ -289,5 +478,97 @@ object CardHelper {
             config.tacDefault, config.tacDenial, config.tacOnline
         )
         emv.setTlvList(CardConstants.OP_EXPRESSPAY, tags, values)
+    }
+
+    private fun parseTrack2FromHex(track2Hex: String): EmvCardData? {
+        try {
+            // Convert hex to ASCII
+            val track2String = if (track2Hex.contains('D', ignoreCase = true) || track2Hex.contains('=')) {
+                track2Hex  // Đã là ASCII
+            } else {
+                // Convert từ hex
+                track2Hex.chunked(2)
+                    .mapNotNull {
+                        try {
+                            it.toInt(16).toChar()
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    .joinToString("")
+                    .replace(Regex("[\u0000-\u001F\u007F-\u009F]"), "")
+            }
+
+            // Split by separator
+            val parts = track2String.split('D', '=', 'd')
+            if (parts.size < 2) return null
+
+            val pan = parts[0].trim()
+            if (pan.length < 13 || pan.length > 19 || !pan.all { it.isDigit() }) {
+                return null
+            }
+
+            val secondPart = parts[1]
+            if (secondPart.length < 4) return null
+
+            val yymmFromTrack = secondPart.substring(0, 4)
+            if (!yymmFromTrack.all { it.isDigit() }) return null
+
+            val yy = yymmFromTrack.substring(0, 2)
+            val mm = yymmFromTrack.substring(2, 4)
+
+            val monthInt = mm.toIntOrNull()
+            if (monthInt == null || monthInt < 1 || monthInt > 12) {
+                return null
+            }
+
+            val expiry = "$mm$yy"
+
+            return EmvCardData(pan, expiry)
+
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
+    private fun buildAdditionalData(saleResult: SaleResultData): Map<String, Any> {
+        val data = mutableMapOf<String, Any>()
+
+        // Data section
+        saleResult.data?.let { d ->
+            d.emv?.let { data["emv"] = it }
+            d.refNo?.let { data["refNo"] = it }
+            d.batchNo?.let { data["batchNo"] = it }
+            d.traceNo?.let { data["traceNo"] = it }
+            d.currency?.let { data["currency"] = it }
+            d.cardBrand?.let { data["cardBrand"] = it }
+            d.cardHolder?.let { data["cardHolder"] = it }
+            d.cardNumber?.let { data["cardNumber"] = it }
+            d.totalAmount?.let { data["totalAmount"] = it }
+            d.approveCode?.let { data["approveCode"] = it }
+            d.isoResponseCode?.let { data["isoResponseCode"] = it }
+        }
+
+        // Header section
+        saleResult.header?.let { h ->
+            h.transId?.let { data["transId"] = it }
+            h.provider?.let { data["provider"] = it }
+            h.transType?.let { data["transType"] = it }
+            h.terminalId?.let { data["terminalId"] = it }
+            h.merchantId?.let { data["merchantId"] = it }
+            h.merchantTransId?.let { data["merchantTransId"] = it }
+            h.transmitsDateTime?.let { data["transmitsDateTime"] = it }
+        }
+
+        // Request ID
+        saleResult.requestId?.let { data["requestId"] = it }
+
+        // Status
+        saleResult.status?.let { s ->
+            s.code?.let { data["statusCode"] = it }
+            s.message?.let { data["statusMessage"] = it }
+        }
+
+        return data
     }
 }

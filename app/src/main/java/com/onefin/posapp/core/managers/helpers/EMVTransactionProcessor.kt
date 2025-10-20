@@ -2,11 +2,11 @@ package com.onefin.posapp.core.managers.helpers
 
 import android.os.Bundle
 import com.onefin.posapp.core.config.CardConstants
-import com.onefin.posapp.core.models.CardType
 import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.models.data.RequestSale
+import com.onefin.posapp.core.models.enums.CardType
 import com.onefin.posapp.core.utils.CardHelper
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
 import timber.log.Timber

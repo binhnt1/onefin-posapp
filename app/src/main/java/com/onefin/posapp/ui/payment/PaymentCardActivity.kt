@@ -345,15 +345,41 @@ suspend fun processPayment(
     Timber.tag("Payment").d("Processing payment:")
     return try {
         // Convert RequestSale thành Map
-        val requestMap = gson.fromJson<Map<String, Any>>(
-            gson.toJson(requestSale),
-            object : com.google.gson.reflect.TypeToken<Map<String, Any>>() {}.type
+        val requestBody = mapOf(
+            "data" to mapOf(
+                "card" to mapOf(
+                    "ksn" to requestSale.data.card.ksn,
+                    "pin" to requestSale.data.card.pin,
+                    "type" to requestSale.data.card.type,
+                    "mode" to requestSale.data.card.mode,
+                    "newPin" to requestSale.data.card.newPin,
+                    "track1" to requestSale.data.card.track1,
+                    "track2" to requestSale.data.card.track2,
+                    "track3" to requestSale.data.card.track3,
+                    "emvData" to requestSale.data.card.emvData,
+                    "clearPan" to requestSale.data.card.clearPan,
+                    "expiryDate" to requestSale.data.card.expiryDate
+                ),
+                "device" to mapOf(
+                    "posEntryMode" to requestSale.data.device.posEntryMode,
+                    "posConditionCode" to requestSale.data.device.posConditionCode
+                ),
+                "payment" to mapOf(
+                    "currency" to requestSale.data.payment.currency,
+                    "transAmount" to requestSale.data.payment.transAmount
+                ),
+                "bank" to requestSale.data.bank,
+            ),
+            "requestData" to mapOf(
+                "type" to requestSale.requestData.type,
+                "action" to requestSale.requestData.action,
+                "merchant_request_data" to Gson().toJson(requestSale.requestData.merchantRequestData)
+            ),
+            "requestId" to requestSale.requestId,
         )
-        Timber.tag("Payment").d("RequestMap: $requestMap")
-
 
         // Gọi API /api/card/sale
-        val resultApi = apiService.post("/api/card/sale", requestMap) as ResultApi<*>
+        val resultApi = apiService.post("/api/card/sale", requestBody) as ResultApi<*>
 
         // Parse response nếu cần
         val saleResponse = gson.fromJson(

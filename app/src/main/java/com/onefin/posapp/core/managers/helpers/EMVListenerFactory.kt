@@ -1,9 +1,9 @@
 package com.onefin.posapp.core.managers.helpers
 
-import com.onefin.posapp.core.models.CardType
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.models.data.RequestSale
+import com.onefin.posapp.core.models.enums.CardType
 import com.onefin.posapp.core.utils.CardHelper
 import com.sunmi.pay.hardware.aidlv2.bean.EMVCandidateV2
 import com.sunmi.pay.hardware.aidlv2.emv.EMVListenerV2
@@ -219,22 +219,33 @@ class EMVListenerFactory(
                 )
                 return
             }
+            val cardData = CardHelper.parseEmvData(tlvHex)
+            if (cardData == null) {
+                callback.onError(
+                    PaymentResult.Error.from(
+                        errorType = PaymentErrorHandler.ErrorType.EMV_DATA_INVALID,
+                        technicalMessage = "Cannot extract card data from EMV"
+                    )
+                )
+                return
+            }
 
+            val pan = tags["5A"] ?: ""
             val requestSale = CardHelper.buildRequestSale(
                 request,
                 RequestSale.Data.Card(
                     emvData = tlvHex,
+                    clearPan = cardData.pan,
                     track2 = tags["57"] ?: "",
-                    type = cardType.toString(),
-                    clearPan = tags["5A"] ?: "",
-                    expiryDate = tags["5F24"] ?: "",
+                    mode = cardType.displayName,
+                    expiryDate = cardData.expiry,
+                    type = CardHelper.detectBrand(pan),
                 )
             )
 
             callback.onSuccess(requestSale)
 
         } catch (e: Exception) {
-            // 🔥 CHANGED: Use ErrorType for exceptions
             Timber.e(e, "Error reading EMV data")
             callback.onError(
                 PaymentResult.Error.from(

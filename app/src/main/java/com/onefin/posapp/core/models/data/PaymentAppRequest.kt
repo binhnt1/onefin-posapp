@@ -52,3 +52,13 @@ data class MerchantRequestData(
     @SerializedName("additional_data")
     val additionalData: Map<String, Any>? = null
 ): Serializable
+
+data class MagneticCardData(
+    val pan: String,
+    val expiry: String
+)
+
+data class EmvCardData(
+    val pan: String,
+    val expiry: String
+)

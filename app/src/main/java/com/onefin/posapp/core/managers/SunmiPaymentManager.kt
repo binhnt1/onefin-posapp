@@ -8,7 +8,6 @@ import com.onefin.posapp.core.managers.helpers.EMVTransactionProcessor
 import com.onefin.posapp.core.managers.helpers.PaymentErrorHandler
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentResult
-import com.onefin.posapp.core.models.data.RequestSale
 import com.onefin.posapp.core.services.StorageService
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
 import com.sunmi.pay.hardware.aidlv2.readcard.ReadCardOptV2
@@ -36,11 +35,8 @@ class SunmiPaymentManager(
 
     private var currentPaymentAppRequest: PaymentAppRequest? = null
     private var currentAmount: String = "0"
-
-    // 🔥 CHANGED: Single callback instead of separate onCardRead/onError
     private var currentOnResult: ((PaymentResult) -> Unit)? = null
 
-    // 🔥 CHANGED: Callback signature to use PaymentResult.Error
     fun initialize(onReady: () -> Unit, onError: (PaymentResult.Error) -> Unit) {
         try {
             if (isConnected && readCardOpt != null) {
@@ -56,7 +52,6 @@ class SunmiPaymentManager(
                         emvOpt = payKernel?.mEMVOptV2
 
                         if (readCardOpt == null) {
-                            // 🔥 CHANGED: Use PaymentResult.Error
                             onError(
                                 PaymentResult.Error.from(
                                     errorType = PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
@@ -74,7 +69,6 @@ class SunmiPaymentManager(
                         onReady()
                     } catch (e: Exception) {
                         Timber.e(e, "Error in onConnectPaySDK")
-                        // 🔥 CHANGED: Use PaymentResult.Error
                         onError(
                             PaymentResult.Error.from(
                                 errorType = PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
@@ -91,7 +85,6 @@ class SunmiPaymentManager(
             })
         } catch (e: Exception) {
             Timber.e(e, "Failed to init PaySDK")
-            // 🔥 CHANGED: Use PaymentResult.Error
             onError(
                 PaymentResult.Error.from(
                     errorType = PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
@@ -101,13 +94,11 @@ class SunmiPaymentManager(
         }
     }
 
-    // 🔥 MAJOR CHANGE: New signature with single callback
     fun startReadCard(
         paymentAppRequest: PaymentAppRequest,
         onResult: (PaymentResult) -> Unit
     ) {
         if (!isConnected || readCardOpt == null) {
-            // 🔥 CHANGED: Return PaymentResult.Error
             onResult(
                 PaymentResult.Error.from(
                     errorType = PaymentErrorHandler.ErrorType.SERVICE_NOT_CONNECTED
@@ -156,96 +147,19 @@ class SunmiPaymentManager(
             listenerFactory = listenerFactory!!
         )
 
+        // 🔥 CHANGED: Pass emvProcessor to CardReaderHandler
         cardReaderHandler = CardReaderHandler(
             readCardOpt = readCardOpt!!,
+            emvProcessor = emvProcessor,  // ← Now CardReaderHandler can handle EMV
             callback = createCardReaderCallback()
         )
     }
 
-    // 🔥 CHANGED: Updated callback implementation
+    // 🔥 SIMPLIFIED: Only ONE callback method!
     private fun createCardReaderCallback(): CardReaderHandler.CardReaderCallback {
         return object : CardReaderHandler.CardReaderCallback {
-
-            override fun onMagneticCardRead(requestSale: RequestSale) {
-                // 🔥 CHANGED: Return Success result
-                currentOnResult?.invoke(PaymentResult.Success(requestSale))
-            }
-
-            override fun onChipCardDetected() {
-                processChipCard()
-            }
-
-            override fun onContactlessCardDetected(ats: String) {
-                processContactlessCard()
-            }
-
-            // 🔥 CHANGED: Signature changed to PaymentResult.Error
-            override fun onError(error: PaymentResult.Error) {
-                currentOnResult?.invoke(error)
-            }
-        }
-    }
-
-    private fun processChipCard() {
-        val processor = emvProcessor ?: run {
-            // 🔥 CHANGED: Use PaymentResult.Error
-            currentOnResult?.invoke(
-                PaymentResult.Error.from(
-                    errorType = PaymentErrorHandler.ErrorType.EMV_PROCESSOR_NOT_INITIALIZED
-                )
-            )
-            return
-        }
-
-        val paymentAppRequest = currentPaymentAppRequest ?: run {
-            // 🔥 CHANGED: Use PaymentResult.Error
-            currentOnResult?.invoke(
-                PaymentResult.Error.from(
-                    errorType = PaymentErrorHandler.ErrorType.PAYMENT_REQUEST_NOT_INITIALIZED
-                )
-            )
-            return
-        }
-
-        processor.setTransactionContext(paymentAppRequest, currentAmount)
-        processor.processContact(createTransactionCallback())
-    }
-
-    private fun processContactlessCard() {
-        val processor = emvProcessor ?: run {
-            // 🔥 CHANGED: Use PaymentResult.Error
-            currentOnResult?.invoke(
-                PaymentResult.Error.from(
-                    errorType = PaymentErrorHandler.ErrorType.EMV_PROCESSOR_NOT_INITIALIZED
-                )
-            )
-            return
-        }
-
-        val paymentAppRequest = currentPaymentAppRequest ?: run {
-            // 🔥 CHANGED: Use PaymentResult.Error
-            currentOnResult?.invoke(
-                PaymentResult.Error.from(
-                    errorType = PaymentErrorHandler.ErrorType.PAYMENT_REQUEST_NOT_INITIALIZED
-                )
-            )
-            return
-        }
-
-        processor.setTransactionContext(paymentAppRequest, currentAmount)
-        processor.processContactless(createTransactionCallback())
-    }
-
-    // 🔥 CHANGED: Updated callback to use PaymentResult
-    private fun createTransactionCallback(): EMVTransactionProcessor.TransactionCallback {
-        return object : EMVTransactionProcessor.TransactionCallback {
-            override fun onSuccess(requestSale: RequestSale) {
-                currentOnResult?.invoke(PaymentResult.Success(requestSale))
-            }
-
-            // 🔥 CHANGED: Signature changed to PaymentResult.Error
-            override fun onError(error: PaymentResult.Error) {
-                currentOnResult?.invoke(error)
+            override fun onPaymentComplete(result: PaymentResult) {
+                currentOnResult?.invoke(result)
             }
         }
     }
