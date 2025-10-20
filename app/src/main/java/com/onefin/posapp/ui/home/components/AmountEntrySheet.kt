@@ -38,13 +38,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.onefin.posapp.R
+import com.onefin.posapp.core.models.data.MerchantRequestData
 import com.onefin.posapp.core.models.data.PaymentAction
-import com.onefin.posapp.core.models.data.PaymentRequest
-import com.onefin.posapp.core.models.data.PaymentRequestType
+import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.PaymentHelper
 import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.ui.home.QRCodeDisplayActivity
+import com.onefin.posapp.ui.payment.PaymentCardActivity
 import com.onefin.posapp.ui.transaction.TransparentPaymentActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,14 +55,14 @@ fun AmountEntrySheet(
     paymentHelper: PaymentHelper,
     storageService: StorageService
 ) {
+    val context = LocalContext.current
     var amountText by remember { mutableStateOf("") }
     var isProcessing by remember { mutableStateOf(false) }
     var loadingButtonType by remember { mutableStateOf<String?>(null) }
-    val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val formattedAmount = remember(amountText) {
-        UtilHelper.formatCurrency(amountText)
+        UtilHelper.formatCurrency(amountText, "đ")
     }
 
     val amountValue = remember(amountText) {
@@ -119,6 +120,7 @@ fun AmountEntrySheet(
                         tint = Color(0xFF667085)
                     )
                 }
+
             }
 
             HorizontalDivider(thickness = 1.dp, color = Color(0xFFEAECF0))
@@ -191,20 +193,24 @@ fun AmountEntrySheet(
                                     loadingButtonType = "CARD"
                                     val account = storageService.getAccount()
                                     if (account != null) {
-                                        val paymentRequest = PaymentRequest(
-                                            amount = amountValue,
-                                            actionValue = PaymentAction.SALE,
-                                            typeValue = PaymentRequestType.CARD,
+                                        val paymentRequest = PaymentAppRequest(
+                                            type = "card",
+                                            action = PaymentAction.SALE.value,
+                                            merchantRequestData = MerchantRequestData(
+                                                amount = amountValue
+                                            )
                                         )
-                                        val requestData = paymentHelper.buildPaymentAppRequest(account, paymentRequest)
+                                        val paymentRequestData = paymentHelper.createPaymentAppRequest(account, paymentRequest)
                                         val intent = Intent(context, TransparentPaymentActivity::class.java).apply {
-                                            putExtra("REQUEST_DATA", requestData)
+                                            putExtra("REQUEST_DATA", paymentRequestData)
                                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                         }
                                         context.startActivity(intent)
+                                        onDismiss()
+                                    } else {
+                                        isProcessing = false
+                                        loadingButtonType = null
                                     }
-                                    isProcessing = false
-                                    loadingButtonType = null
                                 }
                             },
                             isPrimary = true,
@@ -221,20 +227,24 @@ fun AmountEntrySheet(
                                     loadingButtonType = "QR"
                                     val account = storageService.getAccount()
                                     if (account != null) {
-                                        val paymentRequest = PaymentRequest(
-                                            amount = amountValue,
-                                            actionValue = PaymentAction.SALE,
-                                            typeValue = PaymentRequestType.QR,
+                                        val paymentRequest = PaymentAppRequest(
+                                            type = "card",
+                                            action = PaymentAction.SALE.value,
+                                            merchantRequestData = MerchantRequestData(
+                                                amount = amountValue
+                                            )
                                         )
-                                        val requestData = paymentHelper.buildPaymentAppRequest(account, paymentRequest)
+                                        val paymentRequestData = paymentHelper.createPaymentAppRequest(account, paymentRequest)
                                         val intent = Intent(context, QRCodeDisplayActivity::class.java).apply {
-                                            putExtra("REQUEST_DATA", requestData)
+                                            putExtra("REQUEST_DATA", paymentRequestData)
                                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                         }
                                         context.startActivity(intent)
+                                        onDismiss()
+                                    } else {
+                                        isProcessing = false
+                                        loadingButtonType = null
                                     }
-                                    isProcessing = false
-                                    loadingButtonType = null
                                 }
                             },
                             enabled = isValidAmount && !isProcessing,
@@ -251,20 +261,24 @@ fun AmountEntrySheet(
                                 loadingButtonType = "MEMBER"
                                 val account = storageService.getAccount()
                                 if (account != null) {
-                                    val paymentRequest = PaymentRequest(
-                                        amount = amountValue,
-                                        actionValue = PaymentAction.SALE,
-                                        typeValue = PaymentRequestType.MEMBER,
+                                    val paymentRequest = PaymentAppRequest(
+                                        type = "member",
+                                        action = PaymentAction.SALE.value,
+                                        merchantRequestData = MerchantRequestData(
+                                            amount = amountValue
+                                        )
                                     )
-                                    val requestData = paymentHelper.buildPaymentAppRequest(account, paymentRequest)
+                                    val paymentRequestData = paymentHelper.createPaymentAppRequest(account, paymentRequest)
                                     val intent = Intent(context, TransparentPaymentActivity::class.java).apply {
-                                        putExtra("REQUEST_DATA", requestData)
+                                        putExtra("REQUEST_DATA", paymentRequestData)
                                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                     }
                                     context.startActivity(intent)
+                                    onDismiss()
+                                } else {
+                                    isProcessing = false
+                                    loadingButtonType = null
                                 }
-                                isProcessing = false
-                                loadingButtonType = null
                             }
                         },
                         enabled = isValidAmount && !isProcessing,

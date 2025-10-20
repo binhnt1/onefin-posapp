@@ -16,7 +16,7 @@ data class ReportItem(
     val amount: Long
 ) {
     fun getFormattedAmount(): String {
-        return "${UtilHelper.formatCurrency(amount.toString())}đ"
+        return UtilHelper.formatCurrency(amount.toString(), "đ")
     }
 
     fun getTransactionCountText(context: Context): String {

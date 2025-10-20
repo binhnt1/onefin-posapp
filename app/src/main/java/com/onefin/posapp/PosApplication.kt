@@ -12,6 +12,14 @@ import com.onefin.posapp.core.utils.DeviceHelper
 import com.onefin.posapp.core.utils.PaymentHelper
 import com.sunmi.peripheral.printer.SunmiPrinterService
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -37,6 +45,10 @@ class PosApplication : Application() {
     var sunmiPrinterService: SunmiPrinterService? = null
         private set
 
+    @Volatile
+    private var isPrinterServiceBound = false
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     private val printerServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             sunmiPrinterService = SunmiPrinterService.Stub.asInterface(service)
@@ -50,23 +62,67 @@ class PosApplication : Application() {
     }
 
     override fun onCreate() {
+        val appStartTime = System.currentTimeMillis()
         super.onCreate()
 
-        bindSerial()
+        registerActivityLifecycleCallbacks(activityTracker)
 
-        // Bind printer service
-        bindPrinterService()
+        val criticalPathDuration = System.currentTimeMillis() - appStartTime
+        Timber.tag("Performance").d("🚀 Critical path: ${criticalPathDuration}ms")
 
-        // Nếu user đã login, khởi động RabbitMQ
-        if (storageService.isLoggedIn()) {
-            rabbitMQManager.startAfterLogin()
+        // Background init
+        initializeBackgroundServices()
+    }
+
+    override fun onTerminate() {
+        super.onTerminate()
+
+        // Cleanup
+        runBlocking {
+            applicationScope.cancel()
+            applicationScope.coroutineContext.job.join()
         }
 
-        // Gọi initSDK
-        paymentHelper.initSDK(this)
+        if (isPrinterServiceBound) {
+            try {
+                unbindService(printerServiceConnection)
+                isPrinterServiceBound = false
+                Timber.tag("PosApp").d("✅ Printer service unbound")
+            } catch (e: Exception) {
+                Timber.tag("PosApp").e(e, "❌ Unbind error")
+            }
+        }
+    }
 
-        // Đăng ký ActivityTracker để theo dõi Activity hiện tại
-        registerActivityLifecycleCallbacks(activityTracker)
+    private fun initializeBackgroundServices() {
+        applicationScope.launch {
+            // Wave 1: 500ms
+            delay(500)
+            launch(Dispatchers.IO) {
+                bindPrinterService()
+            }
+
+            // Wave 2: 1500ms - PAYMENT SDK
+            delay(1000)
+            launch(Dispatchers.IO) {
+                try {
+                    val startTime = System.currentTimeMillis()
+                    paymentHelper.initSDK(this@PosApplication)
+                    val duration = System.currentTimeMillis() - startTime
+                    Timber.tag("Performance").d("✅ Payment SDK: ${duration}ms")
+                } catch (e: Exception) {
+                    Timber.tag("PosApp").e(e, "❌ Payment SDK failed")
+                }
+            }
+
+            // Wave 3: 2500ms - RabbitMQ
+            delay(1000)
+            launch(Dispatchers.IO) {
+                if (storageService.isLoggedIn()) {
+                    rabbitMQManager.startAfterLogin()
+                }
+            }
+        }
     }
 
     private fun bindSerial() {
@@ -75,15 +131,6 @@ class PosApplication : Application() {
             storageService.saveSerial(deviceSerial)
     }
 
-    override fun onTerminate() {
-        super.onTerminate()
-        try {
-            unbindService(printerServiceConnection)
-            Timber.tag("PosApplication").d("Printer service unbound")
-        } catch (e: Exception) {
-            Timber.tag("PosApplication").e(e, "Error unbinding printer service")
-        }
-    }
     private fun bindPrinterService() {
         try {
             val intent = Intent()

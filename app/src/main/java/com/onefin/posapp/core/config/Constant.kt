@@ -41,3 +41,21 @@ object RabbitConstants {
     const val EXCHANGE_NAME = "Pos_App_Service"
     const val RECONNECT_DELAY = 5000L
 }
+
+object CardConstants {
+    // Card detection types (cho ReadCardOptV2.checkCard)
+    const val CARD_TYPE_MAGNETIC = 0x01
+    const val CARD_TYPE_IC = 0x02
+    const val CARD_TYPE_NFC = 0x04
+    const val CARD_TYPE_ALL = CARD_TYPE_MAGNETIC or CARD_TYPE_IC or CARD_TYPE_NFC
+
+    // EMV Kernel OpCodes (theo Sunmi PaySDK AIDL v2)
+    const val OP_NORMAL = 0        // Global terminal parameters
+    const val OP_PAYPASS = 1       // Mastercard contactless (M/Chip)
+    const val OP_PAYWAVE = 2       // Visa contactless (payWave)
+    const val OP_QPBOC = 3         // UnionPay contactless (QuickPass)
+    const val OP_EXPRESSPAY = 4    // Amex contactless
+    const val OP_DPAS = 5          // Discover contactless (D-PAS)
+    const val OP_JSPEEDY = 6       // JCB contactless (J/Speedy)
+    const val OP_PURE = 7          // Pure contactless (nếu có)
+}

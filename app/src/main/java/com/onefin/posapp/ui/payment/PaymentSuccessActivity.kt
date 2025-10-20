@@ -173,7 +173,7 @@ fun PaymentSuccessScreen(
 
                 // Amount
                 Text(
-                    text = "${UtilHelper.formatCurrency(paymentData.amount.toString())}đ",
+                    text = UtilHelper.formatCurrency(paymentData.amount.toString(), "đ"),
                     fontSize = 48.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF12B76A),

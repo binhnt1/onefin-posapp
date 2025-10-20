@@ -352,12 +352,8 @@ class PrinterHelper(private val context: Context) {
         }
     }
 
-    fun formatCurrency(amount: Long): String {
-        return String.format("%,d", amount).replace(",", ".") + "đ"
-    }
-
     fun formatCurrencyWithPadding(amount: Long, width: Int = 12): String {
-        val formatted = formatCurrency(amount)
+        val formatted = UtilHelper.formatCurrency(amount, "đ")
         return formatted.padStart(width)
     }
 

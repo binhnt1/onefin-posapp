@@ -128,6 +128,10 @@ data class Transaction(
         }
     }
 
+    fun getFormattedAmount(): String {
+        return UtilHelper.formatCurrency(totalTransAmt, "đ")
+    }
+
     fun getStatusInfo(context: Context): StatusInfo {
         return when (processStatus) {
             -1 -> StatusInfo(
@@ -151,11 +155,6 @@ data class Transaction(
                 backgroundColor = Color(0xFFF3F4F6)
             )
         }
-    }
-
-    fun getFormattedAmount(): String {
-        val formatter = UtilHelper.formatCurrency(totalTransAmt)
-        return "${formatter.format(totalTransAmt)}đ"
     }
 
     fun getReceiptStatusInfo(context: Context): StatusInfo {

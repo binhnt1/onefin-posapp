@@ -41,7 +41,7 @@ fun ReportSummary(
         Text(
             text = context.getString(
                 R.string.report_total_amount,
-                UtilHelper.formatCurrency(totalAmount.toString())
+                UtilHelper.formatCurrency(totalAmount.toString(), "đ")
             ),
             fontSize = 32.sp,
             fontWeight = FontWeight.Bold,

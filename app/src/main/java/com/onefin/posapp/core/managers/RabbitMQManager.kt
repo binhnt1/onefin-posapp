@@ -3,10 +3,8 @@ package com.onefin.posapp.core.managers
 import android.content.Context
 import android.content.Intent
 import com.google.gson.Gson
-import com.onefin.posapp.core.models.data.PaymentAction
+import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentAppResponse
-import com.onefin.posapp.core.models.data.PaymentRequest
-import com.onefin.posapp.core.models.data.PaymentRequestType
 import com.onefin.posapp.core.models.data.PaymentResponseData
 import com.onefin.posapp.core.models.data.PaymentStatusCode
 import com.onefin.posapp.core.models.data.PaymentSuccessData
@@ -138,57 +136,19 @@ class RabbitMQManager @Inject constructor(
                 // Parse thông tin từ jsonObject (nếu có)
                 var transactionId: String? = null
                 var transactionTime: String? = null
-                var refNo: String? = null
-                var additionalData: Map<String, Any>? = null
 
                 if (!jsonObject.isNullOrEmpty()) {
                     try {
                         val json = JSONObject(jsonObject)
-                        refNo = json.optString("TransactionId", null)
-                        transactionId = json.optString("TransactionId", null)
-                        transactionTime = json.optString("TransactionTime", null)
-
-                        // Parse additional data nếu có
-                        val additionalMap = mutableMapOf<String, Any>()
-                        json.keys().forEach { key ->
-                            if (key !in listOf("TransactionId", "TransactionTime", "RefNo")) {
-                                json.opt(key)?.let { value ->
-                                    additionalMap[key] = value
-                                }
-                            }
-                        }
-                        if (additionalMap.isNotEmpty()) {
-                            additionalData = additionalMap
-                        }
+                        transactionId = json.optString("TransactionId")
+                        transactionTime = json.optString("TransactionTime") ?: notify.dateTime
                     } catch (e: Exception) {
-                        Timber.tag(TAG).e(e, "Error parsing jsonObject")
                     }
                 }
-
-                // Tạo response từ thông tin request đã lưu + thông tin từ QR success
-                val responseData = PaymentResponseData(
-                    refNo = refNo,
-                    transactionId = transactionId,
-                    additionalData = additionalData,
-                    status = PaymentStatusCode.SUCCESS,
-                    description = "Thanh toán thành công",
-                    tip = pendingRequest.merchantRequestData.tip,
-                    tid = pendingRequest.merchantRequestData.tid,
-                    mid = pendingRequest.merchantRequestData.mid,
-                    ccy = pendingRequest.merchantRequestData.ccy,
-                    amount = pendingRequest.merchantRequestData.amount,
-                    transactionTime = transactionTime ?: notify.dateTime,
-                    billNumber = pendingRequest.merchantRequestData.billNumber,
-                    referenceId = pendingRequest.merchantRequestData.referenceId,
-                )
-
-                val response = PaymentAppResponse(
-                    type = pendingRequest.type,
-                    action = pendingRequest.action,
-                    paymentResponseData = responseData
-                )
+                val response = paymentHelper.createPaymentAppResponseSuccess(pendingRequest, transactionId, transactionTime)
 
                 // Return về external app
+                snackbarManager.showFromRabbitNotify(notify)
                 if (activityTracker.isActivityOfType(QRCodeDisplayActivity::class.java)) {
                     val activity = activityTracker.getCurrentActivity()
                     val resultIntent = Intent().apply {
@@ -205,17 +165,15 @@ class RabbitMQManager @Inject constructor(
                 // Không tìm thấy pending request
                 Timber.tag(TAG).w("No pending request found for external payment")
                 storageService.clearExternalPaymentContext()
-
                 val errorResponse = PaymentAppResponse(
                     type = "qr",
                     action = 1,
                     paymentResponseData = PaymentResponseData(
+                        isSign = false,
                         status = PaymentStatusCode.ERROR,
                         description = "Không tìm thấy thông tin giao dịch",
-                        isSign = false
                     )
                 )
-
                 if (activityTracker.isActivityOfType(QRCodeDisplayActivity::class.java)) {
                     val activity = activityTracker.getCurrentActivity()
                     val resultIntent = Intent().apply {
@@ -259,8 +217,6 @@ class RabbitMQManager @Inject constructor(
                 Timber.tag(TAG).e(e, "Error parsing QR success data")
             }
         }
-
-        snackbarManager.showFromRabbitNotify(notify)
     }
     private fun handlePaymentRequest(notify: RabbitNotify) {
         val paymentJson = notify.jsonObject
@@ -268,22 +224,16 @@ class RabbitMQManager @Inject constructor(
             return
 
         try {
-            val paymentRequest = gson.fromJson(paymentJson, PaymentRequest::class.java)
-            when (paymentRequest.type) {
-                PaymentRequestType.QR -> {
-                    paymentRequest.actionValue = PaymentAction.SALE
+            val paymentRequest = gson.fromJson(paymentJson, PaymentAppRequest::class.java)
+            when (paymentRequest.type.lowercase()) {
+                "qr" -> {
                     handleQrPayment(paymentRequest)
                 }
-                PaymentRequestType.CARD -> {
-                    paymentRequest.actionValue = PaymentAction.SALE
+                "card" -> {
                     handleCardPayment(paymentRequest)
                 }
-                PaymentRequestType.MEMBER -> {
-                    paymentRequest.actionValue = PaymentAction.SALE
+                "member" -> {
                     handleCardPayment(paymentRequest)
-                }
-                PaymentRequestType.UNKNOWN -> {
-                    handleQrPayment(paymentRequest)
                 }
             }
         } catch (e: Exception) {
@@ -291,15 +241,15 @@ class RabbitMQManager @Inject constructor(
         }
     }
 
-    private fun handleQrPayment(paymentRequest: PaymentRequest) {
+    private fun handleQrPayment(paymentRequest: PaymentAppRequest) {
         try {
             val account = storageService.getAccount()
             if (account == null) {
                 return
             }
-            val requestData = paymentHelper.buildPaymentAppRequest(account, paymentRequest)
+            val paymentRequestData = paymentHelper.createPaymentAppRequest(account, paymentRequest)
             val intent = Intent(context, QRCodeDisplayActivity::class.java).apply {
-                putExtra("REQUEST_DATA", requestData)
+                putExtra("REQUEST_DATA", paymentRequestData)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
@@ -308,15 +258,15 @@ class RabbitMQManager @Inject constructor(
         }
     }
 
-    private fun handleCardPayment(paymentRequest: PaymentRequest) {
+    private fun handleCardPayment(paymentRequest: PaymentAppRequest) {
         try {
             val account = storageService.getAccount()
             if (account == null) {
                 return
             }
-            val requestData = paymentHelper.buildPaymentAppRequest(account, paymentRequest)
+            val paymentRequestData = paymentHelper.createPaymentAppRequest(account, paymentRequest)
             val intent = Intent(context, TransparentPaymentActivity::class.java).apply {
-                putExtra("REQUEST_DATA", requestData)
+                putExtra("REQUEST_DATA", paymentRequestData)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)

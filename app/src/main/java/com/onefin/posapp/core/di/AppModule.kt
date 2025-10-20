@@ -145,4 +145,16 @@ object AppModule {
     ): com.onefin.posapp.core.utils.ReceiptPrinter {
         return com.onefin.posapp.core.utils.ReceiptPrinter(context, printerHelper)
     }
+
+    /**
+     * Provide SunmiPaymentManager
+     */
+    @Provides
+    @Singleton
+    fun provideSunmiPaymentManager(
+        @ApplicationContext context: Context,
+        storageService: com.onefin.posapp.core.services.StorageService
+    ): com.onefin.posapp.core.managers.SunmiPaymentManager {
+        return com.onefin.posapp.core.managers.SunmiPaymentManager(context, storageService)
+    }
 }

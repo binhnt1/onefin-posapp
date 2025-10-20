@@ -14,7 +14,7 @@ data class PaymentAppRequest(
     val action: Int,
 
     @SerializedName("merchant_request_data")
-    val merchantRequestData: MerchantRequestData
+    val merchantRequestData: MerchantRequestData? = null,
 ): Serializable
 
 data class MerchantRequestData(
@@ -45,6 +45,9 @@ data class MerchantRequestData(
 
     @SerializedName("is_enter_pin")
     val isEnterPin: Boolean? = null,
+
+    @SerializedName("is_speak")
+    val isSpeak: Boolean? = null,
 
     @SerializedName("additional_data")
     val additionalData: Map<String, Any>? = null

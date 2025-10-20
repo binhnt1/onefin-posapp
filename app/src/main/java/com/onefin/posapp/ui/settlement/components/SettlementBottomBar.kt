@@ -18,8 +18,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.R
-import java.text.NumberFormat
-import java.util.Locale
 
 @Composable
 fun SettlementBottomBar(
@@ -59,7 +57,7 @@ fun SettlementBottomBar(
                     fontWeight = FontWeight.Normal
                 )
                 Text(
-                    text = UtilHelper.formatCurrency(totalAmount.toString()),
+                    text = UtilHelper.formatCurrency(totalAmount.toString(), "đ"),
                     fontSize = 22.sp,
                     color = Color(0xFF111827),
                     fontWeight = FontWeight.Bold
@@ -97,9 +95,4 @@ fun SettlementBottomBar(
             }
         }
     }
-}
-
-private fun formatAmount(amount: Int): String {
-    val formatter = NumberFormat.getNumberInstance(Locale.Builder().setLanguage("vi").setRegion("VN").build())
-    return "${formatter.format(amount)}đ"
 }

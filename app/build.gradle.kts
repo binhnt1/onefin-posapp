@@ -42,9 +42,21 @@ android {
     }
 
     buildFeatures {
-        buildConfig = true
-        dataBinding = true
         compose = true
+
+        dataBinding = true
+        viewBinding = true
+
+        // Tắt các feature không dùng
+        aidl = true
+        renderScript = false
+        resValues = true
+        shaders = false
+        buildConfig = true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.8"
     }
 
     compileOptions {
@@ -69,8 +81,17 @@ android {
         }
     }
 
-    flavorDimensions += "customer"
+    kapt {
+        correctErrorTypes = true
+        generateStubs = false
+        useBuildCache = true
 
+        arguments {
+            arg("dagger.hilt.android.internal.disableAndroidSuperclassValidation", "true")
+        }
+    }
+
+    flavorDimensions += "customer"
     productFlavors {
         // Flavor cho khách hàng A
         create("mailinh") {
@@ -152,8 +173,10 @@ dependencies {
     implementation("com.github.chuckerteam.chucker:library:3.5.2")
 
     // ===== OneFin SDKs =====
+    implementation(files("libs/PayLib-release-2.0.07.aar"))
+
     implementation(files("libs/onefin-1.0.0.aar"))
-    implementation(files("libs/paylib-1.0.0.aar"))
+//    implementation(files("libs/paylib-1.0.0.aar"))
     implementation(files("libs/payment-1.0.0.aar"))
     implementation(files("libs/printerlibrary-1.0.19.aar"))
 

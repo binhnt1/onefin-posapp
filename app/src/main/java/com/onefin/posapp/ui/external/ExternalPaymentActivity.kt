@@ -31,9 +31,13 @@ import com.onefin.posapp.ui.modals.ProcessingDialog
 import com.onefin.posapp.ui.theme.PosAppTheme
 import com.onefin.posapp.ui.transaction.TransparentPaymentActivity
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 
 @AndroidEntryPoint
 class ExternalPaymentActivity : BaseActivity() {
@@ -55,10 +59,10 @@ class ExternalPaymentActivity : BaseActivity() {
 
         // Response constants
         const val RESULT_TYPE = "type"
-        const val RESULT_ACTION = "action"
-        const val RESULT_PAYMENT_RESPONSE_DATA = "payment_response_data"
         const val RESULT_ERROR = "error"
+        const val RESULT_ACTION = "action"
         const val RESULT_MESSAGE = "message"
+        const val RESULT_PAYMENT_RESPONSE_DATA = "payment_response_data"
 
         const val REQUEST_CODE_QR_PAYMENT = 1001
         const val REQUEST_CODE_CARD_PAYMENT = 1002
@@ -89,26 +93,46 @@ class ExternalPaymentActivity : BaseActivity() {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
 
-        when (requestCode) {
-            REQUEST_CODE_QR_PAYMENT, REQUEST_CODE_CARD_PAYMENT -> {
-                if (resultCode == RESULT_OK && data != null) {
-                    val responseJson = data.getStringExtra(RESULT_PAYMENT_RESPONSE_DATA)
-                    if (responseJson != null) {
-                        try {
-                            val response = gson.fromJson(responseJson, PaymentAppResponse::class.java)
-                            returnResult(RESULT_OK, response, null)
-                        } catch (e: Exception) {
-                            returnResult(RESULT_CANCELED, null, "PARSE_ERROR: ${e.message}")
-                        }
-                    } else {
-                        returnResult(RESULT_CANCELED, null, "NO_RESPONSE_DATA")
-                    }
-                } else {
-                    val errorMessage = data?.getStringExtra(RESULT_ERROR) ?: "PAYMENT_CANCELLED"
-                    returnResult(RESULT_CANCELED, null, errorMessage)
+        Timber.tag(TAG).d("=== onActivityResult START ===")
+        Timber.tag(TAG).d("requestCode: $requestCode")
+        Timber.tag(TAG).d("resultCode: $resultCode")
+        Timber.tag(TAG).d("data: $data")
+
+        if (data != null) {
+            // LOG TẤT CẢ EXTRAS
+            val extras = data.extras
+            if (extras != null) {
+                for (key in extras.keySet()) {
+                    Timber.tag(TAG).d("Extra key: $key, value: ${extras.get(key)}")
                 }
+            } else {
+                Timber.tag(TAG).d("No extras in intent")
             }
+
+            val responseJson = data.getStringExtra(RESULT_PAYMENT_RESPONSE_DATA)
+            Timber.tag(TAG).d("responseJson: $responseJson")
+
+            if (responseJson != null) {
+                try {
+                    val response = gson.fromJson(responseJson, PaymentAppResponse::class.java)
+                    Timber.tag(TAG).d("Parsed response: $response")
+                    returnResult(resultCode, response, null)
+                    return
+                } catch (e: Exception) {
+                    Timber.tag(TAG).e(e, "Error parsing response")
+                    returnResult(RESULT_OK, null, "PARSE_ERROR: ${e.message}")
+                    return
+                }
+            } else {
+                Timber.tag(TAG).w("responseJson is NULL")
+            }
+        } else {
+            Timber.tag(TAG).w("data Intent is NULL")
         }
+
+        val errorMessage = data?.getStringExtra(RESULT_ERROR) ?: "PAYMENT_CANCELLED"
+        Timber.tag(TAG).d("Returning error: $errorMessage")
+        returnResult(RESULT_CANCELED, null, errorMessage)
     }
 
     private fun returnResult(resultCode: Int, response: PaymentAppResponse?, errorMessage: String?) {
@@ -139,6 +163,8 @@ fun ExternalPaymentScreen(
     onFinish: (Int, PaymentAppResponse?, String?) -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
     var isAutoLoggingIn by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -147,129 +173,140 @@ fun ExternalPaymentScreen(
     var requestType by remember { mutableStateOf<String?>(null) }
     var requestAction by remember { mutableStateOf<Int?>(null) }
 
-    LaunchedEffect(loginAttempted) {
-        if (!loginAttempted) {
-            loginAttempted = true
-            storageService.setExternalPaymentContext("EXTERNAL_${System.currentTimeMillis()}")
+    // Sử dụng DisposableEffect để cleanup
+    DisposableEffect(Unit) {
+        @Suppress("DEPRECATION") val job = scope.launch {
+            if (!loginAttempted) {
+                loginAttempted = true
 
-            try {
-                var account = storageService.getAccount()
-                if (account == null) {
-                    val appKey = BuildConfig.APP_KEY
-                    if (appKey.isNotEmpty()) {
-                        isAutoLoggingIn = true
+                storageService.setExternalPaymentContext("EXTERNAL_${System.currentTimeMillis()}")
 
-                        val loginSuccess = performAppKeyLogin(
-                            appKey = appKey,
-                            apiService = apiService,
-                            storageService = storageService
-                        )
+                try {
+                    var account = storageService.getAccount()
+                    if (account == null) {
+                        val appKey = BuildConfig.APP_KEY
+                        if (appKey.isNotEmpty()) {
+                            isAutoLoggingIn = true
 
-                        delay(2000)
-                        isAutoLoggingIn = false
-
-                        if (loginSuccess) {
-                            account = storageService.getAccount()
-                        } else {
-                            errorMessage = "Đăng nhập thất bại"
-                            val errorResponse = createErrorResponse(
-                                requestType,
-                                requestAction,
-                                PaymentStatusCode.LOGIN_FAILED,
-                                "Đăng nhập thất bại"
-                            )
-                            onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "LOGIN_FAILED")
-                            return@LaunchedEffect
-                        }
-                    } else {
-                        errorMessage = "Vui lòng đăng nhập"
-                        delay(2000)
-
-                        val loginIntent = Intent(context, LoginActivity::class.java).apply {
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        }
-                        context.startActivity(loginIntent)
-                        val errorResponse = createErrorResponse(
-                            requestType,
-                            requestAction,
-                            PaymentStatusCode.NOT_LOGGED_IN,
-                            "Chưa đăng nhập"
-                        )
-                        onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "NOT_LOGGED_IN")
-                        return@LaunchedEffect
-                    }
-                }
-
-                if (account != null) {
-                    val paymentRequest = parsePaymentRequest(intent, gson, account)
-
-                    if (paymentRequest != null) {
-                        requestType = paymentRequest.type
-                        requestAction = paymentRequest.action
-
-                        // LƯU REQUEST VÀO STORAGE
-                        storageService.setPendingPaymentRequest(paymentRequest)
-
-                        isProcessing = false
-
-                        when (paymentRequest.type.lowercase()) {
-                            "qr" -> {
-                                val qrIntent = Intent(context, QRCodeDisplayActivity::class.java).apply {
-                                    putExtra("REQUEST_DATA", paymentRequest)
-                                    putExtra("IS_EXTERNAL_PAYMENT", true)
-                                }
-                                @Suppress("DEPRECATION")
-                                activity.startActivityForResult(
-                                    qrIntent,
-                                    ExternalPaymentActivity.REQUEST_CODE_QR_PAYMENT
+                            val loginSuccess = withContext(Dispatchers.IO) {
+                                performAppKeyLogin(
+                                    appKey = appKey,
+                                    apiService = apiService,
+                                    storageService = storageService
                                 )
                             }
-                            "card", "member" -> {
-                                val paymentIntent = Intent(context, TransparentPaymentActivity::class.java).apply {
-                                    putExtra("REQUEST_DATA", paymentRequest)
-                                    putExtra("IS_EXTERNAL_PAYMENT", true)
-                                }
-                                @Suppress("DEPRECATION")
-                                activity.startActivityForResult(
-                                    paymentIntent,
-                                    ExternalPaymentActivity.REQUEST_CODE_CARD_PAYMENT
-                                )
-                            }
-                            else -> {
-                                errorMessage = "Loại thanh toán không hợp lệ"
+
+                            delay(2000)
+                            isAutoLoggingIn = false
+
+                            if (loginSuccess) {
+                                account = storageService.getAccount()
+                            } else {
+                                errorMessage = "Đăng nhập thất bại"
                                 val errorResponse = createErrorResponse(
                                     requestType,
                                     requestAction,
-                                    PaymentStatusCode.INVALID_DATA,
-                                    "Loại thanh toán không hợp lệ"
+                                    PaymentStatusCode.LOGIN_FAILED,
+                                    "Đăng nhập thất bại"
                                 )
-                                onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "INVALID_TYPE")
-                                return@LaunchedEffect
+                                onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "LOGIN_FAILED")
+                                return@launch
                             }
-                        }
-                    } else {
-                        errorMessage = "Dữ liệu không hợp lệ"
-                        val errorResponse = createErrorResponse(
-                            requestType,
-                            requestAction,
-                            PaymentStatusCode.INVALID_DATA,
-                            "Dữ liệu không hợp lệ"
-                        )
-                        onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "INVALID_DATA")
-                    }
-                }
+                        } else {
+                            errorMessage = "Vui lòng đăng nhập"
+                            delay(2000)
 
-            } catch (e: Exception) {
-                Timber.tag("ExternalPaymentActivity").e(e, "Error processing payment request")
-                errorMessage = "Lỗi: ${e.message}"
-                val errorResponse = createErrorResponse(
-                    requestType,
-                    requestAction,
-                    PaymentStatusCode.ERROR,
-                    "Lỗi: ${e.message}"
-                )
-                onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "ERROR: ${e.message}")
+                            val loginIntent = Intent(context, LoginActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            }
+                            context.startActivity(loginIntent)
+                            val errorResponse = createErrorResponse(
+                                requestType,
+                                requestAction,
+                                PaymentStatusCode.NOT_LOGGED_IN,
+                                "Chưa đăng nhập"
+                            )
+                            onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "NOT_LOGGED_IN")
+                            return@launch
+                        }
+                    }
+
+                    if (account != null) {
+                        val paymentRequest = parsePaymentRequest(intent, gson, account)
+
+                        if (paymentRequest != null) {
+                            requestType = paymentRequest.type
+                            requestAction = paymentRequest.action
+
+                            // LƯU REQUEST VÀO STORAGE
+                            storageService.setPendingPaymentRequest(paymentRequest)
+
+                            isProcessing = false
+                            delay(100)
+
+                            when (paymentRequest.type.lowercase()) {
+                                "qr" -> {
+                                    val qrIntent = Intent(context, QRCodeDisplayActivity::class.java).apply {
+                                        putExtra("REQUEST_DATA", paymentRequest)
+                                        putExtra("IS_EXTERNAL_PAYMENT", true)
+                                    }
+                                    activity.startActivityForResult(
+                                        qrIntent,
+                                        ExternalPaymentActivity.REQUEST_CODE_QR_PAYMENT
+                                    )
+                                }
+                                "card", "member" -> {
+                                    val paymentIntent = Intent(context, TransparentPaymentActivity::class.java).apply {
+                                        putExtra("REQUEST_DATA", paymentRequest)
+                                        putExtra("IS_EXTERNAL_PAYMENT", true)
+                                    }
+                                    activity.startActivityForResult(
+                                        paymentIntent,
+                                        ExternalPaymentActivity.REQUEST_CODE_CARD_PAYMENT
+                                    )
+                                }
+                                else -> {
+                                    errorMessage = "Loại thanh toán không hợp lệ"
+                                    val errorResponse = createErrorResponse(
+                                        requestType,
+                                        requestAction,
+                                        PaymentStatusCode.INVALID_DATA,
+                                        "Loại thanh toán không hợp lệ"
+                                    )
+                                    onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "INVALID_TYPE")
+                                }
+                            }
+                        } else {
+                            errorMessage = "Dữ liệu không hợp lệ"
+                            val errorResponse = createErrorResponse(
+                                requestType,
+                                requestAction,
+                                PaymentStatusCode.INVALID_DATA,
+                                "Dữ liệu không hợp lệ"
+                            )
+                            onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "INVALID_DATA")
+                        }
+                    }
+
+                } catch (e: CancellationException) {
+                    // Bỏ qua exception này, đây là normal cancellation
+                    Timber.tag("ExternalPaymentActivity").d("Coroutine cancelled")
+                } catch (e: Exception) {
+                    Timber.tag("ExternalPaymentActivity").e(e, "Error processing payment request")
+                    errorMessage = "Lỗi: ${e.message}"
+                    val errorResponse = createErrorResponse(
+                        requestType,
+                        requestAction,
+                        PaymentStatusCode.ERROR,
+                        "Lỗi: ${e.message}"
+                    )
+                    onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "ERROR: ${e.message}")
+                }
             }
+        }
+
+        onDispose {
+            job.cancel()
         }
     }
 
@@ -289,6 +326,30 @@ fun ExternalPaymentScreen(
     }
 }
 
+suspend fun performAppKeyLogin(
+    appKey: String,
+    apiService: ApiService,
+    storageService: StorageService
+): Boolean {
+    return try {
+        val body = mapOf("AppKey" to appKey)
+        val resultApi = apiService.post("/api/security/AppSignIn", body) as ResultApi<*>
+
+        val account = Gson().fromJson(
+            Gson().toJson(resultApi.data),
+            Account::class.java
+        )
+
+        storageService.saveToken(account.token.accessToken)
+        storageService.saveAccount(account)
+
+        true
+    } catch (e: Exception) {
+        Timber.tag("ExternalPaymentActivity").e(e, "Auto login failed")
+        false
+    }
+}
+
 private fun createErrorResponse(
     type: String?,
     action: Int?,
@@ -301,9 +362,9 @@ private fun createErrorResponse(
         type = type,
         action = action,
         paymentResponseData = PaymentResponseData(
-            isSign = false,
             status = statusCode,
             description = description,
+            isSign = false
         )
     )
 }
@@ -346,29 +407,5 @@ fun parsePaymentRequest(
     } catch (e: Exception) {
         Timber.tag("ExternalPaymentActivity").e(e, "Error parsing payment request")
         null
-    }
-}
-
-suspend fun performAppKeyLogin(
-    appKey: String,
-    apiService: ApiService,
-    storageService: StorageService
-): Boolean {
-    return try {
-        val body = mapOf("AppKey" to appKey)
-        val resultApi = apiService.post("/api/security/AppSignIn", body) as ResultApi<*>
-
-        val account = Gson().fromJson(
-            Gson().toJson(resultApi.data),
-            Account::class.java
-        )
-
-        storageService.saveToken(account.token.accessToken)
-        storageService.saveAccount(account)
-
-        true
-    } catch (e: Exception) {
-        Timber.tag("ExternalPaymentActivity").e(e, "Auto login failed")
-        false
     }
 }

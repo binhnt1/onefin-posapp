@@ -1,31 +1,5 @@
 package com.onefin.posapp.core.models.data
 
-import android.R
-import com.google.gson.annotations.SerializedName
-
-data class PaymentRequest(
-    val message: String? = null,
-    val billNumber: String? = null,
-    val referenceId: String? = null,
-    val isEnterPin: Boolean? = false,
-    val additionalData: Map<String, Any>? = null,
-
-    @SerializedName("Type")
-    var typeValue: PaymentRequestType = PaymentRequestType.QR,
-
-    @SerializedName("Action")
-    var actionValue: PaymentAction = PaymentAction.SALE,
-
-    @SerializedName("Amount")
-    val amount: Long = 0L
-) {
-    val type: PaymentRequestType
-        get() = PaymentRequestType.fromValue(typeValue.value)
-
-    val action: PaymentAction
-        get() = PaymentAction.fromValue(actionValue.value) ?: PaymentAction.SALE
-}
-
 enum class PaymentAction(val value: Int) {
     SALE(1),
     REFUND(2),
@@ -52,4 +26,14 @@ enum class PaymentRequestType(val value: Int) {
             return entries.find { it.value == value } ?: UNKNOWN
         }
     }
+}
+
+enum class PaymentState {
+    INITIALIZING,
+    WAITING_CARD,
+    CARD_DETECTED,
+    ENTERING_PIN,
+    PROCESSING,
+    SUCCESS,
+    ERROR
 }
