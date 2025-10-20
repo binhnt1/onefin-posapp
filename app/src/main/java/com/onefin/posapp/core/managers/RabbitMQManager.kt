@@ -3,6 +3,7 @@ package com.onefin.posapp.core.managers
 import android.content.Context
 import android.content.Intent
 import com.google.gson.Gson
+import com.onefin.posapp.core.config.ResultConstants
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentAppResponse
 import com.onefin.posapp.core.models.data.PaymentResponseData
@@ -13,10 +14,10 @@ import com.onefin.posapp.core.models.data.RabbitNotifyType
 import com.onefin.posapp.core.services.RabbitMQService
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.PaymentHelper
-import com.onefin.posapp.ui.external.ExternalPaymentActivity
 import com.onefin.posapp.ui.home.QRCodeDisplayActivity
 import com.onefin.posapp.ui.login.LoginActivity
 import com.onefin.posapp.ui.modals.LogoutDialogActivity
+import com.onefin.posapp.ui.payment.PaymentCardActivity
 import com.onefin.posapp.ui.payment.PaymentSuccessActivity
 import com.onefin.posapp.ui.transaction.TransparentPaymentActivity
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -125,6 +126,8 @@ class RabbitMQManager @Inject constructor(
         ttsManager.speak(notify.content)
 
         val jsonObject = notify.jsonObject
+        if (jsonObject.isNullOrEmpty())
+            return
 
         val isExternalFlow = storageService.isExternalPaymentFlow()
         if (isExternalFlow) {
@@ -133,27 +136,17 @@ class RabbitMQManager @Inject constructor(
                 // Clear context và request
                 storageService.clearExternalPaymentContext()
 
-                // Parse thông tin từ jsonObject (nếu có)
-                var transactionId: String? = null
-                var transactionTime: String? = null
-
-                if (!jsonObject.isNullOrEmpty()) {
-                    try {
-                        val json = JSONObject(jsonObject)
-                        transactionId = json.optString("TransactionId")
-                        transactionTime = json.optString("TransactionTime") ?: notify.dateTime
-                    } catch (e: Exception) {
-                    }
-                }
-                val response = paymentHelper.createPaymentAppResponseSuccess(pendingRequest, transactionId, transactionTime)
+                val json = JSONObject(jsonObject)
+                val transactionId = json.optString("TransactionId", "")
+                val transactionTime = json.optString("TransactionTime", notify.dateTime)
 
                 // Return về external app
-                snackbarManager.showFromRabbitNotify(notify)
+                val response = paymentHelper.createPaymentAppResponseSuccess(pendingRequest, transactionId, transactionTime)
                 if (activityTracker.isActivityOfType(QRCodeDisplayActivity::class.java)) {
                     val activity = activityTracker.getCurrentActivity()
                     val resultIntent = Intent().apply {
                         putExtra(
-                            ExternalPaymentActivity.RESULT_PAYMENT_RESPONSE_DATA,
+                            ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
                             gson.toJson(response)
                         )
                     }
@@ -163,7 +156,6 @@ class RabbitMQManager @Inject constructor(
                 }
             } else {
                 // Không tìm thấy pending request
-                Timber.tag(TAG).w("No pending request found for external payment")
                 storageService.clearExternalPaymentContext()
                 val errorResponse = PaymentAppResponse(
                     type = "qr",
@@ -178,7 +170,7 @@ class RabbitMQManager @Inject constructor(
                     val activity = activityTracker.getCurrentActivity()
                     val resultIntent = Intent().apply {
                         putExtra(
-                            ExternalPaymentActivity.RESULT_PAYMENT_RESPONSE_DATA,
+                            ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
                             gson.toJson(errorResponse)
                         )
                     }
@@ -190,32 +182,30 @@ class RabbitMQManager @Inject constructor(
         }
 
         // Flow bình thường - internal app
-        if (!jsonObject.isNullOrEmpty()) {
-            try {
-                val json = JSONObject(jsonObject)
-                val amount = json.optLong("Amount", 0L)
-                val transactionId = json.optString("TransactionId", "")
-                val transactionTime = json.optString("TransactionTime", notify.dateTime)
-
-                val paymentData = PaymentSuccessData(
-                    amount = amount,
-                    transactionId = transactionId,
-                    transactionTime = transactionTime,
-                )
-
-                if (PaymentSuccessActivity.isVisible()) {
-                    PaymentSuccessActivity.updateData(paymentData)
-                    return
-                }
-
-                if (activityTracker.isActivityOfType(QRCodeDisplayActivity::class.java)) {
-                    activityTracker.getCurrentActivity()?.finish()
-                    PaymentSuccessActivity.start(context, paymentData)
-                    return
-                }
-            } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Error parsing QR success data")
+        try {
+            // Hiển thị màn QRSuccess
+            val json = JSONObject(jsonObject)
+            val amount = json.optLong("Amount", 0L)
+            val transactionId = json.optString("TransactionId", "")
+            val transactionTime = json.optString("TransactionTime", notify.dateTime)
+            val paymentData = PaymentSuccessData(
+                amount = amount,
+                timeCountDown = 10,
+                transactionId = transactionId,
+                transactionTime = transactionTime,
+            )
+            if (PaymentSuccessActivity.isVisible()) {
+                PaymentSuccessActivity.updateData(paymentData)
+                return
             }
+
+            if (activityTracker.isActivityOfType(QRCodeDisplayActivity::class.java)) {
+                activityTracker.getCurrentActivity()?.finish()
+                PaymentSuccessActivity.start(context, paymentData)
+                return
+            }
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Error parsing QR success data")
         }
     }
     private fun handlePaymentRequest(notify: RabbitNotify) {
@@ -233,7 +223,7 @@ class RabbitMQManager @Inject constructor(
                     handleCardPayment(paymentRequest)
                 }
                 "member" -> {
-                    handleCardPayment(paymentRequest)
+                    handleCardMemberPayment(paymentRequest)
                 }
             }
         } catch (e: Exception) {
@@ -259,6 +249,23 @@ class RabbitMQManager @Inject constructor(
     }
 
     private fun handleCardPayment(paymentRequest: PaymentAppRequest) {
+        try {
+            val account = storageService.getAccount()
+            if (account == null) {
+                return
+            }
+            val paymentRequestData = paymentHelper.createPaymentAppRequest(account, paymentRequest)
+            val intent = Intent(context, PaymentCardActivity::class.java).apply {
+                putExtra("REQUEST_DATA", paymentRequestData)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Error handling card payment")
+        }
+    }
+
+    private fun handleCardMemberPayment(paymentRequest: PaymentAppRequest) {
         try {
             val account = storageService.getAccount()
             if (account == null) {

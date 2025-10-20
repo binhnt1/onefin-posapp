@@ -36,7 +36,7 @@ fun QuickAmountSelector(
                     contentColor = Color(0xFF475467)
                 ),
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD0D5DD)),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 12.dp)
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 20.dp)
             ) {
                 val displayText = when {
                     amount >= 1_000_000 -> "${amount / 1_000_000}$millionSuffix"

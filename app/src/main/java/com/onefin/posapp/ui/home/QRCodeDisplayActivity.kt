@@ -24,23 +24,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.gson.Gson
 import com.onefin.posapp.R
-import com.onefin.posapp.core.managers.ActivityTracker
-import com.onefin.posapp.core.models.data.PaymentAppRequest
-import com.onefin.posapp.core.models.data.PaymentAppResponse
-import com.onefin.posapp.core.models.data.PaymentResponseData
-import com.onefin.posapp.core.models.data.PaymentStatusCode
-import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.core.utils.VietQRHelper
 import com.onefin.posapp.ui.base.BaseActivity
-import com.onefin.posapp.ui.external.ExternalPaymentActivity
 import com.onefin.posapp.ui.theme.PosAppTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
-import timber.log.Timber
-import java.io.Serializable
 import javax.inject.Inject
 import androidx.activity.OnBackPressedCallback
+import com.onefin.posapp.core.config.ResultConstants
 import com.onefin.posapp.core.utils.PaymentHelper
 
 @AndroidEntryPoint
@@ -52,31 +44,16 @@ class QRCodeDisplayActivity : BaseActivity() {
     @Inject
     lateinit var paymentHelper: PaymentHelper
 
-    @Inject
-    lateinit var activityTracker: ActivityTracker
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        val rawObject: Serializable? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getSerializableExtra("REQUEST_DATA", Serializable::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            intent.getSerializableExtra("REQUEST_DATA")
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        val requestData = rawObject as? PaymentAppRequest
+        val requestData = getPaymentAppRequest()
         if (requestData != null) {
             val account = storageService.getAccount()
             if (account != null) {
                 setContent {
                     PosAppTheme {
                         QRCodeDisplayScreen(
-                            gson = gson,
-                            paymentHelper = paymentHelper,
-                            storageService = storageService,
-                            activityTracker= activityTracker,
+                            onCancel = { cancelTransaction() },
                             accountName = account.terminal.accountName,
                             bankNapasId = account.terminal.bankNapasId,
                             accountNumber = account.terminal.accountNumber,
@@ -91,27 +68,40 @@ class QRCodeDisplayActivity : BaseActivity() {
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    sendCancelResponse()
+                    cancelTransaction()
                 }
             }
         )
     }
 
-    private fun sendCancelResponse() {
+    private fun cancelTransaction(errorMessage: String? = null) {
         val isExternalFlow = storageService.isExternalPaymentFlow()
         if (isExternalFlow) {
             val pendingRequest = storageService.getPendingPaymentRequest()
-
             if (pendingRequest != null) {
-                val response = paymentHelper.createPaymentAppResponseCancel(pendingRequest)
+                val response = paymentHelper.createPaymentAppResponseCancel(pendingRequest, errorMessage)
                 storageService.clearExternalPaymentContext()
                 val resultIntent = Intent().apply {
                     putExtra(
-                        ExternalPaymentActivity.RESULT_PAYMENT_RESPONSE_DATA,
+                        ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
                         gson.toJson(response)
                     )
                 }
                 setResult(RESULT_OK, resultIntent)
+                finish()
+            } else {
+                val currentRequest = getPaymentAppRequest()
+                if (currentRequest != null) {
+                    val response = paymentHelper.createPaymentAppResponseCancel(currentRequest, errorMessage)
+                    val resultIntent = Intent().apply {
+                        putExtra(
+                            ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
+                            gson.toJson(response)
+                        )
+                    }
+                    setResult(RESULT_OK, resultIntent)
+                    finish()
+                }
             }
         }
         finish()
@@ -122,14 +112,11 @@ class QRCodeDisplayActivity : BaseActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QRCodeDisplayScreen(
-    gson: Gson,
     amount: Long,
     accountName: String,
     bankNapasId: String,
     accountNumber: String,
-    paymentHelper: PaymentHelper,
-    storageService: StorageService,
-    activityTracker: ActivityTracker
+    onCancel: () -> Unit
 ) {
     val context = LocalContext.current as Activity
 
@@ -144,58 +131,12 @@ fun QRCodeDisplayScreen(
 
     var countdown by remember { mutableIntStateOf(90) }
 
-    fun cancelTransaction() {
-        val isExternalFlow = storageService.isExternalPaymentFlow()
-        if (isExternalFlow) {
-            Timber.tag("QRCodeDisplayActivity").w("Is external payment - Cancelling")
-            val activity = activityTracker.getCurrentActivity()
-            val pendingRequest = storageService.getPendingPaymentRequest()
-
-            if (pendingRequest != null) {
-                val response = paymentHelper.createPaymentAppResponseCancel(pendingRequest)
-                storageService.clearExternalPaymentContext()
-                val resultIntent = Intent().apply {
-                    putExtra(
-                        ExternalPaymentActivity.RESULT_PAYMENT_RESPONSE_DATA,
-                        gson.toJson(response)
-                    )
-                }
-                activity?.setResult(Activity.RESULT_OK, resultIntent)
-                activity?.finish()
-            } else {
-                Timber.tag("QRCodeDisplayActivity").w("No pending request found")
-                storageService.clearExternalPaymentContext()
-
-                val errorResponse = PaymentAppResponse(
-                    type = "qr",
-                    action = 1,
-                    paymentResponseData = PaymentResponseData(
-                        isSign = false,
-                        status = PaymentStatusCode.ERROR,
-                        description = "Không tìm thấy thông tin giao dịch",
-                    )
-                )
-                val resultIntent = Intent().apply {
-                    putExtra(
-                        ExternalPaymentActivity.RESULT_PAYMENT_RESPONSE_DATA,
-                        gson.toJson(errorResponse)
-                    )
-                }
-                activity?.setResult(Activity.RESULT_OK, resultIntent)
-                activity?.finish()
-            }
-        } else {
-            context.finish()
-        }
-    }
-
     LaunchedEffect(key1 = true) {
         while (countdown > 0) {
             delay(1000)
             countdown--
         }
-
-        cancelTransaction()
+        onCancel()
     }
 
     val isP2 = remember {
@@ -217,7 +158,7 @@ fun QRCodeDisplayScreen(
             ) {
                 Button(
                     onClick = {
-                        cancelTransaction()
+                        onCancel()
                     },
                     modifier = Modifier
                         .fillMaxWidth()

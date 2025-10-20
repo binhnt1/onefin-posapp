@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.google.gson.Gson
 import com.onefin.posapp.BuildConfig
+import com.onefin.posapp.core.config.ResultConstants
 import com.onefin.posapp.core.models.Account
 import com.onefin.posapp.core.models.ResultApi
 import com.onefin.posapp.core.models.data.MerchantRequestData
@@ -28,6 +29,7 @@ import com.onefin.posapp.ui.login.LoginActivity
 import com.onefin.posapp.ui.modals.AutoLoginDialog
 import com.onefin.posapp.ui.modals.ErrorDialog
 import com.onefin.posapp.ui.modals.ProcessingDialog
+import com.onefin.posapp.ui.payment.PaymentCardActivity
 import com.onefin.posapp.ui.theme.PosAppTheme
 import com.onefin.posapp.ui.transaction.TransparentPaymentActivity
 import dagger.hilt.android.AndroidEntryPoint
@@ -51,22 +53,7 @@ class ExternalPaymentActivity : BaseActivity() {
     @Inject
     lateinit var paymentHelper: PaymentHelper
 
-    companion object {
-        private const val TAG = "ExternalPaymentActivity"
-        const val EXTRA_TYPE = "type"
-        const val EXTRA_ACTION = "action"
-        const val EXTRA_MERCHANT_REQUEST_DATA = "merchant_request_data"
-
-        // Response constants
-        const val RESULT_TYPE = "type"
-        const val RESULT_ERROR = "error"
-        const val RESULT_ACTION = "action"
-        const val RESULT_MESSAGE = "message"
-        const val RESULT_PAYMENT_RESPONSE_DATA = "payment_response_data"
-
-        const val REQUEST_CODE_QR_PAYMENT = 1001
-        const val REQUEST_CODE_CARD_PAYMENT = 1002
-    }
+    private val TAG = "ExternalPaymentActivity"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,14 +80,8 @@ class ExternalPaymentActivity : BaseActivity() {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
 
-        Timber.tag(TAG).d("=== onActivityResult START ===")
-        Timber.tag(TAG).d("requestCode: $requestCode")
-        Timber.tag(TAG).d("resultCode: $resultCode")
-        Timber.tag(TAG).d("data: $data")
-
         if (data != null) {
-            // LOG TẤT CẢ EXTRAS
-            val responseJson = data.getStringExtra(RESULT_PAYMENT_RESPONSE_DATA)
+            val responseJson = data.getStringExtra(ResultConstants.RESULT_PAYMENT_RESPONSE_DATA)
             Timber.tag(TAG).d("responseJson: $responseJson")
 
             if (responseJson != null) {
@@ -121,7 +102,7 @@ class ExternalPaymentActivity : BaseActivity() {
             Timber.tag(TAG).w("data Intent is NULL")
         }
 
-        val errorMessage = data?.getStringExtra(RESULT_ERROR) ?: "PAYMENT_CANCELLED"
+        val errorMessage = data?.getStringExtra(ResultConstants.RESULT_ERROR) ?: "PAYMENT_CANCELLED"
         Timber.tag(TAG).d("Returning error: $errorMessage")
         returnResult(RESULT_CANCELED, null, errorMessage)
     }
@@ -129,13 +110,13 @@ class ExternalPaymentActivity : BaseActivity() {
     private fun returnResult(resultCode: Int, response: PaymentAppResponse?, errorMessage: String?) {
         val resultIntent = Intent().apply {
             if (response != null) {
-                putExtra(RESULT_TYPE, response.type)
-                putExtra(RESULT_ACTION, response.action)
-                putExtra(RESULT_PAYMENT_RESPONSE_DATA, gson.toJson(response.paymentResponseData))
+                putExtra(ResultConstants.RESULT_TYPE, response.type)
+                putExtra(ResultConstants.RESULT_ACTION, response.action)
+                putExtra(ResultConstants.RESULT_PAYMENT_RESPONSE_DATA, gson.toJson(response.paymentResponseData))
             }
             if (errorMessage != null) {
-                putExtra(RESULT_ERROR, errorMessage)
-                putExtra(RESULT_MESSAGE, errorMessage)
+                putExtra(ResultConstants.RESULT_ERROR, errorMessage)
+                putExtra(ResultConstants.RESULT_MESSAGE, errorMessage)
             }
         }
         setResult(resultCode, resultIntent)
@@ -241,20 +222,21 @@ fun ExternalPaymentScreen(
                                         putExtra("REQUEST_DATA", paymentRequest)
                                         putExtra("IS_EXTERNAL_PAYMENT", true)
                                     }
-                                    activity.startActivityForResult(
-                                        qrIntent,
-                                        ExternalPaymentActivity.REQUEST_CODE_QR_PAYMENT
-                                    )
+                                    activity.startActivityForResult(qrIntent, ResultConstants.REQUEST_CODE_PAYMENT)
                                 }
-                                "card", "member" -> {
+                                "card" -> {
+                                    val paymentIntent = Intent(context, PaymentCardActivity::class.java).apply {
+                                        putExtra("REQUEST_DATA", paymentRequest)
+                                        putExtra("IS_EXTERNAL_PAYMENT", true)
+                                    }
+                                    activity.startActivityForResult(paymentIntent, ResultConstants.REQUEST_CODE_PAYMENT)
+                                }
+                                "member" -> {
                                     val paymentIntent = Intent(context, TransparentPaymentActivity::class.java).apply {
                                         putExtra("REQUEST_DATA", paymentRequest)
                                         putExtra("IS_EXTERNAL_PAYMENT", true)
                                     }
-                                    activity.startActivityForResult(
-                                        paymentIntent,
-                                        ExternalPaymentActivity.REQUEST_CODE_CARD_PAYMENT
-                                    )
+                                    activity.startActivityForResult(paymentIntent, ResultConstants.REQUEST_CODE_PAYMENT)
                                 }
                                 else -> {
                                     errorMessage = "Loại thanh toán không hợp lệ"
@@ -333,7 +315,6 @@ suspend fun performAppKeyLogin(
 
         storageService.saveToken(account.token.accessToken)
         storageService.saveAccount(account)
-
         true
     } catch (e: Exception) {
         Timber.tag("ExternalPaymentActivity").e(e, "Auto login failed")
@@ -366,12 +347,11 @@ fun parsePaymentRequest(
     account: Account
 ): PaymentAppRequest? {
     return try {
-        val type = intent.getStringExtra(ExternalPaymentActivity.EXTRA_TYPE) ?: return null
-        val action = intent.getIntExtra(ExternalPaymentActivity.EXTRA_ACTION, -1)
+        val type = intent.getStringExtra(ResultConstants.RESULT_TYPE) ?: return null
+        val action = intent.getIntExtra(ResultConstants.RESULT_ACTION, -1)
         if (action == -1) return null
 
-        val merchantRequestDataStr = intent.getStringExtra(ExternalPaymentActivity.EXTRA_MERCHANT_REQUEST_DATA)
-
+        val merchantRequestDataStr = intent.getStringExtra(ResultConstants.EXTRA_MERCHANT_REQUEST_DATA)
         val merchantRequestData = if (merchantRequestDataStr != null) {
             try {
                 gson.fromJson(merchantRequestDataStr, MerchantRequestData::class.java)

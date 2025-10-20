@@ -14,11 +14,11 @@ import com.onefin.posapp.R
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.PaymentHelper
-import com.onefin.posapp.ui.external.ExternalPaymentActivity
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import java.io.Serializable
 import androidx.activity.OnBackPressedCallback
+import com.onefin.posapp.core.config.ResultConstants
 
 @AndroidEntryPoint
 class TransparentPaymentActivity : AppCompatActivity() {
@@ -35,14 +35,12 @@ class TransparentPaymentActivity : AppCompatActivity() {
     private var pendingRequest: PaymentAppRequest? = null
 
     private val lifecycleCallback = object : Application.ActivityLifecycleCallbacks {
-        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+        override fun onActivityPaused(activity: Activity) {}
         override fun onActivityStarted(activity: Activity) {}
         override fun onActivityResumed(activity: Activity) {}
-        override fun onActivityPaused(activity: Activity) {}
-        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
         override fun onActivityStopped(activity: Activity) {}
-
-        // ✅ Detect khi SDK activity finish
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
         override fun onActivityDestroyed(activity: Activity) {
             // Bỏ qua TransparentPaymentActivity chính nó
             if (activity::class.simpleName == this@TransparentPaymentActivity::class.simpleName) {
@@ -78,7 +76,6 @@ class TransparentPaymentActivity : AppCompatActivity() {
 
             // ✅ Đăng ký lifecycle callback
             application.registerActivityLifecycleCallbacks(lifecycleCallback)
-
             paymentHelper.startPayment(this, requestData)
         } else {
             finish()
@@ -133,7 +130,7 @@ class TransparentPaymentActivity : AppCompatActivity() {
                 storageService.clearExternalPaymentContext()
                 val resultIntent = Intent().apply {
                     putExtra(
-                        ExternalPaymentActivity.RESULT_PAYMENT_RESPONSE_DATA,
+                        ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
                         gson.toJson(response)
                     )
                 }

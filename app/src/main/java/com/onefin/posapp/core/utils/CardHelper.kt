@@ -8,6 +8,7 @@ import com.onefin.posapp.core.models.data.MagneticCardData
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentAppResponse
 import com.onefin.posapp.core.models.data.PaymentResponseData
+import com.onefin.posapp.core.models.data.PaymentStatusCode
 import com.onefin.posapp.core.models.data.RequestSale
 import com.onefin.posapp.core.models.data.SaleResultData
 import com.onefin.posapp.core.models.enums.CardBrand
@@ -395,6 +396,25 @@ object CardHelper {
             paymentResponseData = paymentResponseData
         )
         return response
+    }
+    fun returnErrorResponse(originalRequest: PaymentAppRequest, errorCode: String = PaymentStatusCode.ERROR, errorMessage: String): PaymentAppResponse {
+
+        val paymentResponseData = PaymentResponseData(
+            status = errorCode,
+            description = errorMessage,
+            tid = originalRequest.merchantRequestData?.tid,
+            mid = originalRequest.merchantRequestData?.mid,
+            ccy = originalRequest.merchantRequestData?.ccy,
+            amount = originalRequest.merchantRequestData?.amount,
+            billNumber = originalRequest.merchantRequestData?.billNumber,
+            referenceId = originalRequest.merchantRequestData?.referenceId,
+            additionalData = originalRequest.merchantRequestData?.additionalData
+        )
+        return PaymentAppResponse(
+            type = originalRequest.type,
+            action = originalRequest.action,
+            paymentResponseData = paymentResponseData
+        )
     }
 
     private fun getCardMode(cardType: String?): String {

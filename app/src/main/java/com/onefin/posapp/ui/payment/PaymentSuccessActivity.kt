@@ -112,15 +112,17 @@ fun PaymentSuccessScreen(
     onBackClick: () -> Unit
 ) {
     val paymentData = paymentDataState.value ?: return
+    var secondsLeft by remember(paymentData.timeCountDown) {
+        mutableIntStateOf(paymentData.timeCountDown ?: 10)
+    }
 
-    var secondsLeft by remember { mutableIntStateOf(15) }
-
-    LaunchedEffect(Unit) {
+    LaunchedEffect(paymentData.timeCountDown) {
+        secondsLeft = paymentData.timeCountDown ?: 10
         while (secondsLeft > 0) {
             kotlinx.coroutines.delay(1000)
             secondsLeft--
         }
-        onBackClick() // tự đóng khi hết 15s
+        onBackClick()
     }
 
     Scaffold(

@@ -1,8 +1,8 @@
 package com.onefin.posapp.ui.payment
 
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
+import com.onefin.posapp.core.config.ResultConstants
 import com.onefin.posapp.core.managers.SunmiPaymentManager
 import com.onefin.posapp.core.managers.TTSManager
 import com.onefin.posapp.core.managers.helpers.PaymentTTSHelper
@@ -22,8 +23,10 @@ import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.models.data.PaymentState
 import com.onefin.posapp.core.models.data.RequestSale
+import com.onefin.posapp.core.models.data.SaleResultData
 import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.utils.CardHelper
+import com.onefin.posapp.core.utils.PaymentHelper
 import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.ui.base.BaseActivity
 import com.onefin.posapp.ui.payment.components.ActionButtons
@@ -35,9 +38,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import jakarta.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 import timber.log.Timber
-import java.io.Serializable
 
 @AndroidEntryPoint
 class PaymentCardActivity : BaseActivity() {
@@ -51,32 +52,33 @@ class PaymentCardActivity : BaseActivity() {
     lateinit var apiService: ApiService
 
     @Inject
+    lateinit var paymentHelper: PaymentHelper
+
+    @Inject
     lateinit var paymentManager: SunmiPaymentManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        val rawObject: Serializable? =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                intent.getSerializableExtra("REQUEST_DATA", Serializable::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                intent.getSerializableExtra("REQUEST_DATA")
-            }
-
-        @Suppress("UNCHECKED_CAST")
-        val requestData = rawObject as? PaymentAppRequest
+        val requestData = getPaymentAppRequest()
         if (requestData != null) {
             setContent {
                 PaymentCardScreen(
                     apiService = apiService,
-                    onCancel = { cancelPayment() },
                     paymentAppRequest = requestData,
-                    onSuccess = { requestSale -> finishWithSuccess(requestSale) },
-                    onError = { code, message -> finishWithError(code, message) }
+                    onCancel = { cancelTransaction() },
+                    onSuccess = { saleResult -> onSuccess(saleResult, requestData) },
                 )
             }
         }
+
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    cancelTransaction()
+                }
+            }
+        )
     }
 
     override fun onDestroy() {
@@ -84,55 +86,67 @@ class PaymentCardActivity : BaseActivity() {
         paymentManager.cancelReadCard()
     }
 
-    private fun cancelPayment() {
+    private fun cancelTransaction(errorMessage: String? = null) {
         paymentManager.cancelReadCard()
-        finishWithError("USER_CANCELLED", "Người dùng hủy giao dịch")
-    }
-
-    private fun finishWithSuccess(requestSale: RequestSale) {
-        val paymentJson = gson.toJson(requestSale)
-        val result = JSONObject().apply {
-            put("status", "success")
-            put("request_id", requestSale.requestId)
-            put("card_number", requestSale.data.card.clearPan)
-            put("masked_pan", UtilHelper.maskCardNumber(requestSale.data.card.clearPan))
-            put("expiry_date", requestSale.data.card.expiryDate)
-            put("card_mode", requestSale.data.card.mode)
-            put("pos_entry_mode", requestSale.data.device.posEntryMode)
-            put("amount", requestSale.data.payment.transAmount)
-            put("currency", requestSale.data.payment.currency)
-            put("transaction_id", CardHelper.generateTransactionId())
-            put("timestamp", System.currentTimeMillis())
-            put("payment_data", paymentJson)
+        val isExternalFlow = storageService.isExternalPaymentFlow()
+        if (isExternalFlow) {
+            val pendingRequest = storageService.getPendingPaymentRequest()
+            if (pendingRequest != null) {
+                val response = paymentHelper.createPaymentAppResponseCancel(pendingRequest, errorMessage)
+                storageService.clearExternalPaymentContext()
+                val resultIntent = Intent().apply {
+                    putExtra(
+                        ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
+                        gson.toJson(response)
+                    )
+                }
+                setResult(RESULT_OK, resultIntent)
+                finish()
+            } else {
+                val currentRequest = getPaymentAppRequest()
+                if (currentRequest != null) {
+                    val response = paymentHelper.createPaymentAppResponseCancel(currentRequest, errorMessage)
+                    val resultIntent = Intent().apply {
+                        putExtra(
+                            ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
+                            gson.toJson(response)
+                        )
+                    }
+                    setResult(RESULT_OK, resultIntent)
+                    finish()
+                }
+            }
         }
-
-        val intent = Intent().apply {
-            putExtra("action", 1)
-            putExtra("type", "card")
-            putExtra("payment_response_data", result.toString())
-            putExtra("payment_request_json", paymentJson)
-        }
-
-        setResult(RESULT_OK, intent)
         finish()
     }
 
-    private fun finishWithError(errorCode: String, errorMessage: String) {
-        val result = JSONObject().apply {
-            put("status", "error")
-            put("error_code", errorCode)
-            put("error_message", errorMessage)
-            put("timestamp", System.currentTimeMillis())
-        }
+    private fun onSuccess(saleResult: SaleResultData, originalRequest: PaymentAppRequest) {
+        val isExternalFlow = storageService.isExternalPaymentFlow()
+        if (isExternalFlow) {
+            val pendingRequest = storageService.getPendingPaymentRequest() ?: originalRequest
+            storageService.clearExternalPaymentContext()
 
-        val intent = Intent().apply {
-            putExtra("action", 0)
-            putExtra("type", "card")
-            putExtra("payment_response_data", result.toString())
+            // Return về external app
+            val response = CardHelper.returnSaleResponse(saleResult, pendingRequest)
+            val resultIntent = Intent().apply {
+                putExtra(
+                    ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
+                    gson.toJson(response)
+                )
+            }
+            setResult(android.app.Activity.RESULT_OK, resultIntent)
+            finish()
+        } else {
+            val response = CardHelper.returnSaleResponse(saleResult, originalRequest)
+            val resultIntent = Intent().apply {
+                putExtra(
+                    ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
+                    gson.toJson(response)
+                )
+            }
+            setResult(RESULT_OK, resultIntent)
+            finish()
         }
-
-        setResult(RESULT_CANCELED, intent)
-        finish()
     }
 }
 
@@ -140,17 +154,16 @@ class PaymentCardActivity : BaseActivity() {
 fun PaymentCardScreen(
     onCancel: () -> Unit,
     apiService: ApiService,
-    onSuccess: (RequestSale) -> Unit,
-    onError: (String, String) -> Unit,
+    onSuccess: (SaleResultData) -> Unit,
     paymentAppRequest: PaymentAppRequest,
 ) {
     var cardInfo by remember { mutableStateOf("") }
-    var statusMessage by remember { mutableStateOf("Đang khởi tạo...") }
-    var paymentState by remember { mutableStateOf(PaymentState.INITIALIZING) }
-    var currentRequestSale by remember { mutableStateOf<RequestSale?>(null) }
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorDialogMessage by remember { mutableStateOf("") }
     var errorCode by remember { mutableStateOf<String?>(null) }
+    var statusMessage by remember { mutableStateOf("Đang khởi tạo...") }
+    var currentRequestSale by remember { mutableStateOf<RequestSale?>(null) }
+    var paymentState by remember { mutableStateOf(PaymentState.INITIALIZING) }
 
     val scope = rememberCoroutineScope()
     val activity = LocalContext.current as PaymentCardActivity
@@ -164,18 +177,18 @@ fun PaymentCardScreen(
         Timber.tag("PaymentCard").d("🔄 Reset and retry")
 
         // Reset all state
+        cardInfo = ""
+        errorCode = null
         showErrorDialog = false
         errorDialogMessage = ""
-        errorCode = null
-        cardInfo = ""
+        currentRequestSale = null
         statusMessage = "Đang khởi tạo..."
         paymentState = PaymentState.INITIALIZING
-        currentRequestSale = null
 
         // Cancel ongoing operation
         paymentManager.cancelReadCard()
 
-        // ✅ Tăng retryTrigger để trigger LaunchedEffect
+        // Trigger LaunchedEffect
         retryTrigger++
     }
 
@@ -192,54 +205,58 @@ fun PaymentCardScreen(
                             val requestSale = result.requestSale
                             Timber.tag("PaymentCard").d("🎉 CARD READ SUCCESS")
 
-                            // ✅ 1. CARD_DETECTED - chờ 1s
+                            // 1. CARD_DETECTED
                             paymentState = PaymentState.CARD_DETECTED
                             currentRequestSale = requestSale
                             cardInfo = UtilHelper.maskCardNumber(requestSale.data.card.clearPan)
                             statusMessage = "Đã phát hiện thẻ"
 
-                            delay(1000) // Chờ 1s
+                            delay(1000)
 
-                            // ✅ 2. PROCESSING - chờ 3s
+                            // 2. PROCESSING
                             paymentState = PaymentState.PROCESSING
                             statusMessage = "Đang xử lý giao dịch..."
 
                             scope.launch {
                                 val result = processPayment(apiService, requestSale)
-
-                                result.onSuccess { sale ->
+                                result.onSuccess { saleResultData ->
                                     Timber.tag("PaymentCard").d("✅ Payment SUCCESS")
-                                    currentRequestSale = sale
-                                    paymentState = PaymentState.SUCCESS
-                                    statusMessage = "Giao dịch thành công"
 
-                                    val ttsMessage = PaymentTTSHelper.getSuccessTTSMessage(amount)
-                                    ttsManager.speak(ttsMessage)
+                                    // Check API status code
+                                    if (saleResultData.status?.code == "00") {
+                                        paymentState = PaymentState.SUCCESS
+                                        statusMessage = "Giao dịch thành công"
 
-                                    // Auto close after 3 seconds
-                                    delay(3000)
-                                    onSuccess(sale)
+                                        val ttsMessage = PaymentTTSHelper.getSuccessTTSMessage(amount)
+                                        ttsManager.speak(ttsMessage)
+
+                                        // Auto close after 3 seconds
+                                        onSuccess(saleResultData)
+                                    } else {
+                                        // API returned error status
+                                        val apiErrorMsg = saleResultData.status?.message
+                                            ?: "Giao dịch thất bại"
+                                        errorCode = saleResultData.status?.code ?: "API_ERROR"
+                                        errorDialogMessage = apiErrorMsg
+                                        showErrorDialog = true
+                                        ttsManager.speak("Giao dịch thất bại. $apiErrorMsg")
+                                    }
                                 }
 
                                 result.onFailure { error ->
-                                    Timber.tag("PaymentCard").e("❌ Payment FAILED: ${error.message}")
                                     val errorMessage = error.message ?: "Giao dịch thất bại. Vui lòng thử lại"
+                                    showErrorDialog = true
                                     errorCode = "API_ERROR"
                                     errorDialogMessage = errorMessage
-                                    showErrorDialog = true
                                     ttsManager.speak("Giao dịch thất bại. $errorMessage")
                                 }
                             }
                         }
 
                         is PaymentResult.Error -> {
-                            Timber.tag("PaymentCard").e(
-                                "❌ READ CARD ERROR: ${result.type} - ${result.getFullMessage()}"
-                            )
                             showErrorDialog = true
                             errorCode = result.errorCode
                             errorDialogMessage = result.vietnameseMessage
-
                             ttsManager.speak(PaymentTTSHelper.getTTSMessage(result.type))
                         }
                     }
@@ -340,7 +357,7 @@ fun PaymentCardScreen(
 suspend fun processPayment(
     apiService: ApiService,
     requestSale: RequestSale
-): Result<RequestSale> {
+): Result<SaleResultData> {  // ✅ CHANGED: Return SaleResultData instead of RequestSale
     val gson = Gson()
     Timber.tag("Payment").d("Processing payment:")
     return try {
@@ -373,7 +390,7 @@ suspend fun processPayment(
             "requestData" to mapOf(
                 "type" to requestSale.requestData.type,
                 "action" to requestSale.requestData.action,
-                "merchant_request_data" to Gson().toJson(requestSale.requestData.merchantRequestData)
+                "merchant_request_data" to gson.toJson(requestSale.requestData.merchantRequestData)
             ),
             "requestId" to requestSale.requestId,
         )
@@ -381,14 +398,22 @@ suspend fun processPayment(
         // Gọi API /api/card/sale
         val resultApi = apiService.post("/api/card/sale", requestBody) as ResultApi<*>
 
-        // Parse response nếu cần
-        val saleResponse = gson.fromJson(
+        // ✅ Parse response as SaleResultData
+        val saleResultData = gson.fromJson(
             gson.toJson(resultApi.data),
-            RequestSale::class.java
+            SaleResultData::class.java
         )
-        Result.success(saleResponse ?: requestSale)
+
+        if (saleResultData != null) {
+            if (saleResultData.status?.code == "00") {
+                Result.success(saleResultData)
+            } else {
+                Result.failure(Exception(saleResultData.status?.message))
+            }
+        } else {
+            Result.failure(Exception("API returned null data"))
+        }
     } catch (e: Exception) {
-        Timber.tag("Payment").e("❌ API Error: ${e.message}")
         Result.failure(e)
     }
 }

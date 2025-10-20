@@ -79,7 +79,6 @@ class PaymentHelper @Inject constructor(
 
         // Log toàn bộ data trong Intent
         logCompleteIntentStructure(data, resultCode)
-
         var returnedData = data?.getStringExtra("payment_response_data")
             ?: data?.getStringExtra("member_response_data")
             ?: "NO_DATA"
