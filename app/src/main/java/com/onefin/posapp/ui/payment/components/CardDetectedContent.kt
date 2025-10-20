@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,37 +36,49 @@ import com.onefin.posapp.core.models.data.RequestSale
 fun CardDetectedContent(
     statusMessage: String,
     cardInfo: String,
-    currentRequestSale: RequestSale?
+    currentRequestSale: RequestSale?,
+    isProcessing: Boolean = false  // ✅ Thêm param này
 ) {
-    val scale by rememberInfiniteTransition(label = "scale").animateFloat(
-        initialValue = 0.8f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(600),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scaleAnim"
-    )
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            modifier = Modifier
-                .size(100.dp)
-                .scale(scale)
-                .background(
-                    color = Color(0xFF4CAF50).copy(alpha = 0.1f),
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.CheckCircle,
-                contentDescription = null,
-                tint = Color(0xFF4CAF50),
-                modifier = Modifier.size(60.dp)
+        // ✅ Hiển thị icon hoặc loading tùy state
+        if (isProcessing) {
+            // PROCESSING state - hiển thị loading
+            CircularProgressIndicator(
+                modifier = Modifier.size(80.dp),
+                color = Color(0xFF1976D2),
+                strokeWidth = 6.dp
             )
+        } else {
+            // CARD_DETECTED state - hiển thị checkmark với animation
+            val scale by rememberInfiniteTransition(label = "scale").animateFloat(
+                initialValue = 0.8f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(600),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "scaleAnim"
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .scale(scale)
+                    .background(
+                        color = Color(0xFF4CAF50).copy(alpha = 0.1f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = Color(0xFF4CAF50),
+                    modifier = Modifier.size(60.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -74,7 +87,7 @@ fun CardDetectedContent(
             text = statusMessage,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF4CAF50)
+            color = if (isProcessing) Color(0xFF1976D2) else Color(0xFF4CAF50)
         )
 
         Spacer(modifier = Modifier.height(12.dp))

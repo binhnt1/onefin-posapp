@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Custom attributes for PinView trong OneFin SDK -->
+    <declare-styleable name="PinView">
+        <!-- Button attributes -->
+        <attr name="button_drawable_size" format="dimension" />
+        <attr name="button_textcolor" format="color" />
+        <attr name="button_textcolor_dark" format="color" />
+        <attr name="button_alpha_textsize" format="dimension" />
+        <attr name="button_numeric_textsize" format="dimension" />
+        <attr name="button_background_drawable" format="reference" />
+
+        <!-- Pin indicator attributes -->
+        <attr name="pin_indicator_size" format="dimension" />
+        <attr name="pin_indicator_filled_color" format="color" />
+        <attr name="pin_indicator_empty_color" format="color" />
+        <attr name="pin_indicator_stroke_width" format="dimension" />
+        <attr name="pin_indicator_spacing" format="dimension" />
+
+        <!-- Pin length and behavior -->
+        <attr name="pin_length" format="integer" />
+        <attr name="auto_submit" format="boolean" />
+
+        <!-- Prompt text attributes -->
+        <attr name="prompt_text" format="string" />
+        <attr name="prompt_textsize" format="dimension" />
+        <attr name="prompt_textcolor" format="color" />
+
+        <!-- Delete button attributes -->
+        <attr name="delete_button_drawable" format="reference" />
+        <attr name="delete_button_size" format="dimension" />
+
+        <!-- Additional possible attributes -->
+        <attr name="pin_background" format="reference|color" />
+        <attr name="vibrate_on_input" format="boolean" />
+        <attr name="show_delete_button" format="boolean" />
+    </declare-styleable>
+</resources>

@@ -100,15 +100,6 @@ class ExternalPaymentActivity : BaseActivity() {
 
         if (data != null) {
             // LOG TẤT CẢ EXTRAS
-            val extras = data.extras
-            if (extras != null) {
-                for (key in extras.keySet()) {
-                    Timber.tag(TAG).d("Extra key: $key, value: ${extras.get(key)}")
-                }
-            } else {
-                Timber.tag(TAG).d("No extras in intent")
-            }
-
             val responseJson = data.getStringExtra(RESULT_PAYMENT_RESPONSE_DATA)
             Timber.tag(TAG).d("responseJson: $responseJson")
 

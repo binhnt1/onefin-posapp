@@ -241,14 +241,27 @@ object UtilHelper {
 
                 // CVM Limit (contactless) - default or from config if available
                 // Usually 6 bytes representing amount (e.g., 000000050000 = 500.00)
-                cvmLmt = ByteArray(6) // Default: no limit
+                cvmLmt = when (config.vendorName.uppercase(Locale.getDefault())) {
+                    "VISA" -> hexStringToByteArray("000000100000").copyOf(6)  // 1,000,000 VND
+                    "MASTERCARD" -> hexStringToByteArray("000000100000").copyOf(6)
+                    else -> hexStringToByteArray("000000100000").copyOf(6)  // Default: 1M VND
+                }
 
                 // Terminal contactless limit - default
-                termClssLmt = ByteArray(6) // Default: no limit
+                termClssLmt = when (config.vendorName.uppercase(Locale.getDefault())) {
+                    "VISA" -> hexStringToByteArray("000000999999").copyOf(6)  // 9,999,990 VND
+                    "MASTERCARD" -> hexStringToByteArray("000000999999").copyOf(6)
+                    else -> hexStringToByteArray("000000999999").copyOf(6)
+                }
 
                 // Terminal offline floor limits
-                termOfflineFloorLmt = hexStringToByteArray(config.floorLimit9F1B).copyOf(6)
-                termClssOfflineFloorLmt = ByteArray(6)
+                val floorLimitBytes = if (config.floorLimit9F1B.isNotEmpty()) {
+                    hexStringToByteArray(config.floorLimit9F1B).copyOf(6)
+                } else {
+                    hexStringToByteArray("000000000000").copyOf(6)  // 0 = OK
+                }
+                termOfflineFloorLmt = floorLimitBytes
+                termClssOfflineFloorLmt = hexStringToByteArray("000000000000").copyOf(6)
 
                 // Reference currency (if provided)
                 if (config.referCurrencyCode9F3C.isNotEmpty()) {
@@ -263,11 +276,21 @@ object UtilHelper {
                     "MASTERCARD" -> 2.toByte()
                     "VISA" -> 3.toByte()
                     "AMEX" -> 4.toByte()
-                    "JCB" -> 6.toByte() // JCB là 6 theo tài liệu
+                    "JCB" -> 6.toByte()
                     else -> 0.toByte()
                 }
+
                 paramType = 2.toByte()
-                ttq = hexStringToByteArray("3600C080").copyOf(4)
+
+                ttq = when (config.vendorName.uppercase(Locale.getDefault())) {
+                    "VISA" -> hexStringToByteArray("26000080").copyOf(4)
+                    "MASTERCARD" -> hexStringToByteArray("3600C080").copyOf(4)
+                    "AMEX" -> hexStringToByteArray("2600C080").copyOf(4)
+                    "JCB" -> hexStringToByteArray("3600C080").copyOf(4)
+                    "NAPAS" -> hexStringToByteArray("3600C080").copyOf(4)
+                    else -> hexStringToByteArray("26000080").copyOf(4)
+                }
+
                 clsStatusCheck = 1.toByte()
 
             } catch (e: Exception) {

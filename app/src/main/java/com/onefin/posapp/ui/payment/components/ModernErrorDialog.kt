@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ModernErrorDialog(
     message: String,
+    errorCode: String? = null,  // 🔥 NEW: Optional error code
     onRetry: () -> Unit,
     onCancel: () -> Unit
 ) {
@@ -88,13 +89,34 @@ fun ModernErrorDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // 🔥 NEW: Main error message
                 Text(
                     text = message,
                     fontSize = 16.sp,
-                    color = Color(0xFF6B7280),
+                    color = Color(0xFF1F2937),
+                    fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Center,
                     lineHeight = 24.sp
                 )
+
+                // 🔥 NEW: Error code display (if available)
+                if (!errorCode.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFF3F4F6),
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    ) {
+                        Text(
+                            text = "Mã lỗi: $errorCode",
+                            fontSize = 13.sp,
+                            color = Color(0xFF6B7280),
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(32.dp))
 
@@ -110,7 +132,7 @@ fun ModernErrorDialog(
                         contentPadding = PaddingValues(vertical = 16.dp)
                     ) {
                         Text(
-                            text = "HỦY",
+                            text = "BỎ QUA",  // 🔥 CHANGED: More clear
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF6B7280)

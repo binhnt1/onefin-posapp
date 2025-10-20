@@ -16,9 +16,13 @@ import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
 import com.onefin.posapp.core.managers.SunmiPaymentManager
 import com.onefin.posapp.core.managers.TTSManager
+import com.onefin.posapp.core.managers.helpers.PaymentTTSHelper
+import com.onefin.posapp.core.models.ResultApi
 import com.onefin.posapp.core.models.data.PaymentAppRequest
+import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.models.data.PaymentState
 import com.onefin.posapp.core.models.data.RequestSale
+import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.utils.CardHelper
 import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.ui.base.BaseActivity
@@ -27,11 +31,8 @@ import com.onefin.posapp.ui.payment.components.AmountCard
 import com.onefin.posapp.ui.payment.components.ModernErrorDialog
 import com.onefin.posapp.ui.payment.components.ModernHeader
 import com.onefin.posapp.ui.payment.components.PaymentStatusCard
-import com.onefin.posapp.ui.payment.components.SuccessAnimationScreen
 import dagger.hilt.android.AndroidEntryPoint
 import jakarta.inject.Inject
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -45,6 +46,10 @@ class PaymentCardActivity : BaseActivity() {
 
     @Inject
     lateinit var ttsManager: TTSManager
+
+    @Inject
+    lateinit var apiService: ApiService
+
     @Inject
     lateinit var paymentManager: SunmiPaymentManager
 
@@ -64,8 +69,9 @@ class PaymentCardActivity : BaseActivity() {
         if (requestData != null) {
             setContent {
                 PaymentCardScreen(
-                    paymentAppRequest = requestData,
+                    apiService = apiService,
                     onCancel = { cancelPayment() },
+                    paymentAppRequest = requestData,
                     onSuccess = { requestSale -> finishWithSuccess(requestSale) },
                     onError = { code, message -> finishWithError(code, message) }
                 )
@@ -82,6 +88,7 @@ class PaymentCardActivity : BaseActivity() {
         paymentManager.cancelReadCard()
         finishWithError("USER_CANCELLED", "Người dùng hủy giao dịch")
     }
+
     private fun finishWithSuccess(requestSale: RequestSale) {
         val paymentJson = gson.toJson(requestSale)
         val result = JSONObject().apply {
@@ -109,6 +116,7 @@ class PaymentCardActivity : BaseActivity() {
         setResult(RESULT_OK, intent)
         finish()
     }
+
     private fun finishWithError(errorCode: String, errorMessage: String) {
         val result = JSONObject().apply {
             put("status", "error")
@@ -130,10 +138,11 @@ class PaymentCardActivity : BaseActivity() {
 
 @Composable
 fun PaymentCardScreen(
-    paymentAppRequest: PaymentAppRequest,
     onCancel: () -> Unit,
+    apiService: ApiService,
     onSuccess: (RequestSale) -> Unit,
-    onError: (String, String) -> Unit
+    onError: (String, String) -> Unit,
+    paymentAppRequest: PaymentAppRequest,
 ) {
     var cardInfo by remember { mutableStateOf("") }
     var statusMessage by remember { mutableStateOf("Đang khởi tạo...") }
@@ -141,15 +150,34 @@ fun PaymentCardScreen(
     var currentRequestSale by remember { mutableStateOf<RequestSale?>(null) }
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorDialogMessage by remember { mutableStateOf("") }
-    var isInitialized by remember { mutableStateOf(false) }
-    var showSuccessAnimation by remember { mutableStateOf(false) }
+    var errorCode by remember { mutableStateOf<String?>(null) }
 
     val scope = rememberCoroutineScope()
     val activity = LocalContext.current as PaymentCardActivity
     val paymentManager = remember { activity.paymentManager }
     val ttsManager = remember { activity.ttsManager }
+    var retryTrigger by remember { mutableIntStateOf(0) }
 
     val amount = paymentAppRequest.merchantRequestData?.amount ?: 0
+
+    fun resetAndRetry() {
+        Timber.tag("PaymentCard").d("🔄 Reset and retry")
+
+        // Reset all state
+        showErrorDialog = false
+        errorDialogMessage = ""
+        errorCode = null
+        cardInfo = ""
+        statusMessage = "Đang khởi tạo..."
+        paymentState = PaymentState.INITIALIZING
+        currentRequestSale = null
+
+        // Cancel ongoing operation
+        paymentManager.cancelReadCard()
+
+        // ✅ Tăng retryTrigger để trigger LaunchedEffect
+        retryTrigger++
+    }
 
     fun startCardReading() {
         paymentState = PaymentState.WAITING_CARD
@@ -157,166 +185,184 @@ fun PaymentCardScreen(
 
         paymentManager.startReadCard(
             paymentAppRequest = paymentAppRequest,
-            onCardRead = { requestSale ->
-                Timber.tag("PaymentCard").d("🎉 CARD READ SUCCESS")
-
-                paymentState = PaymentState.CARD_DETECTED
-                currentRequestSale = requestSale
-                cardInfo = UtilHelper.maskCardNumber(requestSale.data.card.clearPan)
-                statusMessage = "Đã phát hiện thẻ"
-
+            onResult = { result ->
                 scope.launch {
-                    delay(1500)
-                    paymentState = PaymentState.PROCESSING
-                    statusMessage = "Đang xử lý giao dịch..."
+                    when (result) {
+                        is PaymentResult.Success -> {
+                            val requestSale = result.requestSale
+                            Timber.tag("PaymentCard").d("🎉 CARD READ SUCCESS")
 
-                    processPayment(
-                        requestSale = requestSale,
-                        onSuccess = { sale ->
-                            Timber.tag("PaymentCard").d("✅ Payment SUCCESS")
+                            // ✅ 1. CARD_DETECTED - chờ 1s
+                            paymentState = PaymentState.CARD_DETECTED
+                            currentRequestSale = requestSale
+                            cardInfo = UtilHelper.maskCardNumber(requestSale.data.card.clearPan)
+                            statusMessage = "Đã phát hiện thẻ"
 
-                            // ✅ THÊM: Hiển thị success animation
-                            paymentState = PaymentState.SUCCESS
-                            currentRequestSale = sale
-                            showSuccessAnimation = true
+                            delay(1000) // Chờ 1s
 
-                            // ✅ Text-to-speech
-                            ttsManager.speak("Giao dịch thành công. Số tiền $amount đồng")
-                        },
-                        onError = { code, msg ->
-                            Timber.tag("PaymentCard").e("❌ Payment FAILED: $code - $msg")
-                            paymentState = PaymentState.ERROR
-                            statusMessage = msg
-                            errorDialogMessage = msg
-                            showErrorDialog = true
+                            // ✅ 2. PROCESSING - chờ 3s
+                            paymentState = PaymentState.PROCESSING
+                            statusMessage = "Đang xử lý giao dịch..."
 
-                            ttsManager.speak("Giao dịch thất bại. $msg")
+                            scope.launch {
+                                val result = processPayment(apiService, requestSale)
+
+                                result.onSuccess { sale ->
+                                    Timber.tag("PaymentCard").d("✅ Payment SUCCESS")
+                                    currentRequestSale = sale
+                                    paymentState = PaymentState.SUCCESS
+                                    statusMessage = "Giao dịch thành công"
+
+                                    val ttsMessage = PaymentTTSHelper.getSuccessTTSMessage(amount)
+                                    ttsManager.speak(ttsMessage)
+
+                                    // Auto close after 3 seconds
+                                    delay(3000)
+                                    onSuccess(sale)
+                                }
+
+                                result.onFailure { error ->
+                                    Timber.tag("PaymentCard").e("❌ Payment FAILED: ${error.message}")
+                                    val errorMessage = error.message ?: "Giao dịch thất bại. Vui lòng thử lại"
+                                    errorCode = "API_ERROR"
+                                    errorDialogMessage = errorMessage
+                                    showErrorDialog = true
+                                    ttsManager.speak("Giao dịch thất bại. $errorMessage")
+                                }
+                            }
                         }
-                    )
+
+                        is PaymentResult.Error -> {
+                            Timber.tag("PaymentCard").e(
+                                "❌ READ CARD ERROR: ${result.type} - ${result.getFullMessage()}"
+                            )
+                            showErrorDialog = true
+                            errorCode = result.errorCode
+                            errorDialogMessage = result.vietnameseMessage
+
+                            ttsManager.speak(PaymentTTSHelper.getTTSMessage(result.type))
+                        }
+                    }
                 }
-            },
-            onError = { error ->
-                Timber.tag("PaymentCard").e("❌ READ CARD ERROR: $error")
-                paymentState = PaymentState.ERROR
-                statusMessage = "Lỗi đọc thẻ: $error"
-                errorDialogMessage = error
-                showErrorDialog = true
-
-                ttsManager.speak("Lỗi đọc thẻ")
-            }
-        )
-    }
-
-    // ✅ Success Animation Overlay
-    if (showSuccessAnimation && currentRequestSale != null) {
-        SuccessAnimationScreen(
-            amount = amount,
-            cardNumber = currentRequestSale!!.data.card.clearPan,
-            onComplete = {
-                onSuccess(currentRequestSale!!)
-            }
-        )
-    }
-
-    // ✅ Error Dialog
-    if (showErrorDialog) {
-        ModernErrorDialog(
-            message = errorDialogMessage,
-            onRetry = {
-                showErrorDialog = false
-                startCardReading()
-            },
-            onCancel = {
-                showErrorDialog = false
-                onCancel()
             }
         )
     }
 
     // Initialize once
-    LaunchedEffect(Unit) {
-        if (!isInitialized) {
-            isInitialized = true
-            paymentManager.initialize(
-                onReady = {
-                    Timber.tag("PaymentCard").d("✅ Payment manager ready")
-                    startCardReading()
+    LaunchedEffect(retryTrigger) {
+        Timber.tag("PaymentCard").d("🔄 Initializing... (trigger: $retryTrigger)")
+        paymentManager.initialize(
+            onReady = {
+                Timber.tag("PaymentCard").d("✅ Payment manager ready")
+                startCardReading()
+            },
+            onError = { error ->
+                Timber.tag("PaymentCard").e(
+                    "❌ INIT ERROR: ${error.getFullMessage()}"
+                )
+
+                paymentState = PaymentState.ERROR
+                statusMessage = error.vietnameseMessage
+                errorDialogMessage = error.vietnameseMessage
+                errorCode = error.errorCode
+                showErrorDialog = true
+
+                val ttsMessage = PaymentTTSHelper.getTTSMessage(error.type)
+                ttsManager.speak(ttsMessage)
+            }
+        )
+    }
+
+    // Main UI
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF1E3A8A),
+                        Color(0xFF3B82F6)
+                    )
+                )
+            )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            ModernHeader(
+                billNumber = paymentAppRequest.merchantRequestData?.billNumber,
+                referenceId = paymentAppRequest.merchantRequestData?.referenceId
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            AmountCard(amount = amount)
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            PaymentStatusCard(
+                paymentState = paymentState,
+                statusMessage = statusMessage,
+                cardInfo = cardInfo,
+                currentRequestSale = currentRequestSale,
+                modifier = Modifier.weight(1f)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            ActionButtons(
+                paymentState = paymentState,
+                onCancel = onCancel
+            )
+        }
+
+        // Error Dialog
+        if (showErrorDialog) {
+            ModernErrorDialog(
+                message = errorDialogMessage,
+                errorCode = errorCode,
+                onRetry = {
+                    resetAndRetry()
                 },
-                onError = { error ->
-                    Timber.tag("PaymentCard").e("❌ INIT ERROR: $error")
-                    paymentState = PaymentState.ERROR
-                    statusMessage = "Lỗi khởi tạo: $error"
-                    errorDialogMessage = error
-                    showErrorDialog = true
+                onCancel = {
+                    showErrorDialog = false
+                    onCancel()
                 }
             )
         }
     }
-
-    // ✅ Main UI - Chỉ hiện khi CHƯA success
-    if (!showSuccessAnimation) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFF1E3A8A),
-                            Color(0xFF3B82F6)
-                        )
-                    )
-                )
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                ModernHeader(
-                    billNumber = paymentAppRequest.merchantRequestData?.billNumber,
-                    referenceId = paymentAppRequest.merchantRequestData?.referenceId
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                AmountCard(amount = amount)
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                PaymentStatusCard(
-                    paymentState = paymentState,
-                    statusMessage = statusMessage,
-                    cardInfo = cardInfo,
-                    currentRequestSale = currentRequestSale,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                ActionButtons(
-                    paymentState = paymentState,
-                    onCancel = onCancel
-                )
-            }
-        }
-    }
 }
 
-@OptIn(DelicateCoroutinesApi::class)
-fun processPayment(
-    requestSale: RequestSale,
-    onSuccess: (RequestSale) -> Unit,
-    onError: (String, String) -> Unit
-) {
+suspend fun processPayment(
+    apiService: ApiService,
+    requestSale: RequestSale
+): Result<RequestSale> {
     val gson = Gson()
-    val jsonString = gson.toJson(requestSale)
     Timber.tag("Payment").d("Processing payment:")
-    Timber.tag("Payment").d(jsonString)
+    return try {
+        // Convert RequestSale thành Map
+        val requestMap = gson.fromJson<Map<String, Any>>(
+            gson.toJson(requestSale),
+            object : com.google.gson.reflect.TypeToken<Map<String, Any>>() {}.type
+        )
+        Timber.tag("Payment").d("RequestMap: $requestMap")
 
-    GlobalScope.launch {
-        delay(2000)
-        onSuccess(requestSale)
+
+        // Gọi API /api/card/sale
+        val resultApi = apiService.post("/api/card/sale", requestMap) as ResultApi<*>
+
+        // Parse response nếu cần
+        val saleResponse = gson.fromJson(
+            gson.toJson(resultApi.data),
+            RequestSale::class.java
+        )
+        Result.success(saleResponse ?: requestSale)
+    } catch (e: Exception) {
+        Timber.tag("Payment").e("❌ API Error: ${e.message}")
+        Result.failure(e)
     }
 }

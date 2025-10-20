@@ -99,6 +99,7 @@ android {
             versionNameSuffix = "-mailinh"
             applicationIdSuffix = ".mailinh"
             resValue("string", "app_name", "POS App - MaiLinh")
+            buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "APP_KEY", "\"85ba2fcfe7fa4511a37a8f017a282fa8\"")
         }
 
@@ -108,6 +109,7 @@ android {
             versionNameSuffix = "-sgpt"
             applicationIdSuffix = ".sgpt"
             resValue("string", "app_name", "POS App - SGPT")
+            buildConfigField("String", "SDK_TYPE", "\"onefin\"")
             buildConfigField("String", "APP_KEY", "\"21f7d3f50ab94f23a0b0b3e081fa8ced\"")
         }
 
@@ -115,6 +117,7 @@ android {
         create("default") {
             dimension = "customer"
             buildConfigField("String", "APP_KEY", "\"\"")
+            buildConfigField("String", "SDK_TYPE", "\"onefin\"")
         }
     }
 }
@@ -124,7 +127,6 @@ dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
-    implementation(libs.androidx.ui)
 
     // Desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")

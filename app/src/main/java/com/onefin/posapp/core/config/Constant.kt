@@ -47,7 +47,7 @@ object CardConstants {
     const val CARD_TYPE_MAGNETIC = 0x01
     const val CARD_TYPE_IC = 0x02
     const val CARD_TYPE_NFC = 0x04
-    const val CARD_TYPE_ALL = CARD_TYPE_MAGNETIC or CARD_TYPE_IC or CARD_TYPE_NFC
+    const val CARD_TYPE_ALL = 0x07
 
     // EMV Kernel OpCodes (theo Sunmi PaySDK AIDL v2)
     const val OP_NORMAL = 0        // Global terminal parameters

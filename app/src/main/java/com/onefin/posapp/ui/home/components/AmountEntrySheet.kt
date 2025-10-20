@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.onefin.posapp.BuildConfig
 import com.onefin.posapp.R
 import com.onefin.posapp.core.models.data.MerchantRequestData
 import com.onefin.posapp.core.models.data.PaymentAction
@@ -140,13 +141,6 @@ fun AmountEntrySheet(
                     modifier = Modifier.padding(vertical = amountDisplayPaddingVertical)
                 )
 
-                Text(
-                    text = stringResource(R.string.home_currency_vnd),
-                    fontSize = 16.sp,
-                    color = Color(0xFF475467),
-                    modifier = Modifier.padding(bottom = currencyPaddingBottom)
-                )
-
                 NumberPad(
                     onNumberClick = { number ->
                         if (!isProcessing) {
@@ -200,12 +194,27 @@ fun AmountEntrySheet(
                                                 amount = amountValue
                                             )
                                         )
+                                        val sdkType = BuildConfig.SDK_TYPE
                                         val paymentRequestData = paymentHelper.createPaymentAppRequest(account, paymentRequest)
-                                        val intent = Intent(context, TransparentPaymentActivity::class.java).apply {
-                                            putExtra("REQUEST_DATA", paymentRequestData)
-                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        if (sdkType == "onefin") {
+                                            val intent = Intent(
+                                                context,
+                                                TransparentPaymentActivity::class.java
+                                            ).apply {
+                                                putExtra("REQUEST_DATA", paymentRequestData)
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            context.startActivity(intent)
+                                        } else {
+                                            val intent = Intent(
+                                                context,
+                                                PaymentCardActivity::class.java
+                                            ).apply {
+                                                putExtra("REQUEST_DATA", paymentRequestData)
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            context.startActivity(intent)
                                         }
-                                        context.startActivity(intent)
                                         onDismiss()
                                     } else {
                                         isProcessing = false

@@ -50,7 +50,6 @@ class TTSManager @Inject constructor(
                                     }
                                 }
 
-                                // Cấu hình thêm
                                 tts.setSpeechRate(1.0f)
                                 tts.setPitch(1.0f)
 
@@ -61,7 +60,6 @@ class TTSManager @Inject constructor(
                                 processPendingSpeech()
                             } catch (e: Exception) {
                                 Timber.tag(TAG).e(e, "Error configuring TTS")
-                                // Vẫn đánh dấu là initialized để tránh retry vô hạn
                                 isInitialized = true
                             }
                         }

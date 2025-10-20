@@ -8,14 +8,14 @@ import com.onefin.posapp.core.models.data.RequestSale
 import com.sunmi.pay.hardware.aidlv2.bean.CapkV2
 import com.sunmi.pay.hardware.aidlv2.bean.EmvTermParamV2
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
-import timber.log.Timber
 import java.util.Locale
 import java.util.UUID
 
 object CardHelper {
+
     fun injectCapks(emv: EMVOptV2) {
         val capks = listOf(
-            // Mastercard CAPK FA (Common for contactless)
+            // Mastercard CAPK FA
             Triple("A000000004", "FA", mapOf(
                 "modulus" to "A90FCD55AA2D5D9963E35ED0F440177699832F49C6BAB15CDAE5794BE93F934D4462D5D12762E48C38BA83D8445DEAA74195A301A102B2F114EADA0D180EE5E7A5C73E0C4E11F67A43DDAB5D55683B1474CC0627F44B8D3088A492FFAADAD4F42422D0E7013536C3C49AD3D0FAE96459B0F6B1B6056538A3D6D44640F94467B108867DEC40FAAECD740C00E2B7A8852DDF",
                 "exponent" to "03",
@@ -23,33 +23,44 @@ object CardHelper {
                 "checksum" to "5BED4068D96EA16D2D77E03D6036FC7A160EA99C"
             )),
 
-            // Visa CAPK 08 (Common for contactless)
+            // Visa CAPK 08
             Triple("A000000003", "08", mapOf(
                 "modulus" to "D9FD6ED75D51D0E30664BD157023EAA1FFA871E4DA65672B863D255E81E137A51DE4F72BCC9E44ACE12127F87E263D3AF9DD9CF35CA4A7B01E907000BA85D24EC00AD880B3CE50D088111217C1C2A3C32F2F20969507EC45A3DF52A405D3A0FF41FBFFD869CEF90775D35E5B0FA1C91AD5A3C2F04F652CF1F0A9B9EBF00BB285AD519DD0F2C830696068",
                 "exponent" to "03",
                 "expDate" to "251231",
                 "checksum" to "20D213126955DE205ADC2FD2822BD22DE21CF9A8"
+            )),
+
+            // JCB CAPK 11
+            Triple("A000000065", "11", mapOf(
+                "modulus" to "ACD2B12302EE644F3F835ABD1FC7A6F62CCE48FFEC622AA8EF062BEF6FB8BA8BC68BBF6AB5870EED579BC3973E121303D34841A796D6DCBC41DBF9E52C4609795C0CCF7EE86FA1D5CB041071ED2C51D2202F63F1156C58A92D38BC60BDF424E1776E2BC9648078A03B36FB554375FC53D57C73F5160EA59F3AFC5398EC7B67758D65C8A53CEAA8CFBB0F",
+                "exponent" to "03",
+                "expDate" to "251231",
+                "checksum" to "4ABFFD6B1C51212D05552E431C5B17007D2F5E6D"
+            )),
+
+            // UnionPay CAPK 05
+            Triple("A000000333", "05", mapOf(
+                "modulus" to "B8048ABC30C90D976336543E3FD7091C8FE4800DF820ED55E7E94813ED00555B573FECA3D84AF6131A651D66CFF4284FB13B635EDD0EE40176D8BF04B7FD1C7BACF9AC7327DFAA8AA72D10DB3B8E70B2DDD811CB4196525EA386ACC33C0D9D4575916469C4E4F53E8E1C912CC618CB22DDE7C3568E90022E6BBA770202E4522A2DD623D180E215BD1D1507FE3DC90CA310D27B3EFCCD8F83DE3052CAD1E48938C68D095AAC91B5F37E28BB49EC7ED597",
+                "exponent" to "03",
+                "expDate" to "251231",
+                "checksum" to "E881E390675D44C2F37637D010FD6861F6528FA4"
             ))
         )
-
         capks.forEach { (rid, index, data) ->
             try {
                 val capkV2 = CapkV2().apply {
-                    this.rid = UtilHelper.hexStringToByteArray(rid)
-                    this.index = index.toInt(16).toByte()
                     this.hashInd = 0x01.toByte()
                     this.arithInd = 0x01.toByte()
+                    this.index = index.toInt(16).toByte()
+                    this.rid = UtilHelper.hexStringToByteArray(rid)
                     this.modul = UtilHelper.hexStringToByteArray(data["modulus"]!!)
-                    this.exponent = UtilHelper.hexStringToByteArray(data["exponent"]!!)
                     this.expDate = UtilHelper.hexStringToByteArray(data["expDate"]!!)
+                    this.exponent = UtilHelper.hexStringToByteArray(data["exponent"]!!)
                     this.checkSum = UtilHelper.hexStringToByteArray(data["checksum"]!!)
                 }
-
-                val result = emv.addCapk(capkV2)
-                val status = if (result == 0) "✅" else "❌"
-
-            } catch (e: Exception) {
-            }
+                emv.addCapk(capkV2)
+            } catch (e: Exception) {}
         }
     }
 
@@ -80,7 +91,6 @@ object CardHelper {
                 "MASTERCARD" -> setPayPassTlvs(emv, config)
                 "UNIONPAY", "UNION PAY" -> setQpbocTlvs(emv, config)
                 "AMEX", "AMERICAN EXPRESS" -> setExpressPayTlvs(emv, config)
-                else -> Timber.tag("CardHelper").w("Unknown vendor: ${config.vendorName}")
             }
         }
     }
@@ -91,26 +101,27 @@ object CardHelper {
             var idx = 0
             val data = tlvHex.uppercase(Locale.getDefault())
             while (idx + 2 <= data.length) {
-                // read tag: if first byte low 5 bits == 0x1F then two-byte tag
                 val firstByte = data.substring(idx, idx + 2).toInt(16)
                 val tag = if ((firstByte and 0x1F) == 0x1F) {
-                    data.substring(idx, idx + 4).also { /* 2-byte tag */ }
+                    data.substring(idx, idx + 4)
                 } else {
                     data.substring(idx, idx + 2)
                 }
                 idx += tag.length
                 if (idx + 2 > data.length) break
+
                 val lenHex = data.substring(idx, idx + 2)
                 val length = lenHex.toInt(16)
                 idx += 2
+
                 val valueLenChars = length * 2
                 if (idx + valueLenChars > data.length) break
+
                 val value = data.substring(idx, idx + valueLenChars)
                 result[tag] = value
                 idx += valueLenChars
             }
-        } catch (e: Exception) {
-        }
+        } catch (e: Exception) {}
         return result
     }
 
@@ -118,20 +129,15 @@ object CardHelper {
         val config: EvmConfig = terminal?.evmConfigs?.firstOrNull() ?: EvmConfig()
 
         val globalTags = arrayOf(
-            "9F1A",  // Terminal Country Code
-            "5F2A",  // Transaction Currency Code
-            "5F36",  // Transaction Currency Exponent
-            "9F33",  // Terminal Capabilities
-            "9F35",  // Terminal Type
-            "9F40",  // Additional Terminal Capabilities
-            "9F66",  // TTQ
-            "9F09",  // Terminal Application Version
-            "9F1C",  // Terminal ID
-            "9F15",  // MCC
-            "9F16",  // Merchant ID
-            "9F1E"   // IFD Serial Number
+            "9F1A", "5F2A", "5F36", "9F33", "9F35", "9F40",
+            "9F66", "9F09", "9F1C", "9F15", "9F16", "9F1E"
         )
 
+        val ttq = when (config.vendorName.uppercase(Locale.getDefault())) {
+            "VISA" -> "26000080"
+            "MASTERCARD" -> "3600C080"
+            else -> "3600C080"
+        }
         val globalValues = arrayOf(
             config.countryCode9F1A,
             config.transCurrencyCode5F2A,
@@ -139,7 +145,7 @@ object CardHelper {
             config.terminalCap9F33,
             config.terminalType9F35,
             config.exTerminalCap9F40,
-            "3600C080",
+            ttq,
             config.version9F09,
             terminal?.tid ?: config.terminalId9F1C,
             config.mcc9F15,
@@ -147,29 +153,32 @@ object CardHelper {
             "00000001"
         )
 
-        emv.setTlvList( CardConstants.OP_NORMAL, globalTags, globalValues)
-        Timber.tag("CardHelper").d("Global TLVs configured")
+        emv.setTlvList(CardConstants.OP_NORMAL, globalTags, globalValues)
     }
 
     fun createTerminalParam(config: EvmConfig? = null): EmvTermParamV2 {
         return EmvTermParamV2().apply {
-            // ✅ Capability phải hỗ trợ đầy đủ contactless
-            capability = config?.terminalCap9F33 ?: "E0F8C8"  // Thay đổi từ E0B8C8 -> E0F8C8
+            capability = config?.terminalCap9F33 ?: "E0F8C8"
             terminalType = config?.terminalType9F35 ?: "22"
             countryCode = config?.countryCode9F1A ?: "0704"
-            currencyCode = config?.transCurrencyCode5F2A ?: "0704"
+            currencyCode = "704"
             currencyExp = config?.transCurrencyExp ?: "02"
             surportPSESel = true
-            // ✅ Additional capability cho contactless
-            addCapability = config?.exTerminalCap9F40 ?: "F000F0A001"
-            // ✅ TTQ phù hợp cho contactless
-            TTQ = "3600C080"  // Thay đổi từ 3600C080
+            addCapability = "0300C00000"
+            TTQ = "26000080"
         }
     }
 
     fun buildRequestSale(request: PaymentAppRequest, card: RequestSale.Data.Card): RequestSale {
         val mode = getCardMode(card.type)
         val amount = request.merchantRequestData?.amount ?: 0
+        val posEntryMode = when (mode) {
+            "MAGNETIC" -> "90"
+            "CHIP" -> "05"
+            "CONTACTLESS" -> "07"
+            else -> "00"
+        }
+
         return RequestSale(
             requestData = request,
             requestId = UUID.randomUUID().toString(),
@@ -188,7 +197,7 @@ object CardHelper {
                     expiryDate = card.expiryDate,
                 ),
                 device = RequestSale.Data.Device(
-                    posEntryMode = "010",
+                    posEntryMode = posEntryMode,
                     posConditionCode = "00"
                 ),
                 payment = RequestSale.Data.PaymentData(
@@ -199,9 +208,8 @@ object CardHelper {
         )
     }
 
-
     private fun getCardMode(cardType: String?): String {
-        if (cardType == null) return  "UNKNOWN"
+        if (cardType == null) return "UNKNOWN"
         return when (cardType.uppercase(Locale.getDefault())) {
             "MAGNETIC" -> "MAGNETIC"
             "CHIP" -> "CHIP"
@@ -209,144 +217,77 @@ object CardHelper {
             else -> "UNKNOWN"
         }
     }
-    // JCB
+
     private fun setJcbTlvs(emv: EMVOptV2, config: EvmConfig) {
         val tags = arrayOf(
             "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
             "DF8123", "DF8124", "DF8125", "DF8126"
         )
-
         val values = arrayOf(
             "E0", "F8", "F8", "E8", "00", "00",
             config.tacDefault, config.tacDenial, config.tacOnline,
             config.floorLimit9F1B.takeLast(8)
         )
-
         emv.setTlvList(CardConstants.OP_JSPEEDY, tags, values)
-        Timber.tag("CardHelper").d("JCB configured for AID: ${config.aid9F06}")
     }
-    // Union
+
     private fun setQpbocTlvs(emv: EMVOptV2, config: EvmConfig) {
-        val tags = arrayOf(
-            "DF69", "DF70", "DF71", "DF72", "DF73"
-        )
-
-        val values = arrayOf(
-            "E0", "F8", "F8", "E8", "00"
-        )
-
+        val tags = arrayOf("DF69", "DF70", "DF71", "DF72", "DF73")
+        val values = arrayOf("E0", "F8", "F8", "E8", "00")
         emv.setTlvList(CardConstants.OP_QPBOC, tags, values)
-        Timber.tag("CardHelper").d("qPBOC configured for AID: ${config.aid9F06}")
     }
-    // Napas
+
     private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig) {
         val tags = arrayOf(
             "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
             "DF8123", "DF8124", "DF8125", "DF8126"
         )
-
         val values = arrayOf(
             "E0", "F8", "F8", "E8", "00", "00",
             config.tacDefault, config.tacDenial, config.tacOnline,
             config.floorLimit9F1B.takeLast(8)
         )
-
         emv.setTlvList(CardConstants.OP_PAYPASS, tags, values)
-        Timber.tag("CardHelper").d("NAPAS configured for AID: ${config.aid9F06}")
     }
-    // Visa
+
     private fun setPayWaveTlvs(emv: EMVOptV2, config: EvmConfig) {
         val tags = arrayOf(
-            "DF8117",  // Reader CVM Required Limit
-            "DF8118",  // Reader Contactless Floor Limit
-            "DF8119",  // Reader Contactless Transaction Limit (No CVM)
-            "DF811B",  // Torn Transaction Log Lifetime
-            "DF811D",  // Relay Resistance Grace Period
-            "DF811E",  // Contactless Application Not Allowed
-            "DF811F",  // Reader Contactless Transaction Limit (CVM)
-            "DF8120",  // Mag-stripe Transaction Limit (No CVM)
-            "DF8121",  // Mag-stripe Transaction Limit (CVM)
-            "DF8122",  // Time Out Value
-            "DF8123",  // Terminal Action Code - Default
-            "DF8124",  // Terminal Action Code - Denial
-            "DF8125",  // Terminal Action Code - Online
-            "DF812C"   // Mag-stripe CVM Required Limit
+            "DF8117", "DF8118", "DF8119", "DF811B", "DF811D", "DF811E",
+            "DF811F", "DF8120", "DF8121", "DF8122", "DF8123", "DF8124",
+            "DF8125", "DF812C"
         )
-
         val values = arrayOf(
-            "E0",
-            "F8",
-            "F8",
-            "30",
-            "02",
-            "00",
-            "E8",
-            "000000000000",
-            "000000000000",
-            "0000000000",
-            config.tacDefault,
-            config.tacDenial,
-            config.tacOnline,
-            "00"
+            "000000100000", "000000000000", "000000999999", "30", "02", "00",
+            "000001000000", "000000999999", "000001000000", "0000000000",
+            config.tacDefault, config.tacDenial, config.tacOnline, "000000100000"
         )
-
         emv.setTlvList(CardConstants.OP_PAYWAVE, tags, values)
-        Timber.tag("CardHelper").d("PayWave configured for AID: ${config.aid9F06}")
     }
-    // MasterCard
+
     private fun setPayPassTlvs(emv: EMVOptV2, config: EvmConfig) {
         val tags = arrayOf(
-            "DF8117",  // Reader CVM Required Limit
-            "DF8118",  // Reader Contactless Floor Limit
-            "DF8119",  // Reader Contactless Transaction Limit (No CVM)
-            "DF811F",  // Reader Contactless Transaction Limit (CVM)
-            "DF811E",  // Contactless Application Not Allowed
-            "DF812C",  // Mag-stripe CVM Required Limit
-            "DF8123",  // Terminal Action Code - Default
-            "DF8124",  // Terminal Action Code - Denial
-            "DF8125",  // Terminal Action Code - Online
-            "DF8126",  // Terminal Floor Limit
-            "DF811B",  // Torn Transaction Log Lifetime
-            "DF811D",  // Relay Resistance Grace Period
-            "DF8122",  // Time Out Value
-            "DF8120",  // Mag-stripe Transaction Limit (No CVM)
-            "DF8121"   // Mag-stripe Transaction Limit (CVM)
+            "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
+            "DF8123", "DF8124", "DF8125", "DF8126", "DF811B", "DF811D",
+            "DF8122", "DF8120", "DF8121"
         )
-
         val values = arrayOf(
-            "E0",
-            "F8",
-            "F8",
-            "E8",
-            "00",
-            "00",
-            config.tacDefault,
-            config.tacDenial,
-            config.tacOnline,
+            "E0", "F8", "F8", "E8", "00", "00",
+            config.tacDefault, config.tacDenial, config.tacOnline,
             config.floorLimit9F1B.takeLast(8),
-            "30",
-            "02",
-            "0000000000",
-            "000000000000",
-            "000000000000"
+            "30", "02", "0000000000", "000000000000", "000000000000"
         )
-
         emv.setTlvList(CardConstants.OP_PAYPASS, tags, values)
-        Timber.tag("CardHelper").d("PayPass configured for AID: ${config.aid9F06}")
     }
-    // Amex
+
     private fun setExpressPayTlvs(emv: EMVOptV2, config: EvmConfig) {
         val tags = arrayOf(
             "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
             "DF8123", "DF8124", "DF8125"
         )
-
         val values = arrayOf(
             "E0", "F8", "F8", "E8", "00", "00",
             config.tacDefault, config.tacDenial, config.tacOnline
         )
-
         emv.setTlvList(CardConstants.OP_EXPRESSPAY, tags, values)
-        Timber.tag("CardHelper").d("ExpressPay configured for AID: ${config.aid9F06}")
     }
 }
