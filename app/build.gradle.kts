@@ -113,6 +113,16 @@ android {
             buildConfigField("String", "APP_KEY", "\"21f7d3f50ab94f23a0b0b3e081fa8ced\"")
         }
 
+        // Flavor cho khách hàng C
+        create("megatech") {
+            dimension = "customer"
+            versionNameSuffix = "-megatech"
+            applicationIdSuffix = ".megatech"
+            resValue("string", "app_name", "POS App - MegaTech")
+            buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
+            buildConfigField("String", "APP_KEY", "\"909c326357b74a36a9dafadfdf6cb5bf\"")
+        }
+
         // Flavor mặc định (không có APP_KEY - phải login thủ công)
         create("default") {
             dimension = "customer"

@@ -17,7 +17,7 @@ data class Transaction(
     val remark: String = "",
 
     @SerializedName("FormType")
-    val formType: Int = 0, // 1: Card, 2: QR
+    val formType: Int = 0, // 1: Card, 2: QR, 3: Member
 
     @SerializedName("SettledDate")
     val settledDate: String? = null,

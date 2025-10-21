@@ -239,19 +239,18 @@ object UtilHelper {
                 velocityCheck = if (config.enableVelocityCheck == "1") 1.toByte() else 0.toByte()
                 selFlag = if (config.isFullMatch == "1") 1.toByte() else 0.toByte()
 
-                // CVM Limit (contactless) - default or from config if available
-                // Usually 6 bytes representing amount (e.g., 000000050000 = 500.00)
+                // 🎯 CVM Limit = 500,000 VND (500 nghìn)
                 cvmLmt = when (config.vendorName.uppercase(Locale.getDefault())) {
-                    "VISA" -> hexStringToByteArray("000000100000").copyOf(6)  // 1,000,000 VND
-                    "MASTERCARD" -> hexStringToByteArray("000000100000").copyOf(6)
-                    else -> hexStringToByteArray("000000100000").copyOf(6)  // Default: 1M VND
+                    "VISA" -> hexStringToByteArray("000000500000").copyOf(6)  // 500k VND
+                    "MASTERCARD" -> hexStringToByteArray("000000500000").copyOf(6)  // 500k VND
+                    else -> hexStringToByteArray("000000500000").copyOf(6)  // Default: 500k VND
                 }
 
-                // Terminal contactless limit - default
+                // 🎯 Terminal Contactless Limit = 5,000,000 VND (5 triệu)
                 termClssLmt = when (config.vendorName.uppercase(Locale.getDefault())) {
-                    "VISA" -> hexStringToByteArray("000000999999").copyOf(6)  // 9,999,990 VND
-                    "MASTERCARD" -> hexStringToByteArray("000000999999").copyOf(6)
-                    else -> hexStringToByteArray("000000999999").copyOf(6)
+                    "VISA" -> hexStringToByteArray("000005000000").copyOf(6)  // 5 triệu VND
+                    "MASTERCARD" -> hexStringToByteArray("000005000000").copyOf(6)  // 5 triệu VND
+                    else -> hexStringToByteArray("000005000000").copyOf(6)  // Default: 5 triệu VND
                 }
 
                 // Terminal offline floor limits
@@ -283,7 +282,7 @@ object UtilHelper {
                 paramType = 2.toByte()
 
                 ttq = when (config.vendorName.uppercase(Locale.getDefault())) {
-                    "VISA" -> hexStringToByteArray("26000080").copyOf(4)
+                    "VISA" -> hexStringToByteArray("3600C080").copyOf(4)
                     "MASTERCARD" -> hexStringToByteArray("3600C080").copyOf(4)
                     "AMEX" -> hexStringToByteArray("2600C080").copyOf(4)
                     "JCB" -> hexStringToByteArray("3600C080").copyOf(4)

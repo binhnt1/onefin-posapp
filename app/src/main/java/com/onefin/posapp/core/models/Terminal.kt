@@ -6,6 +6,12 @@ import com.google.gson.annotations.SerializedName
  * Terminal model
  */
 data class Terminal(
+    @SerializedName("BDK")
+    val bdk: String = "",
+
+    @SerializedName("KSN")
+    val ksn: String = "",
+
     @SerializedName("MID")
     val mid: String = "",
     

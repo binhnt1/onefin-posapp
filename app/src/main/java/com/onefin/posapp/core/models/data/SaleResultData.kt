@@ -1,6 +1,7 @@
 package com.onefin.posapp.core.models.data
 
 import com.google.gson.annotations.SerializedName
+import com.onefin.posapp.core.models.Transaction
 import java.io.Serializable
 
 data class SaleResultData(
@@ -114,4 +115,27 @@ data class SaleResultData(
         @SerializedName("additionalData")
         val additionalData: Map<String, Any>? = null
     ) : Serializable
+
+    fun toTransaction(): Transaction {
+        return Transaction(
+            remark = this.status?.message ?: "",
+            formType = 1, // Card transaction
+            feeTransAmt = 0L,
+            settledDate = null,
+            serial = this.data?.traceNo ?: "",
+            source = this.data?.cardBrand ?: "",
+            invoiceNumber = this.data?.refNo ?: "",
+            batchNumber = this.data?.batchNo ?: "",
+            accountName = this.data?.cardHolder ?: "",
+            transactionId = this.header?.transId ?: "",
+            accountNumber = this.data?.cardNumber ?: "",
+            approvedCode = this.data?.approveCode ?: "",
+            totalTransAmt = this.requestData?.amount ?: 0L,
+            transactionDate = this.header?.transmitsDateTime ?: "",
+            processStatus = when (this.status?.code) {
+                "00", "0000" -> 0 // Thành công
+                else -> -1 // Hủy/Thất bại
+            },
+        )
+    }
 }

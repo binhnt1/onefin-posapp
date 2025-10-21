@@ -23,8 +23,8 @@ class ReceiptPrinter(
     }
 
     suspend fun printReceipt(
-        transaction: Transaction,
-        terminal: Terminal
+        terminal: Terminal,
+        transaction: Transaction
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             if (!printerHelper.isReady()) {
@@ -47,15 +47,83 @@ class ReceiptPrinter(
             }
 
             printFooter(terminal)
-
             printerHelper.feedPaper(4)
-
             printerHelper.exitPrinterBuffer(true)
-
             Result.success(Unit)
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Error printing receipt")
             Result.failure(e)
+        }
+    }
+
+    suspend fun printReceiptWithSignature(
+        terminal: Terminal,
+        transaction: Transaction,
+        signatureBitmap: ByteArray?
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            if (!printerHelper.isReady()) {
+                return@withContext Result.failure(Exception("Máy in chưa sẵn sàng"))
+            }
+
+            printerHelper.enterPrinterBuffer(true)
+            printerHelper.initPrinter()
+            printerHelper.setPrintDensity(15)
+
+            printHeader(terminal)
+            printTransactionType(transaction)
+            printTransactionInfo(transaction)
+            printAmountSection(transaction)
+            printStatusSection(transaction)
+
+            // 🔥 IN CHỮ KÝ
+            if (signatureBitmap != null) {
+                printSignatureSection(signatureBitmap)
+            }
+
+            if (transaction.remark.isNotEmpty()) {
+                printNotesSection(transaction.remark)
+            }
+            printFooter(terminal)
+            printerHelper.feedPaper(4)
+            printerHelper.exitPrinterBuffer(true)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Error printing receipt")
+            Result.failure(e)
+        }
+    }
+
+    private fun printSignatureSection(signatureBytes: ByteArray) {
+        try {
+            printerHelper.printDivider("-", PAPER_WIDTH)
+
+            printerHelper.printTextWithFormat(
+                text = "Chữ ký khách hàng:",
+                alignment = PrinterHelper.ALIGN_LEFT,
+                fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+            )
+
+            printerHelper.printNewLine(1)
+
+            // Convert ByteArray to Bitmap
+            val bitmap = BitmapFactory.decodeByteArray(
+                signatureBytes,
+                0,
+                signatureBytes.size
+            )
+
+            // Resize signature để vừa với giấy
+            val resizedBitmap = resizeBitmap(bitmap, 300, 150)
+
+            printerHelper.printBitmap(resizedBitmap)
+
+            bitmap.recycle()
+            resizedBitmap.recycle()
+
+            printerHelper.printDivider("-", PAPER_WIDTH)
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Error printing signature")
         }
     }
 

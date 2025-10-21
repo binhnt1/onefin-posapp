@@ -15,6 +15,7 @@ import com.onefin.posapp.core.models.enums.CardBrand
 import com.sunmi.pay.hardware.aidlv2.bean.CapkV2
 import com.sunmi.pay.hardware.aidlv2.bean.EmvTermParamV2
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
+import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
 import timber.log.Timber
 import java.util.Locale
 import java.util.UUID
@@ -76,6 +77,95 @@ object CardHelper {
         return "TXN${System.currentTimeMillis()}"
     }
 
+    fun injectKeys(securityOpt: SecurityOptV2, terminal: Terminal): Boolean {
+        Timber.tag("KeyInjection").d("🔑 ====== KEY INJECTION START ======")
+
+        return try {
+            val bdk = terminal.bdk
+            val ksn = terminal.ksn
+
+            // Validate inputs
+            if (bdk.isEmpty() || bdk.length != 32) {
+                Timber.tag("KeyInjection").e("❌ Invalid BDK length: ${bdk.length}, expected: 32")
+                return false
+            }
+
+            if (ksn.isEmpty() || ksn.length != 20) {
+                Timber.tag("KeyInjection").e("❌ Invalid KSN length: ${ksn.length}, expected: 20")
+                return false
+            }
+
+            val bdkBytes = UtilHelper.hexStringToByteArray(bdk)
+            val ksnBytes = UtilHelper.hexStringToByteArray(ksn)
+
+            if (bdkBytes.size != 16 || ksnBytes.size != 10) {
+                Timber.tag("KeyInjection").e("❌ Invalid byte size - BDK: ${bdkBytes.size}, KSN: ${ksnBytes.size}")
+                return false
+            }
+
+            Timber.tag("KeyInjection").d("📦 BDK: ${bdkBytes.joinToString(" ") { "%02X".format(it) }}")
+            Timber.tag("KeyInjection").d("📦 KSN: ${ksnBytes.joinToString(" ") { "%02X".format(it) }}")
+
+            // Delete existing keys at common indexes
+            val keyIndexes = listOf(0, 1, 2)
+            keyIndexes.forEach { index ->
+                try {
+                    securityOpt.deleteKey(index, 2) // Delete DATA key type
+                    Thread.sleep(50)
+                } catch (e: Exception) {
+                    // Ignore - key might not exist
+                }
+            }
+
+            // Inject BDK using MK/SK mode (keySystem=0)
+            // Based on logs: keyType=2 (DATA), keyIndex=1 works
+            Timber.tag("KeyInjection").d("🔒 Injecting BDK (MK/SK mode)...")
+            Timber.tag("KeyInjection").d("   - keyType: 2 (DATA/BDK)")
+            Timber.tag("KeyInjection").d("   - keyIndex: 1")
+            Timber.tag("KeyInjection").d("   - algorithm: 0 (3DES)")
+
+            val result = securityOpt.savePlaintextKey(
+                2,              // keyType: 2 = DATA/BDK
+                bdkBytes,       // key bytes
+                null,           // checkValue (auto-calculated)
+                1,              // keyIndex: 1 (proven to work)
+                0               // algorithm: 0 = 3DES
+            )
+
+            Timber.tag("KeyInjection").d("📤 savePlaintextKey() result: $result")
+
+            if (result != 0) {
+                Timber.tag("KeyInjection").e("❌ BDK injection failed with code: $result")
+                when (result) {
+                    -1 -> Timber.tag("KeyInjection").e("   Reason: General error")
+                    -2 -> Timber.tag("KeyInjection").e("   Reason: Invalid parameter")
+                    -3 -> Timber.tag("KeyInjection").e("   Reason: Key already exists")
+                    else -> Timber.tag("KeyInjection").e("   Reason: Unknown error")
+                }
+                return false
+            }
+
+            Timber.tag("KeyInjection").d("✅ BDK injected successfully")
+
+            // Note: KSN is not used in MK/SK mode
+            // Only DUKPT mode requires KSN for key derivation
+            Timber.tag("KeyInjection").d("ℹ️  KSN not required for MK/SK mode")
+            Timber.tag("KeyInjection").d("   (KSN only applies to DUKPT keySystem)")
+
+            Timber.tag("KeyInjection").d("🎉 ====== KEY INJECTION COMPLETED ======")
+            Timber.tag("KeyInjection").d("📌 Configuration:")
+            Timber.tag("KeyInjection").d("   - Mode: MK/SK (Master Key/Session Key)")
+            Timber.tag("KeyInjection").d("   - keyType: 2 (DATA)")
+            Timber.tag("KeyInjection").d("   - keyIndex: 1")
+
+            true
+
+        } catch (e: Exception) {
+            Timber.tag("KeyInjection").e(e, "💥 Exception during key injection")
+            Timber.tag("KeyInjection").e("   ${e.javaClass.simpleName}: ${e.message}")
+            false
+        }
+    }
 
     fun detectBrand(pan: String): String {
         if (pan.isEmpty()) return CardBrand.UNKNOWN.displayName
@@ -201,8 +291,6 @@ object CardHelper {
         emv.setTlvList(CardConstants.OP_NORMAL, globalTags, globalValues)
     }
 
-
-
     fun parseEmvData(emvData: String): EmvCardData? {
         try {
             if (emvData.isEmpty()) return null
@@ -213,43 +301,47 @@ object CardHelper {
             Timber.d("🔍 Parsing EMV data, found tags: ${tags.keys.joinToString()}")
 
             // 🔥 Strategy 1: Try Tag 5A for PAN
-            var pan = tags["5A"] ?: ""
+            var pan = tags["5A"]?.takeIf { it.isNotEmpty() } ?: ""
 
             // 🔥 Strategy 2: Try Tag 5F24 for expiry (format YYMMDD)
-            var expiry = tags["5F24"]?.let { exp ->
-                if (exp.length >= 4) {
-                    val yy = exp.substring(0, 2)
-                    val mm = exp.substring(2, 4)
+            var expiry = tags["5F24"]
+                ?.takeIf { it.isNotEmpty() }  // ✅ CHECK NOT EMPTY
+                ?.let { exp ->
+                    if (exp.length >= 4) {
+                        val yy = exp.substring(0, 2)
+                        val mm = exp.substring(2, 4)
 
-                    // Validate month
-                    val monthInt = mm.toIntOrNull()
-                    if (monthInt == null || monthInt < 1 || monthInt > 12) {
-                        Timber.w("Invalid month in Tag 5F24: $mm")
-                        return@let null
+                        // Validate month
+                        val monthInt = mm.toIntOrNull()
+                        if (monthInt == null || monthInt < 1 || monthInt > 12) {
+                            Timber.w("Invalid month in Tag 5F24: $mm")
+                            return@let null
+                        }
+
+                        "$mm$yy"  // Convert YYMM → MMyy
+                    } else {
+                        Timber.w("Tag 5F24 too short: $exp")
+                        null
                     }
-
-                    "$mm$yy"  // Convert YYMM → MMyy
-                } else {
-                    Timber.w("Tag 5F24 too short: $exp")
-                    null
                 }
-            }
 
             // 🔥 Fallback: Parse from Tag 57 (Track 2 Equivalent) if needed
             if (pan.isEmpty() || expiry == null) {
-                tags["57"]?.let { track2Hex ->
-                    val track2Data = parseTrack2FromHex(track2Hex)
-                    if (track2Data != null) {
-                        if (pan.isEmpty()) {
-                            pan = track2Data.pan
-                            Timber.d("📌 PAN from Tag 57: ****${pan.takeLast(4)}")
-                        }
-                        if (expiry == null) {
-                            expiry = track2Data.expiry
-                            Timber.d("📌 Expiry from Tag 57: $expiry")
+                tags["57"]
+                    ?.takeIf { it.isNotEmpty() }  // ✅ CHECK NOT EMPTY
+                    ?.let { track2Hex ->
+                        val track2Data = parseTrack2FromHex(track2Hex)
+                        if (track2Data != null) {
+                            if (pan.isEmpty()) {
+                                pan = track2Data.pan
+                                Timber.d("🔌 PAN from Tag 57: ****${pan.takeLast(4)}")
+                            }
+                            if (expiry == null) {
+                                expiry = track2Data.expiry
+                                Timber.d("🔌 Expiry from Tag 57: $expiry")
+                            }
                         }
                     }
-                }
             }
 
             // Validate we got the data
@@ -432,10 +524,20 @@ object CardHelper {
             "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
             "DF8123", "DF8124", "DF8125", "DF8126"
         )
+
+        val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
+
         val values = arrayOf(
-            "E0", "F8", "F8", "E8", "00", "00",
-            config.tacDefault, config.tacDenial, config.tacOnline,
-            config.floorLimit9F1B.takeLast(8)
+            floorLimit,      // ✅ FIXED
+            floorLimit,      // ✅ FIXED
+            floorLimit,      // ✅ FIXED
+            "E8",
+            "00",
+            floorLimit,      // ✅ FIXED
+            config.tacDefault,
+            config.tacDenial,
+            config.tacOnline,
+            floorLimit       // ✅ FIXED
         )
         emv.setTlvList(CardConstants.OP_JSPEEDY, tags, values)
     }
@@ -451,11 +553,24 @@ object CardHelper {
             "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
             "DF8123", "DF8124", "DF8125", "DF8126"
         )
+
+        // ✅ FIX: NAPAS standard = 500k VND
+        val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
+
         val values = arrayOf(
-            "E0", "F8", "F8", "E8", "00", "00",
-            config.tacDefault, config.tacDenial, config.tacOnline,
-            config.floorLimit9F1B.takeLast(8)
+            floorLimit,      // DF8117 - ✅ FIXED
+            floorLimit,      // DF8118 - ✅ FIXED
+            floorLimit,      // DF8119 - ✅ FIXED
+            "E8",            // DF811F
+            "00",            // DF811E
+            floorLimit,      // DF812C - ✅ FIXED
+            config.tacDefault,  // DF8123
+            config.tacDenial,   // DF8124
+            config.tacOnline,   // DF8125
+            floorLimit       // DF8126 - ✅ FIXED
         )
+
+        // ⚠️ NAPAS có thể cần operation type riêng
         emv.setTlvList(CardConstants.OP_PAYPASS, tags, values)
     }
 
@@ -465,10 +580,30 @@ object CardHelper {
             "DF811F", "DF8120", "DF8121", "DF8122", "DF8123", "DF8124",
             "DF8125", "DF812C"
         )
+
+        // 🔥 QUAN TRỌNG: Tất cả các limit phải dùng giá trị cao giống nhau
+        val floorLimit = config.floorLimit9F1B.ifEmpty { "000005000000" }  // 50 triệu
+
         val values = arrayOf(
-            "000000100000", "000000000000", "000000999999", "30", "02", "00",
-            "000001000000", "000000999999", "000001000000", "0000000000",
-            config.tacDefault, config.tacDenial, config.tacOnline, "000000100000"
+            floorLimit,      // DF8117 - Terminal Floor Limit (offline decision)
+            "000000000000",  // DF8118 - Terminal Online Limit (force online if > this)
+            "000000999999",  // DF8119 - Max offline amount
+            "30",            // DF811B - Target Percentage (for random selection)
+            "02",            // DF811D - Max Target Percentage
+
+            // 🔥 FIX: DF811E phải bằng hoặc cao hơn floorLimit!
+            floorLimit,      // DF811E - CVM Required Limit (50T, không phải "00"!)
+
+            // 🔥 FIX: DF811F cũng phải cao
+            floorLimit,      // DF811F - Contactless Transaction Limit (50T)
+
+            "000000999999",  // DF8120 - (unused in most configs)
+            floorLimit,      // DF8121 - Contactless CVM Limit (50T)
+            "0000000000",    // DF8122 - Zero (unused)
+            config.tacDefault,  // DF8123
+            config.tacDenial,   // DF8124
+            config.tacOnline,   // DF8125
+            floorLimit          // DF812C - Reader CVM Required Limit
         )
         emv.setTlvList(CardConstants.OP_PAYWAVE, tags, values)
     }
@@ -479,11 +614,26 @@ object CardHelper {
             "DF8123", "DF8124", "DF8125", "DF8126", "DF811B", "DF811D",
             "DF8122", "DF8120", "DF8121"
         )
+
+        // ✅ FIX: Sử dụng full 12 chars floor limit
+        val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
+
         val values = arrayOf(
-            "E0", "F8", "F8", "E8", "00", "00",
-            config.tacDefault, config.tacDenial, config.tacOnline,
-            config.floorLimit9F1B.takeLast(8),
-            "30", "02", "0000000000", "000000000000", "000000000000"
+            floorLimit,      // DF8117 - ✅ FIXED: 500,000 VND
+            floorLimit,      // DF8118 - ✅ FIXED: 500,000 VND
+            floorLimit,      // DF8119 - ✅ FIXED: 500,000 VND
+            "E8",            // DF811F - CVM Capability
+            "00",            // DF811E
+            floorLimit,      // DF812C - ✅ FIXED: 500,000 VND (full 12 chars)
+            config.tacDefault,  // DF8123
+            config.tacDenial,   // DF8124
+            config.tacOnline,   // DF8125
+            floorLimit,      // DF8126 - ✅ FIXED: Full floor limit, no .takeLast()
+            "30",            // DF811B
+            "02",            // DF811D
+            "0000000000",    // DF8122
+            "000000000000",  // DF8120
+            "000000000000"   // DF8121
         )
         emv.setTlvList(CardConstants.OP_PAYPASS, tags, values)
     }
@@ -502,6 +652,8 @@ object CardHelper {
 
     private fun parseTrack2FromHex(track2Hex: String): EmvCardData? {
         try {
+            if (track2Hex.isEmpty()) return null  // ✅ CHECK EMPTY
+
             // Convert hex to ASCII
             val track2String = if (track2Hex.contains('D', ignoreCase = true) || track2Hex.contains('=')) {
                 track2Hex  // Đã là ASCII
@@ -518,6 +670,8 @@ object CardHelper {
                     .joinToString("")
                     .replace(Regex("[\u0000-\u001F\u007F-\u009F]"), "")
             }
+
+            if (track2String.isEmpty()) return null  // ✅ CHECK EMPTY
 
             // Split by separator
             val parts = track2String.split('D', '=', 'd')
@@ -547,6 +701,7 @@ object CardHelper {
             return EmvCardData(pan, expiry)
 
         } catch (e: Exception) {
+            Timber.e(e, "Error parsing Track2 from hex")
             return null
         }
     }

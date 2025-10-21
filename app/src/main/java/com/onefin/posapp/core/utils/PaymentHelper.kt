@@ -32,6 +32,7 @@ class PaymentHelper @Inject constructor(
 
     fun isInitialized(): Boolean = isSDKInitialized
 
+
     fun startPayment(activity: Activity, requestData: PaymentAppRequest) {
         if (!isSDKInitialized) {
             return

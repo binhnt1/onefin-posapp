@@ -58,6 +58,7 @@ object CardConstants {
     const val OP_DPAS = 5          // Discover contactless (D-PAS)
     const val OP_JSPEEDY = 6       // JCB contactless (J/Speedy)
     const val OP_PURE = 7          // Pure contactless (nếu có)
+    const val PIN_KEY_INDEX = 11
 }
 
 object ResultConstants {

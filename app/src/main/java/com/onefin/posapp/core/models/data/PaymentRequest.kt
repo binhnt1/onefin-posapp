@@ -33,6 +33,7 @@ enum class PaymentState {
     WAITING_CARD,
     CARD_DETECTED,
     ENTERING_PIN,
+    WAITING_SIGNATURE,
     PROCESSING,
     SUCCESS,
     ERROR

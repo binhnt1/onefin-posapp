@@ -103,6 +103,10 @@ fun PaymentStatusCard(
                             ErrorContent(statusMessage)
                         }
 
+                        PaymentState.WAITING_SIGNATURE -> {
+                            ErrorContent(statusMessage)
+                        }
+
                         PaymentState.SUCCESS -> {
                             SuccessContent(
                                 statusMessage = statusMessage,

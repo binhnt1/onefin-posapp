@@ -10,7 +10,9 @@ import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.services.StorageService
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
+import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadOptV2
 import com.sunmi.pay.hardware.aidlv2.readcard.ReadCardOptV2
+import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
 import dagger.hilt.android.qualifiers.ApplicationContext
 import jakarta.inject.Singleton
 import sunmi.paylib.SunmiPayKernel
@@ -23,9 +25,11 @@ class SunmiPaymentManager(
 ) {
     private val TAG = "SunmiPayment"
 
+    private var emvOpt: EMVOptV2? = null
+    private var pinPadOpt: PinPadOptV2? = null
+    private var securityOpt: SecurityOptV2? = null
     private var payKernel: SunmiPayKernel? = null
     private var readCardOpt: ReadCardOptV2? = null
-    private var emvOpt: EMVOptV2? = null
     private var isConnected = false
 
     private var cardReaderHandler: CardReaderHandler? = null
@@ -33,9 +37,9 @@ class SunmiPaymentManager(
     private var listenerFactory: EMVListenerFactory? = null
     private var setupManager: EMVSetupManager? = null
 
-    private var currentPaymentAppRequest: PaymentAppRequest? = null
     private var currentAmount: String = "0"
     private var currentOnResult: ((PaymentResult) -> Unit)? = null
+    private var currentPaymentAppRequest: PaymentAppRequest? = null
 
     fun initialize(onReady: () -> Unit, onError: (PaymentResult.Error) -> Unit) {
         try {
@@ -48,8 +52,10 @@ class SunmiPaymentManager(
             payKernel?.initPaySDK(context, object : SunmiPayKernel.ConnectCallback {
                 override fun onConnectPaySDK() {
                     try {
-                        readCardOpt = payKernel?.mReadCardOptV2
                         emvOpt = payKernel?.mEMVOptV2
+                        pinPadOpt = payKernel?.mPinPadOptV2
+                        securityOpt = payKernel?.mSecurityOptV2
+                        readCardOpt = payKernel?.mReadCardOptV2
 
                         if (readCardOpt == null) {
                             onError(
@@ -95,8 +101,8 @@ class SunmiPaymentManager(
     }
 
     fun startReadCard(
+        onResult: (PaymentResult) -> Unit,
         paymentAppRequest: PaymentAppRequest,
-        onResult: (PaymentResult) -> Unit
     ) {
         if (!isConnected || readCardOpt == null) {
             onResult(
@@ -107,19 +113,10 @@ class SunmiPaymentManager(
             return
         }
 
+        currentOnResult = onResult
         currentPaymentAppRequest = paymentAppRequest
         currentAmount = paymentAppRequest.merchantRequestData?.amount?.toString() ?: "0"
-        currentOnResult = onResult
-
         cardReaderHandler?.startReading(paymentAppRequest, currentAmount)
-    }
-
-    fun cancelReadCard() {
-        try {
-            cardReaderHandler?.cancelReading()
-        } catch (e: Exception) {
-            Timber.e(e, "Error canceling card read")
-        }
     }
 
     fun cleanup() {
@@ -131,16 +128,23 @@ class SunmiPaymentManager(
         }
     }
 
+    fun cancelReadCard() {
+        try {
+            cardReaderHandler?.cancelReading()
+        } catch (e: Exception) {
+            Timber.e(e, "Error canceling card read")
+        }
+    }
+
     private fun initializeHelpers() {
         val terminal = storageService.getAccount()?.terminal
 
-        setupManager = EMVSetupManager(emvOpt!!)
+        setupManager = EMVSetupManager(emvOpt!!, securityOpt!!)
         setupManager!!.setupOnce(terminal).onFailure { e ->
             Timber.e(e, "EMV setup failed")
         }
 
-        listenerFactory = EMVListenerFactory(emvOpt!!)
-
+        listenerFactory = EMVListenerFactory(emvOpt!!, pinPadOpt!!)
         emvProcessor = EMVTransactionProcessor(
             emvOpt = emvOpt!!,
             terminal = terminal,
@@ -150,12 +154,11 @@ class SunmiPaymentManager(
         // 🔥 CHANGED: Pass emvProcessor to CardReaderHandler
         cardReaderHandler = CardReaderHandler(
             readCardOpt = readCardOpt!!,
-            emvProcessor = emvProcessor,  // ← Now CardReaderHandler can handle EMV
+            emvProcessor = emvProcessor,
             callback = createCardReaderCallback()
         )
     }
 
-    // 🔥 SIMPLIFIED: Only ONE callback method!
     private fun createCardReaderCallback(): CardReaderHandler.CardReaderCallback {
         return object : CardReaderHandler.CardReaderCallback {
             override fun onPaymentComplete(result: PaymentResult) {
