@@ -64,8 +64,11 @@ class PosApplication : Application() {
     }
 
     override fun onCreate() {
-        val appStartTime = System.currentTimeMillis()
         super.onCreate()
+        val appStartTime = System.currentTimeMillis()
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+        }
 
         registerActivityLifecycleCallbacks(activityTracker)
 

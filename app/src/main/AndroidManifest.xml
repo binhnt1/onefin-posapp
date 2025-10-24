@@ -58,9 +58,11 @@
             android:exported="false" />
         <activity
             android:name=".ui.payment.PaymentCardActivity"
+            android:launchMode="singleTop"
             android:exported="false" />
         <activity
             android:name=".ui.payment.SimpleChipTestActivity"
+            android:launchMode="singleTop"
             android:exported="false" />
         <activity
             android:name=".ui.external.RefundActivity"

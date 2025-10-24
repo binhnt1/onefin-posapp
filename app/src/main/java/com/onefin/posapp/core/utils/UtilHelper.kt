@@ -142,7 +142,10 @@ object UtilHelper {
     fun byteArrayToHexString(byteArray: ByteArray): String {
         return byteArray.joinToString("") { "%02X".format(it) }
     }
-
+    fun stringToHexString(input: String): String {
+        return input.toByteArray(Charsets.US_ASCII)
+            .joinToString("") { "%02X".format(it) }
+    }
     fun stringToByteArray(str: String, maxLength: Int): ByteArray {
         val bytes = str.toByteArray(Charsets.UTF_8)
         return if (bytes.size > maxLength) {

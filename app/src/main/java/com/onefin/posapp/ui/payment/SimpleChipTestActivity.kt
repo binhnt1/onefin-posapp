@@ -1,6 +1,11 @@
 package com.onefin.posapp.ui.payment
 
+import android.content.Intent
+import android.nfc.NfcAdapter
+import android.nfc.Tag
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -19,11 +24,9 @@ import androidx.compose.ui.unit.sp
 import com.google.gson.Gson
 import com.onefin.posapp.R
 import com.onefin.posapp.core.managers.CardProcessorManager
-import com.onefin.posapp.core.managers.helpers.PaymentErrorHandler
-import com.onefin.posapp.core.managers.helpers.PaymentTTSHelper
+import com.onefin.posapp.core.managers.NfcPhoneReaderManager
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentResult
-import com.onefin.posapp.core.models.data.PaymentState
 import com.onefin.posapp.core.models.data.RequestSale
 import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.ui.base.BaseActivity
@@ -41,6 +44,9 @@ class SimpleChipTestActivity : BaseActivity() {
     @Inject
     lateinit var cardProcessorManager: CardProcessorManager
 
+    @Inject
+    lateinit var nfcPhoneReaderManager: NfcPhoneReaderManager
+
     private var paymentAppRequest: PaymentAppRequest? = null
     private val gson = Gson()
 
@@ -53,16 +59,35 @@ class SimpleChipTestActivity : BaseActivity() {
     private var nfcEnabled by mutableStateOf(true)
     private var magEnabled by mutableStateOf(true)
 
+    // 🔥 Device type detection
+    private var deviceType by mutableStateOf(DeviceType.ANDROID_PHONE)
+
     private val activityScope = CoroutineScope(Dispatchers.Main)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // 🔥 Detect device type
+        deviceType = detectDeviceType()
+        Timber.tag("DeviceDetect").d("📱 Device type: $deviceType")
+
         paymentAppRequest = getPaymentAppRequest()
+
+        // 🔥 Nếu là Phone, chỉ enable NFC
+        if (deviceType == DeviceType.ANDROID_PHONE) {
+            icEnabled = false
+            nfcEnabled = true
+            magEnabled = false
+            addLog("📱 Thiết bị: Android Phone - Chỉ hỗ trợ NFC")
+        } else {
+            addLog("🖥️ Thiết bị: Sunmi POS - Hỗ trợ đầy đủ")
+        }
+
         initializeManager()
 
         setContent {
             SimpleChipTestScreen(
+                deviceType = deviceType,
                 statusLog = statusLog,
                 isReady = isReady,
                 isProcessing = isProcessing,
@@ -81,17 +106,95 @@ class SimpleChipTestActivity : BaseActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        Timber.tag("PaymentActivity").d("🔥 onResume called")
+        if (deviceType == DeviceType.ANDROID_PHONE) {
+            nfcPhoneReaderManager.enableForegroundDispatch(this)
+            Timber.tag("PaymentActivity").d("📱 Foreground dispatch enabled")
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (deviceType == DeviceType.ANDROID_PHONE) {
+            nfcPhoneReaderManager.disableForegroundDispatch(this)
+            Timber.tag("NfcPhone").d("📱 Foreground dispatch disabled")
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        Timber.tag("NfcDebug").d("🔥 onNewIntent called")
+        when (intent.action) {
+            NfcAdapter.ACTION_TECH_DISCOVERED,
+            NfcAdapter.ACTION_TAG_DISCOVERED,
+            NfcAdapter.ACTION_NDEF_DISCOVERED -> {
+                val tag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra(NfcAdapter.EXTRA_TAG)
+                }
+                nfcPhoneReaderManager.handleNfcIntent(tag)
+            }
+            else -> Timber.tag("NfcDebug").w("⚠️ Unknown action: ${intent.action}")
+        }
+    }
+
+    /**
+     * Detect device type: Sunmi POS hoặc Android Phone
+     */
+    private fun detectDeviceType(): DeviceType {
+        return try {
+            val manufacturer = Build.MANUFACTURER.lowercase()
+            val model = Build.MODEL.lowercase()
+
+            val isSunmi = manufacturer.contains("sunmi") ||
+                    model.contains("p2") ||
+                    model.contains("v2") ||
+                    model.contains("p1")
+
+            if (isSunmi) {
+                Timber.tag("DeviceDetect").d("✅ Detected Sunmi POS device")
+                DeviceType.SUNMI_POS
+            } else {
+                Timber.tag("DeviceDetect").d("✅ Detected Android Phone")
+                DeviceType.ANDROID_PHONE
+            }
+        } catch (e: Exception) {
+            Timber.tag("DeviceDetect").e(e, "❌ Error detecting device, defaulting to ANDROID_PHONE")
+            DeviceType.ANDROID_PHONE
+        }
+    }
+
     private fun initializeManager() {
         activityScope.launch {
             try {
                 addLog("Đang khởi tạo Payment System...")
-                cardProcessorManager.initialize { success, error ->
-                    if (success) {
-                        addLog("✅ Payment System đã sẵn sàng")
-                        isReady = true
-                    } else {
-                        addLog("❌ Khởi tạo Payment System thất bại")
-                        addLog(error ?: "Vui lòng khởi động lại ứng dụng")
+
+                when (deviceType) {
+                    DeviceType.SUNMI_POS -> {
+                        cardProcessorManager.initialize { success, error ->
+                            if (success) {
+                                addLog("✅ Sunmi POS Payment System đã sẵn sàng")
+                                isReady = true
+                            } else {
+                                addLog("❌ Khởi tạo Payment System thất bại")
+                                addLog(error ?: "Vui lòng khởi động lại ứng dụng")
+                            }
+                        }
+                    }
+                    DeviceType.ANDROID_PHONE -> {
+                        nfcPhoneReaderManager.initialize { success, error ->
+                            if (success) {
+                                addLog("✅ Android NFC Payment System đã sẵn sàng")
+                                isReady = true
+                            } else {
+                                addLog("❌ Khởi tạo NFC thất bại")
+                                addLog(error ?: "Vui lòng bật NFC và khởi động lại")
+                            }
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -114,78 +217,111 @@ class SimpleChipTestActivity : BaseActivity() {
             return
         }
 
-        val selectedCardTypes = buildList {
-            if (icEnabled) add(AidlConstants.CardType.IC)
-            if (nfcEnabled) {
-                add(AidlConstants.CardType.NFC)
-                add(AidlConstants.CardType.MIFARE)
-            }
-            if (magEnabled) add(AidlConstants.CardType.MAGNETIC)
-        }
-
-        if (selectedCardTypes.isEmpty()) {
-            addLog("LỖI: Vui lòng chọn ít nhất một loại thẻ")
-            return
-        }
-
         successResult = null
         isProcessing = true
         statusLog.clear()
         addLog("--- BẮT ĐẦU QUY TRÌNH THANH TOÁN ---")
 
-        val cardTypesText = buildList {
-            if (icEnabled) add("CHIP")
-            if (nfcEnabled) add("NFC")
-            if (magEnabled) add("MAG")
-        }.joinToString(" / ")
+        when (deviceType) {
+            DeviceType.SUNMI_POS -> {
+                val selectedCardTypes = buildList {
+                    if (icEnabled) add(AidlConstants.CardType.IC)
+                    if (nfcEnabled) {
+                        add(AidlConstants.CardType.NFC)
+                        add(AidlConstants.CardType.MIFARE)
+                    }
+                    if (magEnabled) add(AidlConstants.CardType.MAGNETIC)
+                }
 
-        addLog("Loại thẻ: $cardTypesText")
-        addLog("Vui lòng đưa thẻ...")
+                if (selectedCardTypes.isEmpty()) {
+                    addLog("LỖI: Vui lòng chọn ít nhất một loại thẻ")
+                    isProcessing = false
+                    return
+                }
 
-        try {
-            cardProcessorManager.startPayment(
-                cardTypes = selectedCardTypes,
-                paymentRequest = paymentAppRequest!!,
-                onProcessingComplete = { result ->
-                    activityScope.launch {
-                        isProcessing = false
+                val cardTypesText = buildList {
+                    if (icEnabled) add("CHIP")
+                    if (nfcEnabled) add("NFC")
+                    if (magEnabled) add("MAG")
+                }.joinToString(" / ")
 
-                        when (result) {
-                            is PaymentResult.Success -> {
-                                val requestSale = result.requestSale
-                                successResult = requestSale
-                                val cardMode = requestSale.data.card.mode
-                                addLog("✅ GIAO DỊCH THÀNH CÔNG")
-                                addLog("   Loại thẻ: $cardMode")
-                                addLog("   PAN: ****${requestSale.data.card.clearPan.takeLast(4)}")
-                                addLog("   Expiry: ${requestSale.data.card.expiryDate}")
-                                addLog("   Brand: ${requestSale.data.card.type}")
-                                addLog("   Bank: ${requestSale.data.card.issuerName}")
-                                addLog("   Holder Name: ${requestSale.data.card.holderName}")
+                addLog("Loại thẻ: $cardTypesText")
+                addLog("Vui lòng đưa thẻ...")
 
-                                if (cardMode == "CHIP" || cardMode == "NFC") {
-                                    addLog("   EMV Data Length: ${requestSale.data.card.emvData?.length ?: 0} chars")
-                                }
-                                addLog("--- KẾT THÚC ---")
-                            }
-                            is PaymentResult.Error -> {
-                                successResult = null
-                                addLog("❌ GIAO DỊCH THẤT BẠI")
-                                addLog("   Lỗi: ${result.type}")
-                                addLog("   ${result.vietnameseMessage}")
-                                addLog("   Chi tiết: ${result.technicalMessage}")
-                                if (result.errorCode != null) {
-                                    addLog("   Mã lỗi SDK: ${result.errorCode}")
-                                }
-                                addLog("--- KẾT THÚC ---")
-                            }
+                try {
+                    cardProcessorManager.startPayment(
+                        cardTypes = selectedCardTypes,
+                        paymentRequest = paymentAppRequest!!,
+                        onProcessingComplete = { result ->
+                            handlePaymentResult(result)
                         }
+                    )
+                } catch (e: Exception) {
+                    addLog("LỖI NGHIÊM TRỌNG: ${e.message}")
+                    isProcessing = false
+                }
+            }
+
+            DeviceType.ANDROID_PHONE -> {
+                addLog("Loại thẻ: NFC (Contactless)")
+                addLog("Vui lòng chạm thẻ vào mặt sau điện thoại...")
+
+                try {
+                    nfcPhoneReaderManager.startPayment(
+                        paymentRequest = paymentAppRequest!!,
+                        onProcessingComplete = { result ->
+                            handlePaymentResult(result)
+                        }
+                    )
+                } catch (e: Exception) {
+                    addLog("LỖI NGHIÊM TRỌNG: ${e.message}")
+                    isProcessing = false
+                }
+            }
+        }
+    }
+
+    private fun handlePaymentResult(result: PaymentResult) {
+        activityScope.launch {
+            isProcessing = false
+
+            when (result) {
+                is PaymentResult.Success -> {
+                    val requestSale = result.requestSale
+                    successResult = requestSale
+                    val cardMode = requestSale.data.card.mode
+                    addLog("✅ GIAO DỊCH THÀNH CÔNG")
+                    addLog("   Loại thẻ: $cardMode")
+                    addLog("   PAN: ****${requestSale.data.card.clearPan.takeLast(4)}")
+                    addLog("   Expiry: ${requestSale.data.card.expiryDate}")
+                    addLog("   Brand: ${requestSale.data.card.type}")
+                    addLog("   Bank: ${requestSale.data.card.issuerName}")
+                    addLog("   Holder Name: ${requestSale.data.card.holderName}")
+
+                    if (cardMode == "CHIP" || cardMode == "NFC") {
+                        addLog("   EMV Data Length: ${requestSale.data.card.emvData?.length ?: 0} chars")
+                    }
+
+                    // 🔥 Nếu là Phone, tự động hoàn thành
+                    if (deviceType == DeviceType.ANDROID_PHONE) {
+                        addLog("📱 Đọc thẻ thành công trên điện thoại")
+                        addLog("--- KẾT THÚC ---")
+                    } else {
+                        addLog("--- KẾT THÚC ---")
                     }
                 }
-            )
-        } catch (e: Exception) {
-            addLog("LỖI NGHIÊM TRỌNG: ${e.message}")
-            isProcessing = false
+                is PaymentResult.Error -> {
+                    successResult = null
+                    addLog("❌ GIAO DỊCH THẤT BẠI")
+                    addLog("   Lỗi: ${result.type}")
+                    addLog("   ${result.vietnameseMessage}")
+                    addLog("   Chi tiết: ${result.technicalMessage}")
+                    if (result.errorCode != null) {
+                        addLog("   Mã lỗi SDK: ${result.errorCode}")
+                    }
+                    addLog("--- KẾT THÚC ---")
+                }
+            }
         }
     }
 
@@ -196,7 +332,10 @@ class SimpleChipTestActivity : BaseActivity() {
         }
         addLog("--- YÊU CẦU HỦY GIAO DỊCH ---")
         try {
-            cardProcessorManager.cancelPayment()
+            when (deviceType) {
+                DeviceType.SUNMI_POS -> cardProcessorManager.cancelPayment()
+                DeviceType.ANDROID_PHONE -> nfcPhoneReaderManager.cancelPayment()
+            }
             isProcessing = false
             addLog("✅ Đã hủy giao dịch")
         } catch (e: Exception) {
@@ -216,13 +355,17 @@ class SimpleChipTestActivity : BaseActivity() {
     override fun onDestroy() {
         super.onDestroy()
         if (isProcessing) {
-            cardProcessorManager.cancelPayment()
+            when (deviceType) {
+                DeviceType.SUNMI_POS -> cardProcessorManager.cancelPayment()
+                DeviceType.ANDROID_PHONE -> nfcPhoneReaderManager.cancelPayment()
+            }
         }
     }
 }
 
 @Composable
 fun SimpleChipTestScreen(
+    deviceType: DeviceType,
     statusLog: List<String>,
     isReady: Boolean,
     isProcessing: Boolean,
@@ -265,40 +408,59 @@ fun SimpleChipTestScreen(
                     Text("Loại thẻ cho phép:", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = icEnabled,
-                            onCheckedChange = onIcChange,
-                            enabled = !isProcessing
-                        )
-                        Text("IC (CHIP)", modifier = Modifier.padding(start = 8.dp))
-                    }
+                    // 🔥 Chỉ hiển thị option phù hợp với device type
+                    when (deviceType) {
+                        DeviceType.ANDROID_PHONE -> {
+                            // Phone: Chỉ hiển thị NFC (checked, disabled)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = true,
+                                    onCheckedChange = null,
+                                    enabled = false
+                                )
+                                Text("NFC (Contactless)", modifier = Modifier.padding(start = 8.dp))
+                            }
+                        }
+                        DeviceType.SUNMI_POS -> {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = icEnabled,
+                                    onCheckedChange = onIcChange,
+                                    enabled = !isProcessing
+                                )
+                                Text("IC (CHIP)", modifier = Modifier.padding(start = 8.dp))
+                            }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = nfcEnabled,
-                            onCheckedChange = onNfcChange,
-                            enabled = !isProcessing
-                        )
-                        Text("NFC (Contactless)", modifier = Modifier.padding(start = 8.dp))
-                    }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = nfcEnabled,
+                                    onCheckedChange = onNfcChange,
+                                    enabled = !isProcessing
+                                )
+                                Text("NFC (Contactless)", modifier = Modifier.padding(start = 8.dp))
+                            }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = magEnabled,
-                            onCheckedChange = onMagChange,
-                            enabled = !isProcessing
-                        )
-                        Text("MAG (Magnetic Stripe)", modifier = Modifier.padding(start = 8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = magEnabled,
+                                    onCheckedChange = onMagChange,
+                                    enabled = !isProcessing
+                                )
+                                Text("MAG (Magnetic Stripe)", modifier = Modifier.padding(start = 8.dp))
+                            }
+                        }
                     }
                 }
             }

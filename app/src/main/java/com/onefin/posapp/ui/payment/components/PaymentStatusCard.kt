@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.onefin.posapp.core.utils.UtilHelper
+import com.onefin.posapp.ui.payment.DeviceType
 import kotlinx.coroutines.delay
 
 @Composable
@@ -53,6 +54,7 @@ fun PaymentStatusCard(
     paymentState: PaymentState,
     modifier: Modifier = Modifier,
     currentRequestSale: RequestSale?,
+    deviceType: DeviceType, // 🔥 NEW: Device type parameter
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -83,7 +85,10 @@ fun PaymentStatusCard(
                     when (state) {
                         PaymentState.INITIALIZING,
                         PaymentState.WAITING_CARD -> {
-                            WaitingCardContent(statusMessage)
+                            WaitingCardContent(
+                                statusMessage = statusMessage,
+                                deviceType = deviceType // 🔥 Pass device type
+                            )
                         }
                         PaymentState.PROCESSING,
                         PaymentState.CARD_DETECTED -> {
@@ -115,6 +120,7 @@ fun PaymentStatusCard(
         }
     }
 }
+
 
 @Composable
 fun SuccessContent(

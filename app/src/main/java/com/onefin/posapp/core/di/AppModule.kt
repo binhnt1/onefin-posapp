@@ -162,4 +162,16 @@ object AppModule {
     ): com.onefin.posapp.core.managers.CardProcessorManager {
         return com.onefin.posapp.core.managers.CardProcessorManager(context, storageService)
     }
+
+    /**
+     * Provide NfcPhoneReaderManager
+     */
+    @Provides
+    @Singleton
+    fun provideNfcPhoneReaderManager(
+        @ApplicationContext context: Context,
+        storageService: com.onefin.posapp.core.services.StorageService
+    ): com.onefin.posapp.core.managers.NfcPhoneReaderManager {
+        return com.onefin.posapp.core.managers.NfcPhoneReaderManager(context, storageService)
+    }
 }

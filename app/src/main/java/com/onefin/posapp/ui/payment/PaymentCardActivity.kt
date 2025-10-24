@@ -1,6 +1,9 @@
 package com.onefin.posapp.ui.payment
 
 import android.content.Intent
+import android.nfc.NfcAdapter
+import android.nfc.Tag
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
@@ -16,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
 import com.onefin.posapp.core.config.ResultConstants
 import com.onefin.posapp.core.managers.CardProcessorManager
+import com.onefin.posapp.core.managers.NfcPhoneReaderManager
 import com.onefin.posapp.core.managers.TTSManager
 import com.onefin.posapp.core.managers.helpers.PaymentErrorHandler
 import com.onefin.posapp.core.managers.helpers.PaymentTTSHelper
@@ -45,6 +49,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
+enum class DeviceType {
+    SUNMI_POS,    // Sunmi hardware POS
+    ANDROID_PHONE // Standard Android phone với NFC
+}
+
 @AndroidEntryPoint
 class PaymentCardActivity : BaseActivity() {
 
@@ -68,13 +77,23 @@ class PaymentCardActivity : BaseActivity() {
     @Inject
     lateinit var cardProcessorManager: CardProcessorManager
 
+    @Inject
+    lateinit var nfcPhoneReaderManager: NfcPhoneReaderManager
+
+    private var deviceType: DeviceType = DeviceType.ANDROID_PHONE
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 🔥 Detect device type
+        deviceType = detectDeviceType()
+        Timber.tag("DeviceDetect").d("📱 Device type: $deviceType")
 
         val requestData = getPaymentAppRequest()
         if (requestData != null) {
             setContent {
                 PaymentCardScreen(
+                    deviceType = deviceType,
                     apiService = apiService,
                     printerHelper = printerHelper,
                     receiptPrinter = receiptPrinter,
@@ -95,13 +114,80 @@ class PaymentCardActivity : BaseActivity() {
         )
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (deviceType == DeviceType.ANDROID_PHONE) {
+            nfcPhoneReaderManager.enableForegroundDispatch(this)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // 🔥 Disable NFC foreground dispatch nếu là phone
+        if (deviceType == DeviceType.ANDROID_PHONE) {
+            nfcPhoneReaderManager.disableForegroundDispatch(this)
+            Timber.tag("NfcPhone").d("📱 Foreground dispatch disabled")
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        when (intent.action) {
+            NfcAdapter.ACTION_TECH_DISCOVERED,
+            NfcAdapter.ACTION_TAG_DISCOVERED,
+            NfcAdapter.ACTION_NDEF_DISCOVERED -> {
+                val tag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag::class.java)
+                } else {
+                    @Suppress("DEPRECATION")
+                    intent.getParcelableExtra(NfcAdapter.EXTRA_TAG)
+                }
+                nfcPhoneReaderManager.handleNfcIntent(tag)
+            }
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        cardProcessorManager.cancelPayment()
+        when (deviceType) {
+            DeviceType.SUNMI_POS -> cardProcessorManager.cancelPayment()
+            DeviceType.ANDROID_PHONE -> nfcPhoneReaderManager.cancelPayment()
+        }
+    }
+
+    /**
+     * Detect device type: Sunmi POS hoặc Android Phone
+     */
+    private fun detectDeviceType(): DeviceType {
+        return try {
+            val manufacturer = Build.MANUFACTURER.lowercase()
+            val model = Build.MODEL.lowercase()
+
+            // Check if Sunmi device
+            val isSunmi = manufacturer.contains("sunmi") ||
+                    model.contains("p2") ||
+                    model.contains("v2") ||
+                    model.contains("p1")
+
+            if (isSunmi) {
+                Timber.tag("DeviceDetect").d("✅ Detected Sunmi POS device")
+                DeviceType.SUNMI_POS
+            } else {
+                Timber.tag("DeviceDetect").d("✅ Detected Android Phone")
+                DeviceType.ANDROID_PHONE
+            }
+        } catch (e: Exception) {
+            Timber.tag("DeviceDetect").e(e, "❌ Error detecting device, defaulting to ANDROID_PHONE")
+            DeviceType.ANDROID_PHONE
+        }
     }
 
     private fun cancelTransaction(errorMessage: String? = null) {
-        cardProcessorManager.cancelPayment()
+        when (deviceType) {
+            DeviceType.SUNMI_POS -> cardProcessorManager.cancelPayment()
+            DeviceType.ANDROID_PHONE -> nfcPhoneReaderManager.cancelPayment()
+        }
+
         val isExternalFlow = storageService.isExternalPaymentFlow()
         if (isExternalFlow) {
             val pendingRequest = storageService.getPendingPaymentRequest()
@@ -165,6 +251,7 @@ class PaymentCardActivity : BaseActivity() {
 
 @Composable
 fun PaymentCardScreen(
+    deviceType: DeviceType,
     onCancel: () -> Unit,
     apiService: ApiService,
     onSuccess: (SaleResultData) -> Unit,
@@ -181,7 +268,6 @@ fun PaymentCardScreen(
     var currentRequestSale by remember { mutableStateOf<RequestSale?>(null) }
     var paymentState by remember { mutableStateOf(PaymentState.INITIALIZING) }
 
-    // 🔥 Lưu kết quả API và signature
     val activity = LocalContext.current as PaymentCardActivity
     val activityScope = CoroutineScope(Dispatchers.Main)
     var customerSignature by remember { mutableStateOf<ByteArray?>(null) }
@@ -190,9 +276,18 @@ fun PaymentCardScreen(
     val ttsManager = remember { activity.ttsManager }
     val storageService = remember { activity.storageService }
     var retryTrigger by remember { mutableIntStateOf(0) }
+
+    // 🔥 Get appropriate manager based on device type
     val cardProcessorManager = remember { activity.cardProcessorManager }
+    val nfcPhoneReaderManager = remember { activity.nfcPhoneReaderManager }
 
     val amount = paymentAppRequest.merchantRequestData?.amount ?: 0
+
+    // 🔥 UI text dựa trên device type
+    val waitingCardMessage = when (deviceType) {
+        DeviceType.SUNMI_POS -> "Vui lòng quẹt/chạm/cắm thẻ"
+        DeviceType.ANDROID_PHONE -> "Vui lòng chạm thẻ vào mặt sau điện thoại"
+    }
 
     fun resetAndRetry() {
         Timber.tag("PaymentCard").d("🔄 Reset and retry")
@@ -207,91 +302,145 @@ fun PaymentCardScreen(
         showSignatureDialog = false
         statusMessage = "Đang khởi tạo..."
         paymentState = PaymentState.INITIALIZING
-        cardProcessorManager.cancelPayment()
+
+        when (deviceType) {
+            DeviceType.SUNMI_POS -> cardProcessorManager.cancelPayment()
+            DeviceType.ANDROID_PHONE -> nfcPhoneReaderManager.cancelPayment()
+        }
+
         retryTrigger++
     }
 
-    fun startCardReading() {
-        paymentState = PaymentState.WAITING_CARD
-        statusMessage = "Vui lòng quẹt/chạm/cắm thẻ"
+    fun handlePaymentResult(result: PaymentResult) {
+        activityScope.launch {
+            when (result) {
+                is PaymentResult.Success -> {
+                    val requestSale = result.requestSale
 
-        cardProcessorManager.startPayment(
-            paymentRequest = paymentAppRequest,
-            onProcessingComplete = { result ->
-                activityScope.launch {
-                    when (result) {
-                        is PaymentResult.Success -> {
-                            val requestSale = result.requestSale
+                    paymentState = PaymentState.CARD_DETECTED
+                    statusMessage = "Đã phát hiện thẻ"
+                    currentRequestSale = requestSale
+                    delay(1000)
 
-                            // init
-                            paymentState = PaymentState.CARD_DETECTED
-                            statusMessage = "Đã phát hiện thẻ"
-                            currentRequestSale = requestSale
-                            delay(1000)
+                    paymentState = PaymentState.PROCESSING
+                    statusMessage = "Đang xử lý giao dịch..."
 
-                            // processing
-                            paymentState = PaymentState.PROCESSING
-                            statusMessage = "Đang xử lý giao dịch..."
-
-                            // call api
-                            activityScope.launch {
-                                val result = processPayment(apiService, requestSale)
-                                result.onSuccess { saleResultData ->
-                                    if (saleResultData.status?.code == "00") {
+                    activityScope.launch {
+                        val result = processPayment(apiService, requestSale)
+                        result.onSuccess { saleResultData ->
+                            if (saleResultData.status?.code == "00") {
+                                when (deviceType) {
+                                    DeviceType.ANDROID_PHONE -> {
+                                        paymentState = PaymentState.SUCCESS
+                                        statusMessage = "Giao dịch thành công"
+                                        val ttsMessage = PaymentTTSHelper.getSuccessTTSMessage(amount)
+                                        ttsManager.speak(ttsMessage)
+                                        delay(3000)
+                                        onSuccess(saleResultData)
+                                    }
+                                    DeviceType.SUNMI_POS -> {
                                         pendingSaleResult = saleResultData
                                         paymentState = PaymentState.WAITING_SIGNATURE
                                         statusMessage = "Vui lòng ký xác nhận"
                                         val ttsMessage = "Giao dịch thành công. Vui lòng ký xác nhận"
                                         ttsManager.speak(ttsMessage)
                                         showSignatureDialog = true
-                                    } else {
-                                        val apiErrorMsg = saleResultData.status?.message
-                                            ?: "Giao dịch thất bại"
-                                        errorCode = saleResultData.status?.code ?: "API_ERROR"
-                                        errorDialogMessage = apiErrorMsg
-                                        showErrorDialog = true
-                                        ttsManager.speak("Giao dịch thất bại. $apiErrorMsg")
                                     }
                                 }
-
-                                result.onFailure { error ->
-                                    val errorMessage = error.message ?: "Giao dịch thất bại. Vui lòng thử lại"
-                                    showErrorDialog = true
-                                    errorCode = "API_ERROR"
-                                    errorDialogMessage = errorMessage
-                                    ttsManager.speak("Giao dịch thất bại. $errorMessage")
-                                }
+                            } else {
+                                val apiErrorMsg = saleResultData.status?.message
+                                    ?: "Giao dịch thất bại"
+                                errorCode = saleResultData.status?.code ?: "API_ERROR"
+                                errorDialogMessage = apiErrorMsg
+                                showErrorDialog = true
+                                ttsManager.speak("Giao dịch thất bại. $apiErrorMsg")
                             }
                         }
-                        is PaymentResult.Error -> {
+
+                        result.onFailure { error ->
+                            val errorMessage = error.message ?: "Giao dịch thất bại. Vui lòng thử lại"
                             showErrorDialog = true
-                            errorCode = result.errorCode
-                            errorDialogMessage = result.vietnameseMessage
-                            ttsManager.speak(PaymentTTSHelper.getTTSMessage(result.type))
+                            errorCode = "API_ERROR"
+                            errorDialogMessage = errorMessage
+                            ttsManager.speak("Giao dịch thất bại. $errorMessage")
                         }
                     }
                 }
+                is PaymentResult.Error -> {
+                    showErrorDialog = true
+                    errorCode = result.errorCode
+                    errorDialogMessage = result.vietnameseMessage
+                    ttsManager.speak(PaymentTTSHelper.getTTSMessage(result.type))
+                }
             }
-        )
+        }
+    }
+
+    fun startCardReading() {
+        paymentState = PaymentState.WAITING_CARD
+        statusMessage = waitingCardMessage
+
+        when (deviceType) {
+            DeviceType.SUNMI_POS -> {
+                cardProcessorManager.startPayment(
+                    paymentRequest = paymentAppRequest,
+                    onProcessingComplete = { result ->
+                        handlePaymentResult(result)
+                    }
+                )
+            }
+            DeviceType.ANDROID_PHONE -> {
+                nfcPhoneReaderManager.startPayment(
+                    paymentRequest = paymentAppRequest,
+                    onProcessingComplete = { result ->
+                        handlePaymentResult(result)
+                    }
+                )
+            }
+        }
     }
 
     LaunchedEffect(retryTrigger) {
-        paymentState == PaymentState.PROCESSING
-        cardProcessorManager.initialize { success, error ->
-            if (success) {
-                Timber.tag("Initialize").d("✅ System initialized successfully")
-                startCardReading()
-            } else {
-                val error = PaymentResult.Error.from(
-                    technicalMessage = error,
-                    errorType = PaymentErrorHandler.ErrorType.SDK_INIT_FAILED
-                )
-                showErrorDialog = true
-                errorCode = error.errorCode
-                paymentState = PaymentState.ERROR
-                statusMessage = error.vietnameseMessage
-                errorDialogMessage = error.vietnameseMessage
-                ttsManager.speak(PaymentTTSHelper.getTTSMessage(error.type))
+        paymentState = PaymentState.INITIALIZING
+
+        when (deviceType) {
+            DeviceType.SUNMI_POS -> {
+                cardProcessorManager.initialize { success, error ->
+                    if (success) {
+                        Timber.tag("Initialize").d("✅ Sunmi POS initialized successfully")
+                        startCardReading()
+                    } else {
+                        val paymentError = PaymentResult.Error.from(
+                            technicalMessage = error,
+                            errorType = PaymentErrorHandler.ErrorType.SDK_INIT_FAILED
+                        )
+                        showErrorDialog = true
+                        errorCode = paymentError.errorCode
+                        paymentState = PaymentState.ERROR
+                        statusMessage = paymentError.vietnameseMessage
+                        errorDialogMessage = paymentError.vietnameseMessage
+                        ttsManager.speak(PaymentTTSHelper.getTTSMessage(paymentError.type))
+                    }
+                }
+            }
+            DeviceType.ANDROID_PHONE -> {
+                nfcPhoneReaderManager.initialize { success, error ->
+                    if (success) {
+                        Timber.tag("Initialize").d("✅ Android NFC initialized successfully")
+                        startCardReading()
+                    } else {
+                        val paymentError = PaymentResult.Error.from(
+                            technicalMessage = error,
+                            errorType = PaymentErrorHandler.ErrorType.SDK_INIT_FAILED
+                        )
+                        showErrorDialog = true
+                        errorCode = paymentError.errorCode
+                        paymentState = PaymentState.ERROR
+                        statusMessage = paymentError.vietnameseMessage
+                        errorDialogMessage = paymentError.vietnameseMessage
+                        ttsManager.speak(PaymentTTSHelper.getTTSMessage(paymentError.type))
+                    }
+                }
             }
         }
     }
@@ -316,18 +465,18 @@ fun PaymentCardScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            ModernHeader(
-                billNumber = paymentAppRequest.merchantRequestData?.billNumber,
-                referenceId = paymentAppRequest.merchantRequestData?.referenceId
-            )
-
+            if (deviceType == DeviceType.SUNMI_POS) {
+                ModernHeader(
+                    billNumber = paymentAppRequest.merchantRequestData?.billNumber,
+                    referenceId = paymentAppRequest.merchantRequestData?.referenceId
+                )
+            }
             Spacer(modifier = Modifier.height(16.dp))
-
             AmountCard(amount = amount)
-
             Spacer(modifier = Modifier.height(24.dp))
 
             PaymentStatusCard(
+                deviceType = deviceType,
                 paymentState = paymentState,
                 statusMessage = statusMessage,
                 currentRequestSale = currentRequestSale,
@@ -342,9 +491,6 @@ fun PaymentCardScreen(
                 onCancel = onCancel,
                 onClose = if (paymentState == PaymentState.SUCCESS) {
                     {
-                        // 🔥 Đóng mà không in
-                        Timber.tag("PaymentCard").d("✅ Close without printing")
-
                         pendingSaleResult?.let { saleResult ->
                             val ttsMessage = PaymentTTSHelper.getSuccessTTSMessage(amount)
                             ttsManager.speak(ttsMessage)
@@ -354,7 +500,6 @@ fun PaymentCardScreen(
                 } else null,
                 onPrint = if (paymentState == PaymentState.SUCCESS && customerSignature != null) {
                     {
-                        // 🔥 In hóa đơn có chữ ký
                         activityScope.launch {
                             isPrinting = true
                             statusMessage = "Đang in hóa đơn..."
@@ -367,17 +512,24 @@ fun PaymentCardScreen(
                                     return@launch
                                 }
 
-                                if (!printerHelper.waitForReady(timeoutMs = 3000)) {
-                                    Timber.tag("PaymentCard").e("❌ Printer not ready")
-                                    ttsManager.speak("Máy in chưa sẵn sàng")
+                                // 🔥 Check if printer is available (only for POS devices)
+                                if (deviceType == DeviceType.SUNMI_POS) {
+                                    if (!printerHelper.waitForReady(timeoutMs = 3000)) {
+                                        Timber.tag("PaymentCard").e("❌ Printer not ready")
+                                        ttsManager.speak("Máy in chưa sẵn sàng")
+                                        isPrinting = false
+                                        return@launch
+                                    }
+                                } else {
+                                    // Phone doesn't have printer
+                                    Timber.tag("PaymentCard").w("⚠️ Printing not supported on phone")
+                                    ttsManager.speak("Thiết bị không hỗ trợ in")
                                     isPrinting = false
                                     return@launch
                                 }
 
                                 pendingSaleResult?.let { saleResult ->
                                     val transaction = saleResult.toTransaction()
-
-                                    // 🔥 In hóa đơn
                                     receiptPrinter.printReceiptWithSignature(
                                         transaction = transaction,
                                         terminal = account.terminal,
@@ -402,7 +554,6 @@ fun PaymentCardScreen(
             )
         }
 
-        // Error Dialog
         if (showErrorDialog) {
             ModernErrorDialog(
                 message = errorDialogMessage,
@@ -417,7 +568,6 @@ fun PaymentCardScreen(
             )
         }
 
-        // 🔥 Signature Dialog (BẮT BUỘC phải ký)
         if (showSignatureDialog) {
             SignatureBottomSheet(
                 onConfirm = { signatureData ->
@@ -425,17 +575,10 @@ fun PaymentCardScreen(
                     Timber.tag("PaymentCard").d("   Signature size: ${signatureData?.size ?: 0} bytes")
 
                     showSignatureDialog = false
-
-                    // 🔥 Lưu signature
                     customerSignature = signatureData
-
                     paymentState = PaymentState.SUCCESS
                     statusMessage = "Đã ký xác nhận"
-
                     ttsManager.speak("Đã ký xác nhận thành công")
-
-                    // 🔥 KHÔNG gọi onSuccess ở đây
-                    // Chờ user bấm "In" hoặc "Đóng"
                 }
             )
         }

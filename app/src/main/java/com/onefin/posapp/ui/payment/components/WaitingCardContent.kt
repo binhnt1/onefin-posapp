@@ -1,39 +1,99 @@
 package com.onefin.posapp.ui.payment.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.Nfc
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.onefin.posapp.ui.payment.DeviceType
 
 @Composable
-fun WaitingCardContent(statusMessage: String) {
+fun WaitingCardContent(
+    statusMessage: String,
+    deviceType: DeviceType // 🔥 NEW: Device type parameter
+) {
+    val scale by rememberInfiniteTransition(label = "scale").animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scaleAnim"
+    )
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        PulsingCardIcon()
+        // 🔥 Icon khác nhau cho POS vs Phone
+        val icon = when (deviceType) {
+            DeviceType.SUNMI_POS -> Icons.Default.CreditCard // Icon thẻ tổng quát
+            DeviceType.ANDROID_PHONE -> Icons.Default.Nfc // Icon NFC
+        }
+
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .scale(scale)
+                .background(
+                    color = Color(0xFF2196F3).copy(alpha = 0.2f),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color(0xFF2196F3),
+                modifier = Modifier.size(80.dp)
+            )
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
+
         Text(
             text = statusMessage,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
             color = Color(0xFF333333),
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(32.dp))
-        CardTypeIcons()
-        Spacer(modifier = Modifier.height(16.dp))
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 🔥 Instruction text khác nhau cho POS vs Phone
+        val instructionText = when (deviceType) {
+            DeviceType.SUNMI_POS -> "Hỗ trợ: Quẹt thẻ từ, Chạm thẻ NFC, Cắm thẻ chip"
+            DeviceType.ANDROID_PHONE -> "Chỉ hỗ trợ: Chạm thẻ NFC vào mặt sau điện thoại"
+        }
+
         Text(
-            text = "Hỗ trợ: Thẻ từ • Chip • Contactless",
-            fontSize = 12.sp,
-            color = Color(0xFF999999),
+            text = instructionText,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Normal,
+            color = Color(0xFF666666),
             textAlign = TextAlign.Center
         )
     }

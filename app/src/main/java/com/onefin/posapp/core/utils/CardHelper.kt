@@ -1,6 +1,7 @@
 package com.onefin.posapp.core.utils
 
 import android.annotation.SuppressLint
+import com.github.devnied.emvnfccard.model.EmvCard
 import com.onefin.posapp.core.config.CardConstants
 import com.onefin.posapp.core.models.EvmConfig
 import com.onefin.posapp.core.models.Terminal
@@ -22,6 +23,7 @@ import com.sunmi.pay.hardware.aidlv2.bean.EmvTermParamV2
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
 import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
 import timber.log.Timber
+import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
@@ -517,14 +519,68 @@ object CardHelper {
         emv.setTlvList(CardConstants.OP_NORMAL, globalTags, globalValues)
     }
 
-    fun parseEmvData(emvData: String): EmvCardData? {
+    fun extractEmvDataHex(emvCard: EmvCard): String {
+        val tlvMap = mutableMapOf<String, String>()
+
+        // Tag 5A: Application PAN
+        emvCard.cardNumber?.let {
+            val panDigits = it.replace(" ", "")
+            tlvMap["5A"] = panDigits
+        }
+
+        // Tag 57: Track 2 Equivalent Data
+        emvCard.track2?.raw?.let {
+            tlvMap["57"] = UtilHelper.byteArrayToHexString(it)
+        }
+
+        // Tag 5F24: Application Expiry Date (YYMMDD)
+        emvCard.expireDate?.let {
+            formatExpiry(it)?.let { expiry ->
+                tlvMap["5F24"] = expiry
+            }
+        }
+
+        // Tag 5F20: Cardholder Name
+        buildHolderName(emvCard)?.let {
+            tlvMap["5F20"] = UtilHelper.stringToHexString(it)
+        }
+
+        // Láº¥y tá»« applications (náº¿u cÃ³)
+        emvCard.applications.firstOrNull()?.let { app ->
+            // Tag 9F06: AID
+            app.aid?.let {
+                tlvMap["9F06"] = UtilHelper.byteArrayToHexString(it)
+            }
+
+            // Tag 50: Application Label
+            app.applicationLabel?.let {
+                tlvMap["50"] = UtilHelper.stringToHexString(it)
+            }
+        }
+
+        // Build TLV hex string
+        return buildTlvHexString(tlvMap)
+    }
+    fun parseMagneticCard(track1: String, track2: String): EmvCardData? {
+        try {
+            val track2Data = parseMagneticTrack2(track2)
+            if (track2Data == null)
+                return null
+
+            val holderName = parseMagneticTrack1(track1)
+            val issuerName = BinLookupHelper.lookupIssuer(track2Data.pan) ?: ""
+            return EmvCardData(track2Data.pan, track2Data.expiry, holderName, issuerName)
+        } catch (e: Exception) {
+            Timber.e(e, "Error parsing magnetic card")
+            return null
+        }
+    }
+    fun parseEmvData(emvData: String, track1: String, track2: String): EmvCardData? {
         try {
             if (emvData.isEmpty()) return null
 
             // Parse TLV để lấy tags map
             val tags = parseEmvTlv(emvData)
-
-            Timber.d("🔍 Parsing EMV data, found tags: ${tags.keys.joinToString()}")
 
             // 🔥 Strategy 1: Try Tag 5A for PAN
             var pan = tags["5A"]?.takeIf { it.isNotEmpty() } ?: ""
@@ -619,22 +675,14 @@ object CardHelper {
 
             // 🔥 ISSUER NAME - với logging chi tiết
             val issuerName = BinLookupHelper.lookupIssuer(pan) ?: ""
-            return EmvCardData(pan, expiry, cardholderName, issuerName)
+            val emvData = EmvCardData(pan, expiry, cardholderName, issuerName)
+            val cardData = parseMagneticCard(track1, track2)
+            if (emvData.holderName.isNullOrEmpty())
+                emvData.holderName = cardData?.holderName
+            if (emvData.issuerName.isNullOrEmpty())
+                emvData.issuerName = cardData?.issuerName
+            return emvData
         } catch (e: Exception) {
-            return null
-        }
-    }
-    fun parseMagneticCard(track1: String, track2: String): EmvCardData? {
-        try {
-            val track2Data = parseMagneticTrack2(track2)
-            if (track2Data == null)
-                return null
-
-            val holderName = parseMagneticTrack1(track1)
-            val issuerName = BinLookupHelper.lookupIssuer(track2Data.pan) ?: ""
-            return EmvCardData(track2Data.pan, track2Data.expiry, holderName, issuerName)
-        } catch (e: Exception) {
-            Timber.e(e, "Error parsing magnetic card")
             return null
         }
     }
@@ -1136,4 +1184,40 @@ object CardHelper {
 
         return data
     }
+
+    private fun buildHolderName(emvCard: EmvCard): String? {
+        val first = emvCard.holderFirstname?.trim()
+        val last = emvCard.holderLastname?.trim()
+
+        return when {
+            !first.isNullOrEmpty() && !last.isNullOrEmpty() -> "$first $last"
+            !first.isNullOrEmpty() -> first
+            !last.isNullOrEmpty() -> last
+            else -> null
+        }
+    }
+
+    private fun formatExpiry(date: java.util.Date?): String? {
+        return try {
+            date?.let {
+                val sdf = SimpleDateFormat("yyMMdd", Locale.US)
+                sdf.format(it)
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error formatting expiry")
+            null
+        }
+    }
+    private fun buildTlvHexString(tlvMap: Map<String, String>): String {
+        val sb = StringBuilder()
+
+        tlvMap.forEach { (tag, value) ->
+            val valueBytes = value.length / 2
+            val lengthHex = String.format("%02X", valueBytes)
+            sb.append(tag).append(lengthHex).append(value)
+        }
+
+        return sb.toString()
+    }
+
 }

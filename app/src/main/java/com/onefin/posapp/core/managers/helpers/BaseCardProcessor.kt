@@ -104,9 +104,36 @@ abstract class BaseCardProcessor(
 
             // check emvTags
             val tagsToRead = arrayOf(
-                "5A", "57", "5F24", "5F34", "9F06", "9F26", "9F27", "9F10", "9F37", "9F36",
-                "95", "9A", "9C", "9F02", "9F03", "5F2A", "82", "9F1A", "9F33", "9F34",
-                "9F35", "9F09", "9F1E", "84", "9F41", "50", "5F20", "9F0B", "5F2D",
+                "5A", // Application PAN
+                "56", // Track 1 Equivalent Data 🔥 ADDED
+                "57", // Track 2 Equivalent Data
+                "5F24", // Application Expiration Date
+                "5F34", // Application PAN Sequence Number
+                "9F06", // AID
+                "9F26", // Application Cryptogram
+                "9F27", // Cryptogram Information Data
+                "9F10", // Issuer Application Data
+                "9F37", // Unpredictable Number
+                "9F36", // Application Transaction Counter
+                "95",   // Terminal Verification Results
+                "9A",   // Transaction Date
+                "9C",   // Transaction Type
+                "9F02", // Amount, Authorized
+                "9F03", // Amount, Other
+                "5F2A", // Transaction Currency Code
+                "82",   // Application Interchange Profile
+                "9F1A", // Terminal Country Code
+                "9F33", // Terminal Capabilities
+                "9F34", // CVM Results
+                "9F35", // Terminal Type
+                "9F09", // Application Version Number
+                "9F1E", // Interface Device Serial Number
+                "84",   // DF Name
+                "9F41", // Transaction Sequence Counter
+                "50",   // Application Label
+                "5F20", // Cardholder Name
+                "9F0B", // Cardholder Name Extended
+                "5F2D", // Language Preference
             )
             val emvTagsHex = readEmvTags(tagsToRead) ?: run {
                 processingComplete(
@@ -116,10 +143,12 @@ abstract class BaseCardProcessor(
                 )
                 return
             }
+            val tagsMap = TLVUtil.buildTLVMap(emvTagsHex)
 
             // DÙNG TLVUtil để parse
-            val tagsMap = TLVUtil.buildTLVMap(emvTagsHex)
-            val cardData = CardHelper.parseEmvData(emvTagsHex) ?: run {
+            val track1 = tagsMap["56"]?.value ?: ""
+            val track2 = tagsMap["57"]?.value ?: ""
+            val cardData = CardHelper.parseEmvData(emvTagsHex, track1, track2) ?: run {
                 processingComplete(
                     PaymentResult.Error.from(
                         errorType = PaymentErrorHandler.ErrorType.EMV_DATA_INVALID
@@ -133,13 +162,14 @@ abstract class BaseCardProcessor(
                 RequestSale.Data.Card(
                     ksn = "",
                     pin = null,
+                    track2 = track2,
+                    track1 = track1,
                     emvData = emvTagsHex,
                     clearPan = cardData.pan,
                     expiryDate = cardData.expiry,
                     mode = CardType.CHIP.displayName,
                     holderName = cardData.holderName,
                     issuerName = cardData.issuerName,
-                    track2 = tagsMap["57"]?.value ?: "",
                     type = CardHelper.detectBrand(cardData.pan),
                 )
             )

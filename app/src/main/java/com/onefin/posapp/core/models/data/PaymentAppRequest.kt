@@ -57,7 +57,7 @@ data class MerchantRequestData(
 data class EmvCardData(
     val pan: String,
     val expiry: String,
-    val holderName: String? = null,
-    val issuerName: String? = null,
+    var holderName: String? = null,
+    var issuerName: String? = null,
     val serviceCode: String? = null,
 )

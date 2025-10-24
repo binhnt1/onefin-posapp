@@ -83,8 +83,6 @@ class HomeActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        testNfc()
-
         rabbitMQManager.startAfterLogin()
         setContent {
             PosAppTheme {
@@ -109,21 +107,6 @@ class HomeActivity : BaseActivity() {
         networkCallback?.let {
             val connectivityManager = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
             connectivityManager.unregisterNetworkCallback(it)
-        }
-    }
-
-    private fun testNfc() {
-        val tester = NfcSetupTest(this)
-        val result = tester.checkSetup()
-
-        result.messages.forEach { msg ->
-            Timber.d(msg)
-        }
-
-        if (result.success) {
-            Timber.d("🎉 Setup hoàn tất! Sẵn sàng implement bước 2")
-        } else {
-            Timber.e("❌ Setup chưa xong, fix lỗi trước")
         }
     }
 }
@@ -519,42 +502,4 @@ fun checkNetworkConnection(context: Context): Boolean {
 
     return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-}
-
-class NfcSetupTest(private val context: Context) {
-
-    fun checkSetup(): SetupResult {
-        val results = mutableListOf<String>()
-
-        // 1. Check NFC Adapter available
-        val nfcAdapter = NfcAdapter.getDefaultAdapter(context)
-        if (nfcAdapter == null) {
-            results.add("❌ Device không hỗ trợ NFC")
-            return SetupResult(false, results)
-        }
-        results.add("✅ NFC Adapter available")
-
-        // 2. Check NFC enabled
-        if (!nfcAdapter.isEnabled) {
-            results.add("⚠️ NFC bị tắt (user cần bật trong Settings)")
-        } else {
-            results.add("✅ NFC đang bật")
-        }
-
-        // 3. Check library imported
-        try {
-            val testClass = Class.forName("com.github.devnied.emvnfccard.parser.EmvTemplate")
-            results.add("✅ EMV Library imported thành công")
-        } catch (e: ClassNotFoundException) {
-            results.add("❌ EMV Library CHƯA import đúng")
-            return SetupResult(false, results)
-        }
-
-        return SetupResult(true, results)
-    }
-
-    data class SetupResult(
-        val success: Boolean,
-        val messages: List<String>
-    )
 }

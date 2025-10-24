@@ -96,7 +96,6 @@ class TTSManager @Inject constructor(
         if (text.isEmpty()) return
 
         if (!isInitialized || textToSpeech == null) {
-            // Chỉ queue nếu chưa có lỗi fatal
             if (textToSpeech != null) {
                 pendingSpeechQueue.add(text)
                 Timber.tag(TAG).d("TTS not ready, queued: $text")
