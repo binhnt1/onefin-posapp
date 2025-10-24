@@ -15,8 +15,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
 import com.onefin.posapp.core.config.ResultConstants
-import com.onefin.posapp.core.managers.SunmiPaymentManager
+import com.onefin.posapp.core.managers.CardProcessorManager
 import com.onefin.posapp.core.managers.TTSManager
+import com.onefin.posapp.core.managers.helpers.PaymentErrorHandler
 import com.onefin.posapp.core.managers.helpers.PaymentTTSHelper
 import com.onefin.posapp.core.models.ResultApi
 import com.onefin.posapp.core.models.data.PaymentAppRequest
@@ -29,7 +30,6 @@ import com.onefin.posapp.core.utils.CardHelper
 import com.onefin.posapp.core.utils.PaymentHelper
 import com.onefin.posapp.core.utils.PrinterHelper
 import com.onefin.posapp.core.utils.ReceiptPrinter
-import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.ui.base.BaseActivity
 import com.onefin.posapp.ui.payment.components.ActionButtons
 import com.onefin.posapp.ui.payment.components.AmountCard
@@ -39,6 +39,8 @@ import com.onefin.posapp.ui.payment.components.PaymentStatusCard
 import com.onefin.posapp.ui.payment.components.SignatureBottomSheet
 import dagger.hilt.android.AndroidEntryPoint
 import jakarta.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -58,13 +60,13 @@ class PaymentCardActivity : BaseActivity() {
     lateinit var paymentHelper: PaymentHelper
 
     @Inject
-    lateinit var paymentManager: SunmiPaymentManager
-
-    @Inject
     lateinit var printerHelper: PrinterHelper
 
     @Inject
     lateinit var receiptPrinter: ReceiptPrinter
+
+    @Inject
+    lateinit var cardProcessorManager: CardProcessorManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,9 +76,9 @@ class PaymentCardActivity : BaseActivity() {
             setContent {
                 PaymentCardScreen(
                     apiService = apiService,
-                    paymentAppRequest = requestData,
                     printerHelper = printerHelper,
                     receiptPrinter = receiptPrinter,
+                    paymentAppRequest = requestData,
                     onCancel = { cancelTransaction() },
                     onSuccess = { saleResult -> onSuccess(saleResult, requestData) },
                 )
@@ -95,11 +97,11 @@ class PaymentCardActivity : BaseActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        paymentManager.cancelReadCard()
+        cardProcessorManager.cancelPayment()
     }
 
     private fun cancelTransaction(errorMessage: String? = null) {
-        paymentManager.cancelReadCard()
+        cardProcessorManager.cancelPayment()
         val isExternalFlow = storageService.isExternalPaymentFlow()
         if (isExternalFlow) {
             val pendingRequest = storageService.getPendingPaymentRequest()
@@ -170,7 +172,6 @@ fun PaymentCardScreen(
     printerHelper: PrinterHelper,
     receiptPrinter: ReceiptPrinter,
 ) {
-    var cardInfo by remember { mutableStateOf("") }
     var isPrinting by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorDialogMessage by remember { mutableStateOf("") }
@@ -181,34 +182,32 @@ fun PaymentCardScreen(
     var paymentState by remember { mutableStateOf(PaymentState.INITIALIZING) }
 
     // 🔥 Lưu kết quả API và signature
-    var pendingSaleResult by remember { mutableStateOf<SaleResultData?>(null) }
-    var customerSignature by remember { mutableStateOf<ByteArray?>(null) }
-
-    val scope = rememberCoroutineScope()
     val activity = LocalContext.current as PaymentCardActivity
-    val paymentManager = remember { activity.paymentManager }
+    val activityScope = CoroutineScope(Dispatchers.Main)
+    var customerSignature by remember { mutableStateOf<ByteArray?>(null) }
+    var pendingSaleResult by remember { mutableStateOf<SaleResultData?>(null) }
+
     val ttsManager = remember { activity.ttsManager }
     val storageService = remember { activity.storageService }
     var retryTrigger by remember { mutableIntStateOf(0) }
+    val cardProcessorManager = remember { activity.cardProcessorManager }
 
     val amount = paymentAppRequest.merchantRequestData?.amount ?: 0
 
     fun resetAndRetry() {
         Timber.tag("PaymentCard").d("🔄 Reset and retry")
 
-        cardInfo = ""
         errorCode = null
         isPrinting = false
         showErrorDialog = false
-        showSignatureDialog = false
         errorDialogMessage = ""
-        currentRequestSale = null
         pendingSaleResult = null
         customerSignature = null
+        currentRequestSale = null
+        showSignatureDialog = false
         statusMessage = "Đang khởi tạo..."
         paymentState = PaymentState.INITIALIZING
-
-        paymentManager.cancelReadCard()
+        cardProcessorManager.cancelPayment()
         retryTrigger++
     }
 
@@ -216,41 +215,35 @@ fun PaymentCardScreen(
         paymentState = PaymentState.WAITING_CARD
         statusMessage = "Vui lòng quẹt/chạm/cắm thẻ"
 
-        paymentManager.startReadCard(
-            paymentAppRequest = paymentAppRequest,
-            onResult = { result ->
-                scope.launch {
+        cardProcessorManager.startPayment(
+            paymentRequest = paymentAppRequest,
+            onProcessingComplete = { result ->
+                activityScope.launch {
                     when (result) {
                         is PaymentResult.Success -> {
                             val requestSale = result.requestSale
-                            Timber.tag("PaymentCard").d("🎉 CARD READ SUCCESS")
 
+                            // init
                             paymentState = PaymentState.CARD_DETECTED
-                            currentRequestSale = requestSale
-                            cardInfo = UtilHelper.maskCardNumber(requestSale.data.card.clearPan)
                             statusMessage = "Đã phát hiện thẻ"
-
+                            currentRequestSale = requestSale
                             delay(1000)
 
+                            // processing
                             paymentState = PaymentState.PROCESSING
                             statusMessage = "Đang xử lý giao dịch..."
 
-                            scope.launch {
+                            // call api
+                            activityScope.launch {
                                 val result = processPayment(apiService, requestSale)
                                 result.onSuccess { saleResultData ->
-                                    Timber.tag("PaymentCard").d("✅ Payment API SUCCESS")
-
                                     if (saleResultData.status?.code == "00") {
                                         pendingSaleResult = saleResultData
-
                                         paymentState = PaymentState.WAITING_SIGNATURE
                                         statusMessage = "Vui lòng ký xác nhận"
-
                                         val ttsMessage = "Giao dịch thành công. Vui lòng ký xác nhận"
                                         ttsManager.speak(ttsMessage)
-
                                         showSignatureDialog = true
-
                                     } else {
                                         val apiErrorMsg = saleResultData.status?.message
                                             ?: "Giao dịch thất bại"
@@ -270,7 +263,6 @@ fun PaymentCardScreen(
                                 }
                             }
                         }
-
                         is PaymentResult.Error -> {
                             showErrorDialog = true
                             errorCode = result.errorCode
@@ -284,27 +276,24 @@ fun PaymentCardScreen(
     }
 
     LaunchedEffect(retryTrigger) {
-        Timber.tag("PaymentCard").d("🔄 Initializing... (trigger: $retryTrigger)")
-        paymentManager.initialize(
-            onReady = {
-                Timber.tag("PaymentCard").d("✅ Payment manager ready")
+        paymentState == PaymentState.PROCESSING
+        cardProcessorManager.initialize { success, error ->
+            if (success) {
+                Timber.tag("Initialize").d("✅ System initialized successfully")
                 startCardReading()
-            },
-            onError = { error ->
-                Timber.tag("PaymentCard").e(
-                    "❌ INIT ERROR: ${error.getFullMessage()}"
+            } else {
+                val error = PaymentResult.Error.from(
+                    technicalMessage = error,
+                    errorType = PaymentErrorHandler.ErrorType.SDK_INIT_FAILED
                 )
-
+                showErrorDialog = true
+                errorCode = error.errorCode
                 paymentState = PaymentState.ERROR
                 statusMessage = error.vietnameseMessage
                 errorDialogMessage = error.vietnameseMessage
-                errorCode = error.errorCode
-                showErrorDialog = true
-
-                val ttsMessage = PaymentTTSHelper.getTTSMessage(error.type)
-                ttsManager.speak(ttsMessage)
+                ttsManager.speak(PaymentTTSHelper.getTTSMessage(error.type))
             }
-        )
+        }
     }
 
     // Main UI
@@ -339,7 +328,6 @@ fun PaymentCardScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             PaymentStatusCard(
-                cardInfo = cardInfo,
                 paymentState = paymentState,
                 statusMessage = statusMessage,
                 currentRequestSale = currentRequestSale,
@@ -367,13 +355,11 @@ fun PaymentCardScreen(
                 onPrint = if (paymentState == PaymentState.SUCCESS && customerSignature != null) {
                     {
                         // 🔥 In hóa đơn có chữ ký
-                        scope.launch {
+                        activityScope.launch {
                             isPrinting = true
                             statusMessage = "Đang in hóa đơn..."
-
                             try {
                                 val account = storageService.getAccount()
-
                                 if (account == null) {
                                     Timber.tag("PaymentCard").e("❌ No account info")
                                     ttsManager.speak("Không có thông tin tài khoản")
@@ -400,12 +386,6 @@ fun PaymentCardScreen(
                                     Timber.tag("PaymentCard").d("✅ Print completed")
                                     statusMessage = "In hóa đơn thành công"
                                     ttsManager.speak("In hóa đơn thành công")
-
-                                    delay(1000)
-
-                                    // 🔥 In xong → Kết thúc giao dịch
-                                    val ttsMessage = PaymentTTSHelper.getSuccessTTSMessage(amount)
-                                    ttsManager.speak(ttsMessage)
                                     onSuccess(saleResult)
                                 }
 
@@ -482,7 +462,9 @@ suspend fun processPayment(
                     "track3" to requestSale.data.card.track3,
                     "emvData" to requestSale.data.card.emvData,
                     "clearPan" to requestSale.data.card.clearPan,
-                    "expiryDate" to requestSale.data.card.expiryDate
+                    "expiryDate" to requestSale.data.card.expiryDate,
+                    "holderName" to requestSale.data.card.holderName,
+                    "issuerName" to requestSale.data.card.issuerName
                 ),
                 "device" to mapOf(
                     "posEntryMode" to requestSale.data.device.posEntryMode,
@@ -503,7 +485,6 @@ suspend fun processPayment(
         )
 
         val resultApi = apiService.post("/api/card/sale", requestBody) as ResultApi<*>
-
         val saleResultData = gson.fromJson(
             gson.toJson(resultApi.data),
             SaleResultData::class.java

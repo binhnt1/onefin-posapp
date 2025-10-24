@@ -1,0 +1,133 @@
+{
+    "sale": {
+        "visa": {
+            "chip": {
+                "signature": {
+                    "amount": 0,
+                    "needSign": "Y"
+                }
+            },
+            "contactless": {
+                "signature": {
+                    "amount": 1000001,
+                    "needSign": "Y"
+                }
+            },
+            "magstripe": {
+                "signature": {
+                    "amount": 0,
+                    "needSign": "Y"
+                },
+                "pin": {
+                    "amount": 0,
+                    "needPin": "N"
+                }
+            }
+        },
+        "master": {
+            "chip": {
+                "signature": {
+                    "amount": 0,
+                    "needSign": "Y"
+                }
+            },
+            "contactless": {
+                "signature": {
+                    "amount": 1000001,
+                    "needSign": "Y"
+                }
+            },
+            "magstripe": {
+                "signature": {
+                    "amount": 0,
+                    "needSign": "Y"
+                },
+                "pin": {
+                    "amount": 0,
+                    "needPin": "N"
+                }
+            }
+        },
+        "jcb": {
+            "chip": {
+                "signature": {
+                    "amount": 0,
+                    "needSign": "Y"
+                }
+            },
+            "contactless": {
+                "signature": {
+                    "amount": 900001,
+                    "needSign": "Y"
+                }
+            },
+            "magstripe": {
+                "signature": {
+                    "amount": 0,
+                    "needSign": "Y"
+                },
+                "pin": {
+                    "amount": 0,
+                    "needPin": "N"
+                }
+            }
+        },
+        "napas": {
+            "chip": {
+                "signature": {
+                    "amount": 0,
+                    "needSign": "N"
+                },
+                "pin": {
+                    "amount": 0,
+                    "needPin": "Y"
+                }
+            },
+            "contactless": {
+                "signature": {
+                    "amount": 0,
+                    "needSign": "N"
+                },
+                "pin": {
+                    "amount": 1000001,
+                    "needPin": "Y"
+                }
+            },
+            "magstripe": {
+                "signature": {
+                    "amount": 0,
+                    "needSign": "Y"
+                },
+                "pin": {
+                    "amount": 0,
+                    "needPin": "Y"
+                }
+            }
+        },
+        "unionpay": {
+            "chip": {
+                "signature": {
+                    "amount": 0,
+                    "needSign": "Y"
+                }
+            },
+            "contactless": {
+                "signature": {
+                    "amount": 2000000,
+                    "needSign": "Y"
+                }
+            },
+            "magstripe": {
+                "signature": {
+                    "amount": 0,
+                    "needSign": "Y"
+                },
+                "pin": {
+                    "amount": 0,
+                    "needPin": "Y"
+                }
+            }
+        },
+        "fallback": "Y"
+    }
+}

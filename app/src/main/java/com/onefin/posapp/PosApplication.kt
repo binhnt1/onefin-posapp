@@ -2,8 +2,10 @@ package com.onefin.posapp
 
 import android.app.Application
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.nfc.NfcAdapter
 import android.os.IBinder
 import com.onefin.posapp.core.managers.ActivityTracker
 import com.onefin.posapp.core.managers.RabbitMQManager
@@ -74,6 +76,12 @@ class PosApplication : Application() {
         initializeBackgroundServices()
     }
 
+    private fun bindSerial() {
+        val deviceSerial = deviceHelper.getDeviceSerial()
+        if (!deviceSerial.isEmpty())
+            storageService.saveSerial(deviceSerial)
+    }
+
     override fun onTerminate() {
         super.onTerminate()
 
@@ -93,7 +101,30 @@ class PosApplication : Application() {
             }
         }
     }
+    private fun bindPrinterService() {
+        try {
+            val intent = Intent()
+            intent.setPackage("woyou.aidlservice.jiuiv5")
+            intent.action = "woyou.aidlservice.jiuiv5.IWoyouService"
 
+            var bound = bindService(intent, printerServiceConnection, BIND_AUTO_CREATE)
+            Timber.tag("PosApplication").d("Binding Woyou printer service: $bound")
+
+            if (!bound) {
+                val intent2 = Intent()
+                intent2.setPackage("com.sunmi.peripheral")
+                intent2.action = "com.sunmi.peripheral.printer.SunmiPrinterService"
+                bound = bindService(intent2, printerServiceConnection, BIND_AUTO_CREATE)
+                Timber.tag("PosApplication").d("Binding Sunmi printer service: $bound")
+            }
+
+            if (!bound) {
+                Timber.tag("PosApplication").e("Failed to bind printer service")
+            }
+        } catch (e: Exception) {
+            Timber.tag("PosApplication").e(e, "Error binding printer service")
+        }
+    }
     private fun initializeBackgroundServices() {
         applicationScope.launch {
             // Wave 1: 500ms
@@ -122,37 +153,6 @@ class PosApplication : Application() {
                     rabbitMQManager.startAfterLogin()
                 }
             }
-        }
-    }
-
-    private fun bindSerial() {
-        val deviceSerial = deviceHelper.getDeviceSerial()
-        if (!deviceSerial.isEmpty())
-            storageService.saveSerial(deviceSerial)
-    }
-
-    private fun bindPrinterService() {
-        try {
-            val intent = Intent()
-            intent.setPackage("woyou.aidlservice.jiuiv5")
-            intent.action = "woyou.aidlservice.jiuiv5.IWoyouService"
-
-            var bound = bindService(intent, printerServiceConnection, BIND_AUTO_CREATE)
-            Timber.tag("PosApplication").d("Binding Woyou printer service: $bound")
-
-            if (!bound) {
-                val intent2 = Intent()
-                intent2.setPackage("com.sunmi.peripheral")
-                intent2.action = "com.sunmi.peripheral.printer.SunmiPrinterService"
-                bound = bindService(intent2, printerServiceConnection, BIND_AUTO_CREATE)
-                Timber.tag("PosApplication").d("Binding Sunmi printer service: $bound")
-            }
-
-            if (!bound) {
-                Timber.tag("PosApplication").e("Failed to bind printer service")
-            }
-        } catch (e: Exception) {
-            Timber.tag("PosApplication").e(e, "Error binding printer service")
         }
     }
 }

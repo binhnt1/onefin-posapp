@@ -32,22 +32,39 @@ class EMVListenerFactory(
                 isFirstSelect: Boolean
             ) {
                 Timber.d("🔹 onWaitAppSelect called")
-                Timber.d("   candidates: ${candidates?.size ?: 0}")
-                candidates?.forEachIndexed { index, candidate ->
-                    Timber.d("   [$index] AID: ${candidate.appPreName}, Priority: ${candidate.priority}")
+                Timber.d("   ├─ First select: $isFirstSelect")
+                Timber.d("   └─ Candidates from CARD: ${candidates?.size ?: 0}")
+
+                if (candidates.isNullOrEmpty()) {
+                    Timber.e("   ❌ CARD RETURNED NO APPLICATIONS!")
+                    Timber.e("   This means:")
+                    Timber.e("   1. Card AIDs don't match any terminal AIDs, OR")
+                    Timber.e("   2. Card is not responding properly, OR")
+                    Timber.e("   3. Card is damaged/blocked")
+
+                    // Try to continue anyway
+                    try {
+                        emvOpt.importAppSelect(0)
+                    } catch (e: Exception) {
+                        Timber.e(e, "Failed to import app select")
+                    }
+                    return
+                }
+
+                // 🔥 LOG CHI TIẾT AIDs từ thẻ
+                candidates.forEachIndexed { index, candidate ->
+                    Timber.d("   [$index] CARD AID:")
+                    Timber.d("      ├─ AID: ${candidate.aid}")
+                    Timber.d("      ├─ App Name: ${candidate.appPreName}")
+                    Timber.d("      ├─ App Label: ${candidate.appLabel}")
+                    Timber.d("      └─ Priority: ${candidate.priority}")
                 }
 
                 try {
                     emvOpt.importAppSelect(0)
-                    Timber.d("✅ importAppSelect SUCCESS")
+                    Timber.d("✅ importAppSelect SUCCESS (selected index 0)")
                 } catch (e: Exception) {
                     Timber.e(e, "❌ App select error")
-                    callback.onError(
-                        PaymentResult.Error.from(
-                            errorType = PaymentErrorHandler.ErrorType.EMV_DATA_INVALID,
-                            technicalMessage = "onWaitAppSelect error: ${e.message}"
-                        )
-                    )
                 }
             }
 
@@ -85,7 +102,22 @@ class EMVListenerFactory(
                 }
             }
 
-            override fun onCardDataExchangeComplete() {}
+            override fun onCardDataExchangeComplete() {
+                Timber.d("🔹 onCardDataExchangeComplete called")
+
+                // 🔥 ĐỌC TRỰC TIẾP AIDs từ thẻ
+                try {
+                    val aidListOnCard = mutableListOf<String>()
+                    val result = emvOpt.queryAidCapkList(0, aidListOnCard)
+
+                    Timber.d("   ├─ AIDs on card (query result: $result):")
+                    aidListOnCard.forEach { aid ->
+                        Timber.d("   │  ├─ $aid")
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "   └─ ❌ Cannot read AIDs from card")
+                }
+            }
 
             override fun onRequestDataExchange(data: String?) {
                 try {
@@ -256,8 +288,6 @@ class EMVListenerFactory(
                 Timber.d("   Card is requesting ONLINE authorization")
 
                 try {
-                    // 🔥 CRITICAL: Đây là nơi cần gửi request lên host!
-                    // Hiện tại đang auto-approve (0)
                     emvOpt.importOnlineProcStatus(0, null, null, null)
                     Timber.d("✅ Online proc approved (simulated)")
                 } catch (e: Exception) {
@@ -311,7 +341,6 @@ class EMVListenerFactory(
         }
     }
 
-    // 🔥 NEW: Handle PIN entered
     private fun handlePinEntered(pinType: Int, cardPan: String?) {
         try {
             Timber.d("🔐 Getting encrypted PIN block...")
@@ -378,7 +407,6 @@ class EMVListenerFactory(
         }
     }
 
-    // 🔥 NEW: Handle PIN cancelled
     private fun handlePinCancelled(
         pinType: Int,
         callback: EMVTransactionProcessor.TransactionCallback
@@ -410,7 +438,6 @@ class EMVListenerFactory(
 
             val outBuf = ByteArray(8192)
             val ret = emvOpt.getTlvList(0, tagsToRead, outBuf)
-
             if (ret <= 0) {
                 callback.onError(
                     PaymentResult.Error.from(

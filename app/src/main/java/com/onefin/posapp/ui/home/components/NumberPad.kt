@@ -18,9 +18,7 @@ fun NumberPad(
     onClearClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val clearText = stringResource(R.string.numpad_clear)
     val backspaceText = stringResource(R.string.numpad_backspace)
-
     val numbers = listOf(
         listOf("1", "2", "3"),
         listOf("4", "5", "6"),
@@ -50,6 +48,11 @@ fun NumberPad(
                                 backspaceText -> onBackspaceClick()
                                 else -> onNumberClick(key)
                             }
+                        },
+                        onLongClick = if (key == backspaceText) {
+                            onClearClick  // ← Chỉ backspace mới có long click
+                        } else {
+                            null
                         },
                         modifier = Modifier.weight(1f)
                     )

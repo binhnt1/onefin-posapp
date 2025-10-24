@@ -1,5 +1,6 @@
 package com.onefin.posapp.core.models.data
 
+import com.google.gson.annotations.JsonAdapter
 import com.google.gson.annotations.SerializedName
 import java.io.Serializable
 
@@ -50,15 +51,13 @@ data class MerchantRequestData(
     val isSpeak: Boolean? = null,
 
     @SerializedName("additional_data")
-    val additionalData: Map<String, Any>? = null
+    var additionalData: Any? = null
 ): Serializable
-
-data class MagneticCardData(
-    val pan: String,
-    val expiry: String
-)
 
 data class EmvCardData(
     val pan: String,
-    val expiry: String
+    val expiry: String,
+    val holderName: String? = null,
+    val issuerName: String? = null,
+    val serviceCode: String? = null,
 )

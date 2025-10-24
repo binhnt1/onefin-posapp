@@ -47,6 +47,7 @@ import com.onefin.posapp.core.utils.PaymentHelper
 import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.ui.home.QRCodeDisplayActivity
 import com.onefin.posapp.ui.payment.PaymentCardActivity
+import com.onefin.posapp.ui.payment.SimpleChipTestActivity
 import com.onefin.posapp.ui.transaction.TransparentPaymentActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,7 +81,6 @@ fun AmountEntrySheet(
     val headerPaddingVertical = if (isP2) 6.dp else 12.dp
     val contentPadding = if (isP2) 8.dp else 16.dp
     val amountDisplayPaddingVertical = if (isP2) 12.dp else 24.dp
-    val currencyPaddingBottom = if (isP2) 16.dp else 32.dp
     val defaultSpacerHeight = if (isP2) 6.dp else 12.dp
     val bottomSpacerHeight = if (isP2) 8.dp else 16.dp
 
@@ -277,13 +277,29 @@ fun AmountEntrySheet(
                                             amount = amountValue
                                         )
                                     )
+                                    val sdkType = BuildConfig.SDK_TYPE
                                     val paymentRequestData = paymentHelper.createPaymentAppRequest(account, paymentRequest)
-                                    val intent = Intent(context, TransparentPaymentActivity::class.java).apply {
-                                        putExtra("REQUEST_DATA", paymentRequestData)
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    if (sdkType == "onefin") {
+                                        val intent = Intent(
+                                            context,
+                                            TransparentPaymentActivity::class.java
+                                        ).apply {
+                                            putExtra("REQUEST_DATA", paymentRequestData)
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(intent)
+                                        onDismiss()
+                                    } else {
+                                        val intent = Intent(
+                                            context,
+                                            SimpleChipTestActivity::class.java
+                                        ).apply {
+                                            putExtra("REQUEST_DATA", paymentRequestData)
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(intent)
+                                        onDismiss()
                                     }
-                                    context.startActivity(intent)
-                                    onDismiss()
                                 } else {
                                     isProcessing = false
                                     loadingButtonType = null

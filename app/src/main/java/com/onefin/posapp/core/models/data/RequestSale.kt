@@ -57,6 +57,12 @@ data  class RequestSale(
             @SerializedName("clearPan")
             val clearPan: String,
 
+            @SerializedName("holderName")
+            val holderName: String? = null,
+
+            @SerializedName("issuerName")
+            val issuerName: String? = null,
+
             @SerializedName("expiryDate")
             val expiryDate: String
         ) : Serializable

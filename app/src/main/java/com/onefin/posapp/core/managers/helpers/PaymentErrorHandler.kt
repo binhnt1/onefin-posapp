@@ -27,6 +27,8 @@ object PaymentErrorHandler {
         EMV_TRANS_NOT_ACCEPTED,
         EMV_TRANSACTION_TERMINATED,
         EMV_COMMAND_TIMEOUT,
+        EMV_INIT_FAILED,
+        EMV_TRANSACTION_FAILED,
 
         // Card Status Errors (ISO 8583 Response Codes)
         CARD_BLOCKED,              // 05 - Do not honor
@@ -90,6 +92,8 @@ object PaymentErrorHandler {
             ErrorType.PAYMENT_REQUEST_NOT_INITIALIZED -> "Yêu cầu thanh toán chưa được khởi tạo"
             ErrorType.EMV_PROCESSOR_NOT_INITIALIZED -> "Bộ xử lý EMV chưa được khởi tạo"
             ErrorType.UNKNOWN_ERROR -> "Lỗi không xác định"
+            ErrorType.EMV_INIT_FAILED -> "Lỗi khởi tạo hệ thống thanh toán"
+            ErrorType.EMV_TRANSACTION_FAILED ->  "Giao dịch thất bại"
         }
     }
 

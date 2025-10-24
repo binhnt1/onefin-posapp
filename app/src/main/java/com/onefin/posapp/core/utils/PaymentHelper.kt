@@ -176,7 +176,7 @@ class PaymentHelper @Inject constructor(
         val amount = request.merchantRequestData?.amount ?: 0
         val referenceId = request.merchantRequestData?.referenceId ?: UtilHelper.getCurrentTimeStamp()
         val billNumber =  request.merchantRequestData?.billNumber ?: UtilHelper.generateRandomBillNumber()
-        val additionalData = request.merchantRequestData?.additionalData ?: mapOf(
+        val additionalData = request.merchantRequestData?.additionalData ?: gson.toJson(mapOf(
             "driver_phone" to "1055",
             "trip_distance" to "5km",
             "driver_name" to "Mai Linh",
@@ -185,7 +185,7 @@ class PaymentHelper @Inject constructor(
             "agency_add" to "19 Đ. 39, Phường An Khánh, Tp. Thủ Đức, Tp. Hồ Chí Minh",
             "src_address" to "19 Đ. 39, Phường An Khánh, Tp. Thủ Đức, Tp. Hồ Chí Minh",
             "dst_address" to "Saigon Pearl, 92 Nguyễn Hữu Cảnh, Phường 22, Quận Bình Thạnh, Tp. Hồ Chí Minh"
-        )
+        ))
 
         val merchantRequest = MerchantRequestData(
             billNumber = billNumber,

@@ -1,6 +1,7 @@
 package com.onefin.posapp.core.models
 
 import com.google.gson.annotations.SerializedName
+import com.onefin.posapp.core.models.data.CapkData
 
 /**
  * Terminal model
@@ -211,15 +212,4 @@ data class MerchantConfig(
     
     @SerializedName("nfcConfig")
     val nfcConfig: NfcConfig? = null
-)
-
-data class CapkData(
-    val rid: String,           // RID (5 bytes hex)
-    val index: String,         // Key Index (1 byte hex)
-    val hashAlgo: String,      // Hash Algorithm (01=SHA-1)
-    val arithInd: String,      // Arithmetic Indicator (01=RSA)
-    val modul: String,         // Modulus (public key)
-    val exponent: String,      // Exponent (usually "03" or "010001")
-    val expDate: String,       // Expiration date (YYMMDD)
-    val checkSum: String       // SHA-1 hash of modulus + exponent
 )

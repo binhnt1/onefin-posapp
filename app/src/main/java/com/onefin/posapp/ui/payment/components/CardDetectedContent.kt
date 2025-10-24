@@ -31,20 +31,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.onefin.posapp.core.models.data.RequestSale
+import com.onefin.posapp.core.utils.UtilHelper
 
 @Composable
 fun CardDetectedContent(
     statusMessage: String,
-    cardInfo: String,
     currentRequestSale: RequestSale?,
-    isProcessing: Boolean = false  // ✅ Thêm param này
+    isProcessing: Boolean = false
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // ✅ Hiển thị icon hoặc loading tùy state
         if (isProcessing) {
-            // PROCESSING state - hiển thị loading
             CircularProgressIndicator(
                 modifier = Modifier.size(80.dp),
                 color = Color(0xFF1976D2),
@@ -93,10 +91,10 @@ fun CardDetectedContent(
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = cardInfo,
             fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
             color = Color(0xFF666666),
-            fontWeight = FontWeight.Medium
+            text = UtilHelper.maskCardNumber(currentRequestSale?.data?.card?.clearPan),
         )
 
         currentRequestSale?.let { req ->
@@ -111,13 +109,13 @@ fun CardDetectedContent(
                     modifier = Modifier.padding(16.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
-                    InfoRow("Request ID", req.requestId)
+                    InfoRow("Request Id", req.requestId)
                     Spacer(modifier = Modifier.height(8.dp))
                     if (req.data.card.mode != null) {
                         InfoRow("Mode", req.data.card.mode)
                         Spacer(modifier = Modifier.height(8.dp))
                     }
-                    InfoRow("Entry", req.data.device.posEntryMode)
+                    InfoRow("Card", req.data.card.type ?: "")
                 }
             }
         }

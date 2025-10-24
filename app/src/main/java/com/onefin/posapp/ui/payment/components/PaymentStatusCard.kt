@@ -43,16 +43,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.onefin.posapp.core.utils.UtilHelper
 import kotlinx.coroutines.delay
 
 @Composable
 @OptIn(ExperimentalAnimationApi::class)
 fun PaymentStatusCard(
-    paymentState: PaymentState,
     statusMessage: String,
-    cardInfo: String,
+    paymentState: PaymentState,
+    modifier: Modifier = Modifier,
     currentRequestSale: RequestSale?,
-    modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -88,7 +88,6 @@ fun PaymentStatusCard(
                         PaymentState.PROCESSING,
                         PaymentState.CARD_DETECTED -> {
                             CardDetectedContent(
-                                cardInfo = cardInfo,
                                 statusMessage = statusMessage,
                                 currentRequestSale = currentRequestSale,
                                 isProcessing = paymentState == PaymentState.PROCESSING
@@ -103,15 +102,11 @@ fun PaymentStatusCard(
                             ErrorContent(statusMessage)
                         }
 
-                        PaymentState.WAITING_SIGNATURE -> {
-                            ErrorContent(statusMessage)
-                        }
-
+                        PaymentState.WAITING_SIGNATURE,
                         PaymentState.SUCCESS -> {
                             SuccessContent(
                                 statusMessage = statusMessage,
-                                cardInfo = cardInfo,
-                                currentRequestSale = currentRequestSale
+                                currentRequestSale = currentRequestSale,
                             )
                         }
                     }
@@ -124,7 +119,6 @@ fun PaymentStatusCard(
 @Composable
 fun SuccessContent(
     statusMessage: String,
-    cardInfo: String,
     currentRequestSale: RequestSale?
 ) {
     // ✅ Countdown state
@@ -191,10 +185,10 @@ fun SuccessContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = cardInfo,
             fontSize = 18.sp,
+            fontWeight = FontWeight.Medium,
             color = Color(0xFF666666),
-            fontWeight = FontWeight.Medium
+            text = UtilHelper.maskCardNumber(currentRequestSale?.data?.card?.clearPan),
         )
 
         currentRequestSale?.let { req ->
@@ -215,9 +209,9 @@ fun SuccessContent(
                         InfoRow("Mode", req.data.card.mode)
                         Spacer(modifier = Modifier.height(8.dp))
                     }
-                    InfoRow("Entry", req.data.device.posEntryMode)
+                    InfoRow("Card", req.data.card.type ?: "")
                     Spacer(modifier = Modifier.height(8.dp))
-                    InfoRow("Amount", "${req.data.payment.transAmount} ${req.data.payment.currency}")
+                    InfoRow("Amount", UtilHelper.formatCurrency(req.data.payment.transAmount, "đ"))
                 }
             }
         }

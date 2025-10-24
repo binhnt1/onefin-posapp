@@ -111,9 +111,8 @@ data class SaleResultData(
         @SerializedName("tip")
         val tip: Long? = null,
 
-        // Thêm các field khác nếu cần
-        @SerializedName("additionalData")
-        val additionalData: Map<String, Any>? = null
+        @SerializedName("additional_data")
+        val additionalData: Any? = null
     ) : Serializable
 
     fun toTransaction(): Transaction {

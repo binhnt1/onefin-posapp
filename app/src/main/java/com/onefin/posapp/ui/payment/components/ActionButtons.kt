@@ -1,5 +1,6 @@
 package com.onefin.posapp.ui.payment.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -75,7 +76,7 @@ fun ActionButtons(
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = Color.White
                         ),
-                        border = ButtonDefaults.outlinedButtonBorder.copy(
+                        border = BorderStroke(
                             width = 2.dp,
                             brush = androidx.compose.ui.graphics.SolidColor(Color.White)
                         )
@@ -120,7 +121,7 @@ fun ActionButtons(
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = Color.White
                     ),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                    border = BorderStroke(
                         width = 2.dp,
                         brush = androidx.compose.ui.graphics.SolidColor(Color.White)
                     )

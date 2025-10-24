@@ -101,6 +101,14 @@
     <string name="error_confirm_password_empty">Vui lòng xác nhận mật khẩu.</string>
     <string name="error_confirm_password_not_match">Mật khẩu xác nhận không khớp.</string>
 
+    <!-- External Payment Errors -->
+    <string name="error_login_failed">Đăng nhập thất bại</string>
+    <string name="error_please_login">Vui lòng đăng nhập</string>
+    <string name="error_not_logged_in">Chưa đăng nhập</string>
+    <string name="error_invalid_payment_type">Loại thanh toán không hợp lệ</string>
+    <string name="error_invalid_data">Dữ liệu không hợp lệ</string>
+    <string name="error_general">Lỗi</string>
+
     <!-- Drawer Menu -->
     <string name="menu_transactions">Danh sách giao dịch</string>
     <string name="menu_settlement">Kết toán giao dịch</string>

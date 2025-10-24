@@ -101,6 +101,9 @@ object PaymentTTSHelper {
 
             PaymentErrorHandler.ErrorType.UNKNOWN_ERROR ->
                 "Lỗi không xác định. Vui lòng thử lại"
+
+            PaymentErrorHandler.ErrorType.EMV_INIT_FAILED -> "Lỗi khởi tạo hệ thống. Vui lòng khởi động lại ứng dụng"
+            PaymentErrorHandler.ErrorType.EMV_TRANSACTION_FAILED -> "Giao dịch không được phép với thẻ này. Vui lòng sử dụng thẻ khác"
         }
     }
 

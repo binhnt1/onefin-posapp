@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.NFC" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="com.sunmi.payment.permission.HARDWARE"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="com.sunmi.peripheral.printer.BIND_PRINTER_SERVICE" />
+
+    <uses-feature
+        android:name="android.hardware.nfc"
+        android:required="false" />
 
     <application
         android:name=".PosApplication"
@@ -55,6 +60,18 @@
             android:name=".ui.payment.PaymentCardActivity"
             android:exported="false" />
         <activity
+            android:name=".ui.payment.SimpleChipTestActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.external.RefundActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.external.ChangePinActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.external.CheckBalanceActivity"
+            android:exported="false" />
+        <activity
             android:name=".ui.modals.LogoutDialogActivity"
             android:exported="false"
             android:theme="@style/Theme.OnefinPosApp.LogoutDialogActivity" />
@@ -93,6 +110,13 @@
                 <data android:scheme="paymentapp" />
             </intent-filter>
         </activity>
+
+        <provider
+            android:name=".core.providers.TransactionProvider"
+            android:authorities="com.onefin.memberapp.transaction.provider"
+            android:exported="true"
+            android:enabled="true">
+        </provider>
     </application>
     <queries>
         <package android:name="com.sunmi.peripheral" />
