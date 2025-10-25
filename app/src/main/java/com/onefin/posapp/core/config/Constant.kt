@@ -1,5 +1,7 @@
 package com.onefin.posapp.core.config
 
+import android.annotation.SuppressLint
+
 object StorageKeys {
     const val TOKEN = "auth_token"
     const val ACCOUNT = "account_data"
@@ -37,6 +39,7 @@ object LanguageConstants {
 }
 
 object RabbitConstants {
+    @SuppressLint("AuthLeak")
     const val DEFAULT_RABBIT_URL = "amqp://sit-posapp:ARGcn5nnmkTE@14.241.228.156:5672/posapp"
     const val EXCHANGE_NAME = "Pos_App_Service"
     const val RECONNECT_DELAY = 5000L
@@ -69,4 +72,15 @@ object ResultConstants {
     const val REQUEST_CODE_PAYMENT = 1000
     const val EXTRA_MERCHANT_REQUEST_DATA = "merchant_request_data"
     const val RESULT_PAYMENT_RESPONSE_DATA = "payment_response_data"
+}
+
+object MifareConstants {
+    const val KEY_TYPE_A = 0x60
+    const val BLOCKS_PER_SECTOR = 4
+    const val NFC_CONFIG = "nfc_config"
+    const val PKEY_CONFIG = "pkey_config"
+    const val NFC_CONFIG_TIMESTAMP = "nfc_config_timestamp"
+    const val PKEY_CONFIG_TIMESTAMP = "pkey_config_timestamp"
+    const val NFC_CONFIG_CACHE_DURATION = 24 * 60 * 60 * 1000L
+    const val PKEY_CONFIG_CACHE_DURATION = 12 * 60 * 60 * 1000L
 }

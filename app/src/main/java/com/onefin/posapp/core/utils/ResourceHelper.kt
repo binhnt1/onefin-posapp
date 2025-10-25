@@ -59,12 +59,12 @@ object ResourceHelper {
 
     fun getDefaultTlvValues(): CvmTlvValues {
         return CvmTlvValues(
-            cvmRequiredLimit = "000000000000",      // Luôn cần CVM từ 0đ
+            cvmRequiredLimit = "000000000000",
             readerCvmRequiredLimit = "000000000000",
             pinRequiredLimit = "000000000000",
-            contactlessTransLimit = "999999999999",  // Không giới hạn
+            contactlessTransLimit = "999999999999",
             contactlessCvmLimit = "999999999999",
-            isSignatureRequired = true,              // Default: cần signature
+            isSignatureRequired = true,
             isPinRequired = false
         )
     }
@@ -96,7 +96,6 @@ object ResourceHelper {
             // Floor Limit
             floorLimit = hexStr2Bytes(baseAid.floorLimit ?: "000000000000")
 
-            // DDOL/TDOL
             dDOL = hexStr2Bytes(baseAid.defaultDdol ?: "9F37049F34039F3501")
             tDOL = hexStr2Bytes(baseAid.defaultTdol ?: "")
 

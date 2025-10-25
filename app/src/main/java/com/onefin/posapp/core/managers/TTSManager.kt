@@ -19,13 +19,38 @@ class TTSManager @Inject constructor(
         private const val MAX_RETRY_COUNT = 3
         private const val RETRY_DELAY_MS = 1000L
     }
-
-    private var textToSpeech: TextToSpeech? = null
     private var isInitialized = false
+    private var textToSpeech: TextToSpeech? = null
     private val pendingSpeechQueue = mutableListOf<String>()
 
     init {
         initializeTTS()
+    }
+
+    fun speak(text: String) {
+        if (text.isEmpty()) return
+
+        if (!isInitialized || textToSpeech == null) {
+            if (textToSpeech != null) {
+                pendingSpeechQueue.add(text)
+                Timber.tag(TAG).d("TTS not ready, queued: $text")
+                retryInitialization()
+            } else {
+                Timber.tag(TAG).w("TTS unavailable, cannot speak: $text")
+            }
+            return
+        }
+
+        try {
+            val result = textToSpeech?.speak(text, TextToSpeech.QUEUE_ADD, null, null)
+            when (result) {
+                TextToSpeech.SUCCESS -> Timber.tag(TAG).d("Speaking: $text")
+                TextToSpeech.ERROR -> Timber.tag(TAG).e("Failed to speak: $text")
+                else -> Timber.tag(TAG).w("Unknown speak result: $result")
+            }
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Exception while speaking text")
+        }
     }
 
     private fun initializeTTS() {
@@ -89,32 +114,6 @@ class TTSManager @Inject constructor(
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Exception while initializing TTS")
             isInitialized = false
-        }
-    }
-
-    fun speak(text: String) {
-        if (text.isEmpty()) return
-
-        if (!isInitialized || textToSpeech == null) {
-            if (textToSpeech != null) {
-                pendingSpeechQueue.add(text)
-                Timber.tag(TAG).d("TTS not ready, queued: $text")
-                retryInitialization()
-            } else {
-                Timber.tag(TAG).w("TTS unavailable, cannot speak: $text")
-            }
-            return
-        }
-
-        try {
-            val result = textToSpeech?.speak(text, TextToSpeech.QUEUE_ADD, null, null)
-            when (result) {
-                TextToSpeech.SUCCESS -> Timber.tag(TAG).d("Speaking: $text")
-                TextToSpeech.ERROR -> Timber.tag(TAG).e("Failed to speak: $text")
-                else -> Timber.tag(TAG).w("Unknown speak result: $result")
-            }
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Exception while speaking text")
         }
     }
 

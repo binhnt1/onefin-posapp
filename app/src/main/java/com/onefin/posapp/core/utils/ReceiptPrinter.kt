@@ -1,5 +1,6 @@
 package com.onefin.posapp.core.utils
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -11,6 +12,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.net.URL
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
 
 class ReceiptPrinter(
     private val context: Context,
@@ -113,9 +116,7 @@ class ReceiptPrinter(
                 signatureBytes.size
             )
 
-            // Resize signature để vừa với giấy
             val resizedBitmap = resizeBitmap(bitmap, 300, 150)
-
             printerHelper.printBitmap(resizedBitmap)
 
             bitmap.recycle()
@@ -327,14 +328,11 @@ class ReceiptPrinter(
         }
     }
 
+    @SuppressLint("UseCompatLoadingForDrawables")
     private fun loadDrawableBitmap(@DrawableRes drawableId: Int): Bitmap? {
         return try {
             val drawable = context.resources.getDrawable(drawableId, null)
-            val bitmap = Bitmap.createBitmap(
-                drawable.intrinsicWidth,
-                drawable.intrinsicHeight,
-                Bitmap.Config.ARGB_8888
-            )
+            val bitmap = createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight)
             val canvas = android.graphics.Canvas(bitmap)
             drawable.setBounds(0, 0, canvas.width, canvas.height)
             drawable.draw(canvas)
@@ -355,30 +353,27 @@ class ReceiptPrinter(
         val newWidth = (width * ratio).toInt()
         val newHeight = (height * ratio).toInt()
 
-        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+        return bitmap.scale(newWidth, newHeight)
     }
 
     private fun combineTwoLogos(leftBitmap: Bitmap?, rightBitmap: Bitmap?): Bitmap? {
         if (leftBitmap == null && rightBitmap == null) return null
 
-        val left = leftBitmap ?: createEmptyBitmap(1, 1)
-        val right = rightBitmap ?: createEmptyBitmap(1, 1)
-
-        // Tổng chiều rộng giấy (pixels), giả sử 384px cho giấy 58mm
+        val left = leftBitmap ?: createEmptyBitmap()
+        val right = rightBitmap ?: createEmptyBitmap()
         val paperWidthPx = 384
 
         // THÊM MARGIN BOTTOM
-        val marginBottom = 40 // Điều chỉnh giá trị này để tăng/giảm khoảng cách
+        val marginBottom = 40
 
         val totalWidth = paperWidthPx
         val maxHeight = maxOf(left.height, right.height) + marginBottom // Thêm margin vào height
 
-        val combinedBitmap = Bitmap.createBitmap(totalWidth, maxHeight, Bitmap.Config.ARGB_8888)
+        val combinedBitmap = createBitmap(totalWidth, maxHeight)
         val canvas = android.graphics.Canvas(combinedBitmap)
 
         canvas.drawColor(android.graphics.Color.WHITE)
 
-        // Logo bên trái - căn sát mép trái
         val leftY = (maxHeight - marginBottom - left.height) / 2f // Trừ margin khi tính Y
         canvas.drawBitmap(left, 0f, leftY, null)
 
@@ -390,8 +385,8 @@ class ReceiptPrinter(
         return combinedBitmap
     }
 
-    private fun createEmptyBitmap(width: Int, height: Int): Bitmap {
-        return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply {
+    private fun createEmptyBitmap(): Bitmap {
+        return createBitmap(1, 1).apply {
             eraseColor(android.graphics.Color.TRANSPARENT)
         }
     }

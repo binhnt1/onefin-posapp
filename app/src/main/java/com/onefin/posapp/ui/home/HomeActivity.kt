@@ -56,6 +56,7 @@ import com.onefin.posapp.core.managers.SnackbarManager
 import com.onefin.posapp.core.managers.TTSManager
 import com.onefin.posapp.core.utils.LocaleHelper
 import com.onefin.posapp.ui.components.GlobalSnackbarHost
+import com.onefin.posapp.ui.home.components.MerchantInfoCard
 import com.onefin.posapp.ui.login.LoginActivity
 import com.onefin.posapp.ui.modals.AutoLoginDialog
 import com.onefin.posapp.ui.modals.NoNetworkDialog
@@ -310,6 +311,15 @@ fun HomeContent(
         )
     }
 
+    // merchant card
+    val context = LocalContext.current
+    val merchantFieldMapping = remember {
+        mapOf(
+            "driver" to context.getString(R.string.merchant_config_driver),
+            "employee" to context.getString(R.string.merchant_config_employee),
+        )
+    }
+
     var showAmountSheet by remember { mutableStateOf(false) }
     Box(
         modifier = modifier.fillMaxSize(),
@@ -322,6 +332,17 @@ fun HomeContent(
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
+            // Spacing nếu có merchant info
+            if (!account.terminal.merchantConfig.isNullOrEmpty()) {
+                MerchantInfoCard(
+                    merchantConfig = account.terminal.merchantConfig,
+                    fieldMapping = merchantFieldMapping,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
             Surface(
                 modifier = Modifier
                     .fillMaxWidth(),

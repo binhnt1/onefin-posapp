@@ -169,9 +169,6 @@ class PrinterHelper(private val context: Context) {
                 printText(line)
                 printNewLine()
             } else {
-                // Left quá dài - IN RIÊNG BIỆT HOÀN TOÀN
-
-                // 1. In tất cả left trên các dòng riêng
                 val leftLines = wrapText(left, totalWidth) // Dùng full width cho left
                 setAlignment(ALIGN_LEFT)
                 for (line in leftLines) {
@@ -179,7 +176,6 @@ class PrinterHelper(private val context: Context) {
                     printNewLine()
                 }
 
-                // 2. In right trên dòng riêng, căn phải
                 val spaces = " ".repeat(totalWidth - rightLength)
                 setAlignment(ALIGN_LEFT)
                 printText(spaces + right)

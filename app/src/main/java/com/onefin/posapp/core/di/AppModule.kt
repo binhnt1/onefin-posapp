@@ -1,11 +1,11 @@
 package com.onefin.posapp.core.di
 
-import AdditionalDataDeserializer
 import android.content.Context
 import android.content.SharedPreferences
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import com.google.gson.reflect.TypeToken
+import com.onefin.posapp.core.services.ApiService
+import com.onefin.posapp.core.services.StorageService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -37,12 +37,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideGson(): Gson {
-        return GsonBuilder()
-            .registerTypeAdapter(
-                object : TypeToken<Map<String, Any>>() {}.type,
-                AdditionalDataDeserializer()
-            )
-            .create()
+        return GsonBuilder().create()
     }
 
     /**
@@ -157,10 +152,11 @@ object AppModule {
     @Provides
     @Singleton
     fun provideCardProcessorManager(
+        apiService: ApiService,
+        storageService: StorageService,
         @ApplicationContext context: Context,
-        storageService: com.onefin.posapp.core.services.StorageService
     ): com.onefin.posapp.core.managers.CardProcessorManager {
-        return com.onefin.posapp.core.managers.CardProcessorManager(context, storageService)
+        return com.onefin.posapp.core.managers.CardProcessorManager(context, apiService, storageService)
     }
 
     /**

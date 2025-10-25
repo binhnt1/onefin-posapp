@@ -224,4 +224,8 @@
     <!-- Quick Amount Suffixes (Optional - for localization) -->
     <string name="amount_thousand_suffix">N</string>
     <string name="amount_million_suffix">Tr</string>
+
+    <string name="merchant_title">Thông tin</string>
+    <string name="merchant_config_driver">Biển số xe</string>
+    <string name="merchant_config_employee">Mã nhân viên</string>
 </resources>

@@ -1,5 +1,6 @@
 package com.onefin.posapp.core.utils
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
@@ -16,10 +17,12 @@ class DeviceHelper @Inject constructor(
     @param:ApplicationContext private val context: Context
 ) {
 
+    @RequiresPermission("android.permission.READ_PRIVILEGED_PHONE_STATE")
     fun getDeviceSerial(): String {
         return getSunmiSerial() ?: getAndroidId()
     }
 
+    @SuppressLint("PrivateApi")
     @RequiresPermission("android.permission.READ_PRIVILEGED_PHONE_STATE")
     private fun getSunmiSerial(): String? {
         return try {
@@ -30,16 +33,13 @@ class DeviceHelper @Inject constructor(
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> {
                     getMethod.invoke(systemPropertiesClass, "ro.sunmi.serial") as? String
                 }
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O -> {
+
+                else -> {
                     try {
                         Build.getSerial()
                     } catch (e: SecurityException) {
                         getMethod.invoke(systemPropertiesClass, "ro.sunmi.serial") as? String
                     }
-                }
-                else -> {
-                    @Suppress("DEPRECATION")
-                    getMethod.invoke(systemPropertiesClass, "ro.serialno") as? String
                 }
             }
 
@@ -50,6 +50,7 @@ class DeviceHelper @Inject constructor(
         }
     }
 
+    @SuppressLint("HardwareIds")
     private fun getAndroidId(): String {
         return try {
             val androidId = Settings.Secure.getString(
@@ -101,16 +102,17 @@ class DeviceHelper @Inject constructor(
         }
     }
 
+    @RequiresPermission("android.permission.READ_PRIVILEGED_PHONE_STATE")
     fun getDeviceInfo(): DeviceInfo {
         return DeviceInfo(
-            serial = getDeviceSerial(),
-            manufacturer = Build.MANUFACTURER,
             brand = Build.BRAND,
             model = Build.MODEL,
             device = Build.DEVICE,
-            androidVersion = Build.VERSION.RELEASE,
-            sdkVersion = Build.VERSION.SDK_INT,
             isSunmi = isSunmiDevice(),
+            serial = getDeviceSerial(),
+            manufacturer = Build.MANUFACTURER,
+            sdkVersion = Build.VERSION.SDK_INT,
+            androidVersion = Build.VERSION.RELEASE,
         )
     }
 }

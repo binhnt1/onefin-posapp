@@ -3,7 +3,6 @@ package com.onefin.posapp.core.utils
 import android.content.Context
 import android.content.SharedPreferences
 import android.content.res.Configuration
-import android.os.Build
 import com.onefin.posapp.core.config.LanguageConstants
 import com.onefin.posapp.core.config.PrefsName
 import com.onefin.posapp.core.config.StorageKeys
@@ -42,13 +41,7 @@ class LocaleHelper @Inject constructor(
         val configuration = Configuration(context.resources.configuration)
         configuration.setLocale(locale)
 
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            context.createConfigurationContext(configuration)
-        } else {
-            @Suppress("DEPRECATION")
-            context.resources.updateConfiguration(configuration, context.resources.displayMetrics)
-            context
-        }
+        return context.createConfigurationContext(configuration)
     }
     
     companion object {
@@ -68,13 +61,7 @@ class LocaleHelper @Inject constructor(
             val configuration = Configuration(context.resources.configuration)
             configuration.setLocale(locale)
 
-            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                context.createConfigurationContext(configuration)
-            } else {
-                @Suppress("DEPRECATION")
-                context.resources.updateConfiguration(configuration, context.resources.displayMetrics)
-                context
-            }
+            return context.createConfigurationContext(configuration)
         }
     }
 }

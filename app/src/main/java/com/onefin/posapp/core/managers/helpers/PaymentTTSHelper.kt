@@ -104,6 +104,11 @@ object PaymentTTSHelper {
 
             PaymentErrorHandler.ErrorType.EMV_INIT_FAILED -> "Lỗi khởi tạo hệ thống. Vui lòng khởi động lại ứng dụng"
             PaymentErrorHandler.ErrorType.EMV_TRANSACTION_FAILED -> "Giao dịch không được phép với thẻ này. Vui lòng sử dụng thẻ khác"
+            PaymentErrorHandler.ErrorType.SDK_INIT_FAILED_MIFARE -> "Lỗi khởi tạo hệ thống. Vui lòng khởi động lại ứng dụng"
+            PaymentErrorHandler.ErrorType.AMOUNT_EXCEEDS_LIMIT -> "Vượt quá hạn mức giao dịch. Vui lòng giảm số tiền"
+            PaymentErrorHandler.ErrorType.USER_CANCELLED -> "Người dùng đã hủy giao dịch"
+            PaymentErrorHandler.ErrorType.PIN_INPUT_FAILED -> "Lỗi nhập mã pin. Vui lòng thử lại"
+
         }
     }
 

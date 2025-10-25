@@ -56,27 +56,7 @@ data class Terminal(
     val systemConfig: SystemConfig? = null,
     
     @SerializedName("MerchantConfig")
-    val merchantConfig: MerchantConfig? = null
-)
-
-/**
- * NFC Config model
- */
-data class NfcConfig(
-    @SerializedName("ispin")
-    val isPin: String = "0",
-    
-    @SerializedName("nfckey")
-    val nfcKey: String = "",
-    
-    @SerializedName("currency")
-    val currency: String = "704",
-    
-    @SerializedName("nfclimit")
-    val nfcLimit: String = "0",
-    
-    @SerializedName("nfckeytype")
-    val nfcKeyType: String = "1"
+    val merchantConfig: Map<String, Any?>? = null
 )
 
 /**
@@ -195,21 +175,4 @@ data class SystemConfig(
     
     @SerializedName("AllowCancel")
     val allowCancel: Boolean = false
-)
-
-/**
- * Merchant Config model
- */
-data class MerchantConfig(
-    @SerializedName("type")
-    val type: String = "",
-    
-    @SerializedName("driver")
-    val driver: String = "",
-    
-    @SerializedName("employee")
-    val employee: String = "",
-    
-    @SerializedName("nfcConfig")
-    val nfcConfig: NfcConfig? = null
 )

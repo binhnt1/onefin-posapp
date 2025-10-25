@@ -7,9 +7,12 @@ import com.onefin.posapp.core.config.StorageKeys
 import javax.inject.Inject
 import javax.inject.Singleton
 import androidx.core.content.edit
+import com.onefin.posapp.core.config.MifareConstants
 import com.onefin.posapp.core.config.PrefsName
 import com.onefin.posapp.core.models.Account
+import com.onefin.posapp.core.models.data.NfcConfigResponse
 import com.onefin.posapp.core.models.data.PaymentAppRequest
+import com.onefin.posapp.core.models.data.PkeyConfigResponse
 
 @Singleton
 class StorageService @Inject constructor(
@@ -56,6 +59,10 @@ class StorageService @Inject constructor(
             remove(StorageKeys.TOKEN)
             remove(StorageKeys.SERIAL)
             remove(StorageKeys.ACCOUNT)
+            remove(MifareConstants.NFC_CONFIG)
+            remove(MifareConstants.PKEY_CONFIG)
+            remove(MifareConstants.NFC_CONFIG_TIMESTAMP)
+            remove(MifareConstants.PKEY_CONFIG_TIMESTAMP)
             apply()
         }
     }
@@ -96,6 +103,90 @@ class StorageService @Inject constructor(
             Gson().fromJson(json, PaymentAppRequest::class.java)
         } catch (e: Exception) {
             null
+        }
+    }
+
+    // ==================== NfcConfig ====================
+    fun getNfcConfig(): NfcConfigResponse? {
+        val configJson = sharedPreferences.getString(MifareConstants.NFC_CONFIG, null)
+        val timestamp = sharedPreferences.getLong(MifareConstants.NFC_CONFIG_TIMESTAMP, 0L)
+
+        if (configJson == null || timestamp == 0L) {
+            return null
+        }
+
+        // Check expiry
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - timestamp > MifareConstants.NFC_CONFIG_CACHE_DURATION) {
+            // Expired, clear and return null
+            sharedPreferences.edit {
+                remove(MifareConstants.NFC_CONFIG)
+                remove(MifareConstants.NFC_CONFIG_TIMESTAMP)
+            }
+            return null
+        }
+
+        // Parse and return
+        return try {
+            gson.fromJson(configJson, NfcConfigResponse::class.java)
+        } catch (e: Exception) {
+            // Invalid, clear and return null
+            sharedPreferences.edit {
+                remove(MifareConstants.NFC_CONFIG)
+                remove(MifareConstants.NFC_CONFIG_TIMESTAMP)
+            }
+            null
+        }
+    }
+    fun saveNfcConfig(config: NfcConfigResponse) {
+        val configJson = gson.toJson(config)
+        val timestamp = System.currentTimeMillis()
+
+        sharedPreferences.edit {
+            putString(MifareConstants.NFC_CONFIG, configJson)
+            putLong(MifareConstants.NFC_CONFIG_TIMESTAMP, timestamp)
+        }
+    }
+
+    // ==================== PkeyConfig ====================
+    fun getPkeyConfig(): PkeyConfigResponse? {
+        val configJson = sharedPreferences.getString(MifareConstants.PKEY_CONFIG, null)
+        val timestamp = sharedPreferences.getLong(MifareConstants.PKEY_CONFIG_TIMESTAMP, 0L)
+
+        if (configJson == null || timestamp == 0L) {
+            return null
+        }
+
+        // Check expiry
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - timestamp > MifareConstants.PKEY_CONFIG_CACHE_DURATION) {
+            // Expired, clear and return null
+            sharedPreferences.edit {
+                remove(MifareConstants.PKEY_CONFIG)
+                remove(MifareConstants.PKEY_CONFIG_TIMESTAMP)
+            }
+            return null
+        }
+
+        // Parse and return
+        return try {
+            gson.fromJson(configJson, PkeyConfigResponse::class.java)
+        } catch (e: Exception) {
+            // Invalid, clear and return null
+            sharedPreferences.edit {
+                remove(MifareConstants.PKEY_CONFIG)
+                remove(MifareConstants.PKEY_CONFIG_TIMESTAMP)
+            }
+            null
+        }
+    }
+    fun savePkeyConfig(config: PkeyConfigResponse) {
+        val configJson = gson.toJson(config)
+        val timestamp = System.currentTimeMillis()
+
+        sharedPreferences.edit {
+            putString(MifareConstants.PKEY_CONFIG, configJson)
+            putLong(MifareConstants.PKEY_CONFIG_TIMESTAMP, timestamp)
         }
     }
 

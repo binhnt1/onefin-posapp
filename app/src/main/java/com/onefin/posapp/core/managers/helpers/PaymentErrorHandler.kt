@@ -45,8 +45,12 @@ object PaymentErrorHandler {
         // System Errors
         SERVICE_NOT_CONNECTED,
         SDK_INIT_FAILED,
+        SDK_INIT_FAILED_MIFARE,
+        AMOUNT_EXCEEDS_LIMIT,
         PAYMENT_REQUEST_NOT_INITIALIZED,
         EMV_PROCESSOR_NOT_INITIALIZED,
+        USER_CANCELLED,
+        PIN_INPUT_FAILED,
         UNKNOWN_ERROR
     }
 
@@ -89,11 +93,15 @@ object PaymentErrorHandler {
             // System Errors
             ErrorType.SERVICE_NOT_CONNECTED -> "Dịch vụ chưa kết nối"
             ErrorType.SDK_INIT_FAILED -> "Lỗi khởi tạo hệ thống thanh toán"
+            ErrorType.SDK_INIT_FAILED_MIFARE -> "Lỗi khởi tạo hệ thống thanh toán thẻ thành viên"
+            ErrorType.AMOUNT_EXCEEDS_LIMIT -> "Số tiền thanh toán vượt quá hạn mức cho phép"
             ErrorType.PAYMENT_REQUEST_NOT_INITIALIZED -> "Yêu cầu thanh toán chưa được khởi tạo"
             ErrorType.EMV_PROCESSOR_NOT_INITIALIZED -> "Bộ xử lý EMV chưa được khởi tạo"
             ErrorType.UNKNOWN_ERROR -> "Lỗi không xác định"
             ErrorType.EMV_INIT_FAILED -> "Lỗi khởi tạo hệ thống thanh toán"
             ErrorType.EMV_TRANSACTION_FAILED ->  "Giao dịch thất bại"
+            ErrorType.USER_CANCELLED -> "Người dùng đã hủy giao dịch"
+            ErrorType.PIN_INPUT_FAILED -> "Lỗi nhập mã PIN"
         }
     }
 
@@ -134,26 +142,6 @@ object PaymentErrorHandler {
             -7 -> ErrorType.EMV_TRANS_NOT_ACCEPTED
             -4002 -> ErrorType.EMV_TRANSACTION_TERMINATED
             -4100 -> ErrorType.EMV_COMMAND_TIMEOUT
-            else -> ErrorType.UNKNOWN_ERROR
-        }
-    }
-
-    /**
-     * Map ISO 8583 response code to ErrorType
-     * Used when online authorization returns response code
-     */
-    fun mapIsoResponseCode(responseCode: String): ErrorType {
-        return when (responseCode) {
-            "05" -> ErrorType.CARD_BLOCKED
-            "51" -> ErrorType.INSUFFICIENT_FUNDS
-            "54" -> ErrorType.EXPIRED_CARD
-            "14" -> ErrorType.INVALID_CARD
-            "75" -> ErrorType.PIN_TRIES_EXCEEDED
-            "57" -> ErrorType.TRANSACTION_NOT_PERMITTED
-            "61" -> ErrorType.EXCEEDS_WITHDRAWAL_LIMIT
-            "62" -> ErrorType.RESTRICTED_CARD
-            "63" -> ErrorType.SECURITY_VIOLATION
-            "59" -> ErrorType.SUSPECTED_FRAUD
             else -> ErrorType.UNKNOWN_ERROR
         }
     }

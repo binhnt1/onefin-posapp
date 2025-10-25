@@ -189,7 +189,6 @@ abstract class BaseCardProcessor(
         processingComplete.invoke(error)
     }
 
-
     protected fun createBundle(): Bundle {
         var flowType: Int = AidlConstants.EMV.FlowType.TYPE_EMV_STANDARD
         if (cardType == AidlConstants.CardType.NFC)
@@ -214,7 +213,7 @@ abstract class BaseCardProcessor(
 
         try {
             for (key in bundle.keySet()) {
-                val value = bundle.get(key)
+                @Suppress("DEPRECATION") val value = bundle.get(key)
                 val valueType = value?.javaClass?.simpleName ?: "null"
                 val valueString = when (value) {
                     is ByteArray -> "ByteArray(${value.size}) = ${UtilHelper.byteArrayToHexString(value)}"

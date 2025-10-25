@@ -20,7 +20,6 @@ object VietQRHelper {
         val merchantAccountInfoData = "00${f38_00_guid.length.toString().padStart(2, '0')}$f38_00_guid$f38_01_block$f38_02_block$f38_03_block"
         val merchantAccountInfo = "38${merchantAccountInfoData.length.toString().padStart(2, '0')}$merchantAccountInfoData"
 
-        // --- Các trường khác ---
         val version = "000201"
         val initMethod = "010212"
         val countryCode = "5802VN"

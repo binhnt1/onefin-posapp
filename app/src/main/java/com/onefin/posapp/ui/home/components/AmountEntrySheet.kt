@@ -292,7 +292,7 @@ fun AmountEntrySheet(
                                     } else {
                                         val intent = Intent(
                                             context,
-                                            SimpleChipTestActivity::class.java
+                                            PaymentCardActivity::class.java
                                         ).apply {
                                             putExtra("REQUEST_DATA", paymentRequestData)
                                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

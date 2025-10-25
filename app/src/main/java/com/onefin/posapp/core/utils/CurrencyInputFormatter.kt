@@ -66,8 +66,3 @@ class CurrencyInputFormatter(private val editText: EditText) : TextWatcher {
         }
     }
 }
-
-// Extension function để dễ sử dụng
-fun EditText.addCurrencyFormatter() {
-    this.addTextChangedListener(CurrencyInputFormatter(this))
-}

@@ -223,4 +223,8 @@
     <!-- Quick Amount Suffixes (Optional - for localization) -->
     <string name="amount_thousand_suffix">K</string>
     <string name="amount_million_suffix">M</string>
+
+    <string name="merchant_title">Information</string>
+    <string name="merchant_config_driver">Driver number</string>
+    <string name="merchant_config_employee">Employee number</string>
 </resources>

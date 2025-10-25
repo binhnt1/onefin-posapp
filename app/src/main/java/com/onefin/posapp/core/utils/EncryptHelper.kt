@@ -1,5 +1,6 @@
 package com.onefin.posapp.core.utils
 
+import android.annotation.SuppressLint
 import android.content.SharedPreferences
 import android.util.Base64
 import java.security.KeyFactory
@@ -44,6 +45,7 @@ object EncryptHelper {
     /**
      * Encrypt data with 3DES
      */
+    @SuppressLint("GetInstance")
     fun encrypt(data: String, sharedPreferences: SharedPreferences): String {
         val serial = sharedPreferences.getString(DEVICE_SERIAL_KEY, "") ?: ""
         val combined = (serial + SECRET_KEY).padEnd(24, '0').substring(0, 24)
@@ -60,6 +62,7 @@ object EncryptHelper {
     /**
      * Decrypt data with 3DES
      */
+    @SuppressLint("GetInstance")
     fun decrypt(encryptedBase64: String, sharedPreferences: SharedPreferences): String {
         val serial = sharedPreferences.getString(DEVICE_SERIAL_KEY, "") ?: ""
         val combined = (serial + SECRET_KEY).padEnd(24, '0').substring(0, 24)

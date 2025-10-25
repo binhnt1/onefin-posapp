@@ -4,15 +4,18 @@ import android.content.Context
 import android.text.TextUtils
 import com.atg.pos.domain.entities.payment.TLVUtil
 import com.onefin.posapp.core.config.CardConstants
+import com.onefin.posapp.core.config.MifareConstants
 import com.onefin.posapp.core.models.EvmConfig
 import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.CvmConfig
+import com.onefin.posapp.core.models.data.MifareData
 import com.onefin.posapp.core.utils.UtilHelper.hexStringToByteArray
 import com.sunmi.pay.hardware.aidl.AidlConstants
 import com.sunmi.pay.hardware.aidlv2.bean.AidV2
 import com.sunmi.pay.hardware.aidlv2.bean.CapkV2
 import com.sunmi.pay.hardware.aidlv2.bean.EmvTermParamV2
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
+import com.sunmi.pay.hardware.aidlv2.readcard.ReadCardOptV2
 import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
 import timber.log.Timber
 import java.util.Locale
@@ -803,5 +806,4 @@ object EmvUtil {
             return 0
         }
     }
-
 }

@@ -114,6 +114,15 @@ class PaymentCardActivity : BaseActivity() {
         )
     }
 
+    override fun onPause() {
+        super.onPause()
+        // 🔥 Disable NFC foreground dispatch nếu là phone
+        if (deviceType == DeviceType.ANDROID_PHONE) {
+            nfcPhoneReaderManager.disableForegroundDispatch(this)
+            Timber.tag("NfcPhone").d("📱 Foreground dispatch disabled")
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         if (deviceType == DeviceType.ANDROID_PHONE) {
@@ -121,12 +130,11 @@ class PaymentCardActivity : BaseActivity() {
         }
     }
 
-    override fun onPause() {
-        super.onPause()
-        // 🔥 Disable NFC foreground dispatch nếu là phone
-        if (deviceType == DeviceType.ANDROID_PHONE) {
-            nfcPhoneReaderManager.disableForegroundDispatch(this)
-            Timber.tag("NfcPhone").d("📱 Foreground dispatch disabled")
+    override fun onDestroy() {
+        super.onDestroy()
+        when (deviceType) {
+            DeviceType.SUNMI_POS -> cardProcessorManager.cancelPayment()
+            DeviceType.ANDROID_PHONE -> nfcPhoneReaderManager.cancelPayment()
         }
     }
 
@@ -147,17 +155,6 @@ class PaymentCardActivity : BaseActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        when (deviceType) {
-            DeviceType.SUNMI_POS -> cardProcessorManager.cancelPayment()
-            DeviceType.ANDROID_PHONE -> nfcPhoneReaderManager.cancelPayment()
-        }
-    }
-
-    /**
-     * Detect device type: Sunmi POS hoặc Android Phone
-     */
     private fun detectDeviceType(): DeviceType {
         return try {
             val manufacturer = Build.MANUFACTURER.lowercase()
@@ -254,10 +251,10 @@ fun PaymentCardScreen(
     deviceType: DeviceType,
     onCancel: () -> Unit,
     apiService: ApiService,
-    onSuccess: (SaleResultData) -> Unit,
-    paymentAppRequest: PaymentAppRequest,
     printerHelper: PrinterHelper,
     receiptPrinter: ReceiptPrinter,
+    onSuccess: (SaleResultData) -> Unit,
+    paymentAppRequest: PaymentAppRequest,
 ) {
     var isPrinting by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
@@ -486,9 +483,9 @@ fun PaymentCardScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             ActionButtons(
-                paymentState = paymentState,
-                isPrinting = isPrinting,
                 onCancel = onCancel,
+                isPrinting = isPrinting,
+                paymentState = paymentState,
                 onClose = if (paymentState == PaymentState.SUCCESS) {
                     {
                         pendingSaleResult?.let { saleResult ->
