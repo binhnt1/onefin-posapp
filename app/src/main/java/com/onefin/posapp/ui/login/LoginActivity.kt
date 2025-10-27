@@ -1,5 +1,6 @@
 package com.onefin.posapp.ui.login
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
@@ -27,6 +28,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.onefin.posapp.BuildConfig
 import com.onefin.posapp.core.models.Account
 import com.onefin.posapp.R
 import com.onefin.posapp.core.models.ResultApi
@@ -241,6 +243,7 @@ fun StaticFooter() {
     }
 }
 
+@SuppressLint("MissingPermission")
 @Composable
 fun LoginForm(
     apiService: ApiService,
@@ -250,7 +253,7 @@ fun LoginForm(
     onLoginSuccess: () -> Unit
 ) {
     val context = LocalContext.current
-    var username by remember { mutableStateOf("mailinh@yopmail.com") }
+    var username by remember { mutableStateOf(BuildConfig.USERNAME) }
     var password by remember { mutableStateOf("A1a@a#a$") }
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
@@ -270,6 +273,10 @@ fun LoginForm(
             if (!deviceSerial.isEmpty())
                 storageService.saveSerial(deviceSerial)
         }
+
+        // hard-code
+        // deviceSerial = "P365257WJ0280"
+        // storageService.saveSerial(deviceSerial)
     }
 
     // Clear error when typing

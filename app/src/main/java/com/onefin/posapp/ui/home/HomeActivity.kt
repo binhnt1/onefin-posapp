@@ -373,14 +373,16 @@ fun HomeContent(
 
                             Spacer(modifier = Modifier.width(if (isP2) 10.dp else 20.dp))
 
-                            Image(
-                                painter = painterResource(id = R.drawable.vietqr_logo),
-                                contentDescription = "VietQR Logo",
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(logoHeight),
-                                contentScale = ContentScale.Fit
-                            )
+                            if (account.terminal.image.isEmpty()) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.vietqr_logo),
+                                    contentDescription = "VietQR Logo",
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(logoHeight),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.height(if (isP2) 12.dp else 24.dp))
 
@@ -389,10 +391,19 @@ fun HomeContent(
                             qrSize *= 0.9f
                         }
 
-                        QRCodeImage(
-                            data = vietQRString,
-                            size = qrSize
-                        )
+                        if (account.terminal.image.isNotEmpty()) {
+                            coil.compose.AsyncImage(
+                                model = account.terminal.image,
+                                contentDescription = "Custom Image",
+                                modifier = Modifier.size(qrSize),
+                                contentScale = ContentScale.Fit
+                            )
+                        } else {
+                            QRCodeImage(
+                                data = vietQRString,
+                                size = qrSize
+                            )
+                        }
 
                         Column(
                             modifier = Modifier
@@ -406,20 +417,30 @@ fun HomeContent(
                             )
                             Spacer(modifier = Modifier.height(if (isP2) 6.dp else 12.dp))
 
-                            Text(
-                                text = account.terminal.accountName.uppercase(),
-                                textAlign = TextAlign.Center,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF101828)
-                            )
-                            Spacer(modifier = Modifier.height(if (isP2) 4.dp else 8.dp))
-                            Text(
-                                text = account.terminal.accountNumber,
-                                fontSize = 16.sp,
-                                color = Color(0xFF475467),
-                                letterSpacing = 1.2.sp
-                            )
+                            if (account.terminal.image.isNotEmpty()) {
+                                Text(
+                                    text = account.terminal.merchantCompany,
+                                    textAlign = TextAlign.Center,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF101828)
+                                )
+                            } else {
+                                Text(
+                                    text = account.terminal.accountName.uppercase(),
+                                    textAlign = TextAlign.Center,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF101828)
+                                )
+                                Spacer(modifier = Modifier.height(if (isP2) 4.dp else 8.dp))
+                                Text(
+                                    text = account.terminal.accountNumber,
+                                    fontSize = 16.sp,
+                                    color = Color(0xFF475467),
+                                    letterSpacing = 1.2.sp
+                                )
+                            }
 
                             Spacer(modifier = Modifier.height(if (isP2) 6.dp else 12.dp))
                             HorizontalDivider(

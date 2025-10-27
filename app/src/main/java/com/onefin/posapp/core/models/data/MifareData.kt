@@ -6,7 +6,7 @@ import java.io.Serializable
 data class MifareData(
     val sector0: SectorData,
     val sector1: SectorData,
-    val sector2: SectorData
+    val sector2: SectorData?
 ) {
     data class SectorData(
         val block0: String, // Hex string (32 chars = 16 bytes)
@@ -21,7 +21,7 @@ data class MifareData(
     fun getIcData(): String {
         return "${sector0.block0}|${sector0.block1}|${sector0.block2}|" +
                 "${sector1.block0}|${sector1.block1}|${sector1.block2}|" +
-                "${sector2.block0}|${sector2.block1}|${sector2.block2}"
+                "${sector2?.block0}|${sector2?.block1}|${sector2?.block2}"
     }
 
     fun getPanFromTrack2(): String? {

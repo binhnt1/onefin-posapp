@@ -75,7 +75,8 @@ object ResultConstants {
 }
 
 object MifareConstants {
-    const val KEY_TYPE_A = 0x60
+    const val KEY_TYPE_A = 0
+    const val BLOCK_SIZE = 16
     const val BLOCKS_PER_SECTOR = 4
     const val NFC_CONFIG = "nfc_config"
     const val PKEY_CONFIG = "pkey_config"

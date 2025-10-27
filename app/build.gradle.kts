@@ -100,6 +100,7 @@ android {
             applicationIdSuffix = ".mailinh"
             resValue("string", "app_name", "POS App - MaiLinh")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
+            buildConfigField("String", "USERNAME", "\"mailinh@yopmail.com\"")
             buildConfigField("String", "APP_KEY", "\"85ba2fcfe7fa4511a37a8f017a282fa8\"")
         }
 
@@ -110,6 +111,7 @@ android {
             applicationIdSuffix = ".sgpt"
             resValue("string", "app_name", "POS App - SGPT")
             buildConfigField("String", "SDK_TYPE", "\"onefin\"")
+            buildConfigField("String", "USERNAME", "\"sgpt@yopmail.com\"")
             buildConfigField("String", "APP_KEY", "\"21f7d3f50ab94f23a0b0b3e081fa8ced\"")
         }
 
@@ -120,6 +122,7 @@ android {
             applicationIdSuffix = ".megatech"
             resValue("string", "app_name", "POS App - MegaTech")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
+            buildConfigField("String", "USERNAME", "\"mcmegatech@yopmail.com\"")
             buildConfigField("String", "APP_KEY", "\"909c326357b74a36a9dafadfdf6cb5bf\"")
         }
 
@@ -128,6 +131,7 @@ android {
             dimension = "customer"
             buildConfigField("String", "APP_KEY", "\"\"")
             buildConfigField("String", "SDK_TYPE", "\"onefin\"")
+            buildConfigField("String", "USERNAME", "\"\"")
         }
     }
 }

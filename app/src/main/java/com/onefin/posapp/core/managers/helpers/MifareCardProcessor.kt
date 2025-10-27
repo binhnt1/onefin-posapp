@@ -321,7 +321,6 @@ class MifareCardProcessor(
 
                 // Build encrypted PIN block using MifareUtil
                 val encryptedPinBlock = MifareUtil.buildPinBlock(clearPin, pan, pkeyHex)
-
                 if (encryptedPinBlock == null) {
                     Timber.e("❌ Failed to build encrypted PIN block")
                     handleError(

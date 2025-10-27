@@ -64,85 +64,55 @@ object MifareUtil {
     }
 
     fun readMifareCard(readCardOpt: ReadCardOptV2, keyHex: String): MifareData? {
-        return try {
-            Timber.d("📖 Starting to read Mifare card...")
-
+        try {
             val sector0 = readMifareSector(readCardOpt, 0, keyHex)
-            if (sector0 == null) {
-                Timber.e("❌ Failed to read Sector 0")
-                return null
+            if (sector0 != null) {
+                val sector1 = readMifareSector(readCardOpt, 1, keyHex)
+                if (sector1 != null) {
+                    // Try sector 2 (optional)
+                    val sector2 = readMifareSector(readCardOpt, 2, keyHex)
+                    return MifareData(
+                        sector0 = sector0,
+                        sector1 = sector1,
+                        sector2 = sector2
+                    )
+                }
             }
-
-            val sector1 = readMifareSector(readCardOpt, 1, keyHex)
-            if (sector1 == null) {
-                Timber.e("❌ Failed to read Sector 1")
-                return null
-            }
-
-            val sector2 = readMifareSector(readCardOpt, 2, keyHex)
-            if (sector2 == null) {
-                Timber.e("❌ Failed to read Sector 2")
-                return null
-            }
-
-            Timber.d("✅ Successfully read all 3 sectors")
-
-            MifareData(
-                sector0 = sector0,
-                sector1 = sector1,
-                sector2 = sector2
-            )
-
         } catch (e: Exception) {
             Timber.e(e, "❌ Exception reading Mifare card")
-            null
         }
+        return null
     }
+
     fun readMifareSector(readCardOpt: ReadCardOptV2, sector: Int, keyHex: String): MifareData.SectorData? {
         return try {
-            Timber.d("🔐 Authenticating sector $sector with key: $keyHex")
-
-            // Convert hex key to bytes
             val keyBytes = hexStr2Bytes(keyHex)
-
-            // === ADD DEBUG LOGS ===
-            Timber.d("🔍 Key hex string: $keyHex")
-            Timber.d("🔍 Key length: ${keyHex.length} chars")
-            Timber.d("🔍 Key bytes length: ${keyBytes.size} bytes")
-            Timber.d("🔍 Key bytes: ${keyBytes.joinToString(" ") { "%02X".format(it) }}")
-            // === END DEBUG ===
-
             if (keyBytes.size != 6) {
-                Timber.e("❌ Invalid key length: ${keyBytes.size}, expected 6 bytes")
                 return null
             }
 
-            // Calculate starting block number
             val startBlock = sector * MifareConstants.BLOCKS_PER_SECTOR
-
-            // Authenticate with Key A
             val authResult = readCardOpt.mifareAuth(
                 MifareConstants.KEY_TYPE_A,
                 startBlock,
                 keyBytes
             )
-
             if (authResult != 0) {
-                Timber.e("❌ Authentication failed for sector $sector: code=$authResult")
                 return null
             }
 
-            Timber.d("✅ Authenticated sector $sector successfully")
-
-            // Read 3 blocks (skip block 3 - sector trailer)
+            // Read 3 blocks
             val block0 = readMifareBlock(readCardOpt, startBlock + 0)
             val block1 = readMifareBlock(readCardOpt, startBlock + 1)
             val block2 = readMifareBlock(readCardOpt, startBlock + 2)
-
             if (block0 == null || block1 == null || block2 == null) {
-                Timber.e("❌ Failed to read one or more blocks in sector $sector")
                 return null
             }
+
+            Timber.d("   ✅ Read 3 blocks successfully")
+            Timber.d("      Block 0: ${block0.take(32)}...")
+            Timber.d("      Block 1: ${block1.take(32)}...")
+            Timber.d("      Block 2: ${block2.take(32)}...")
 
             MifareData.SectorData(
                 block0 = block0,
@@ -151,7 +121,7 @@ object MifareUtil {
             )
 
         } catch (e: Exception) {
-            Timber.e(e, "❌ Exception reading sector $sector")
+            Timber.e(e, "   ❌ Exception reading sector $sector")
             null
         }
     }

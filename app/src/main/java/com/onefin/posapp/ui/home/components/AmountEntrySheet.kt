@@ -47,7 +47,6 @@ import com.onefin.posapp.core.utils.PaymentHelper
 import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.ui.home.QRCodeDisplayActivity
 import com.onefin.posapp.ui.payment.PaymentCardActivity
-import com.onefin.posapp.ui.payment.SimpleChipTestActivity
 import com.onefin.posapp.ui.transaction.TransparentPaymentActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,6 +82,7 @@ fun AmountEntrySheet(
     val amountDisplayPaddingVertical = if (isP2) 12.dp else 24.dp
     val defaultSpacerHeight = if (isP2) 6.dp else 12.dp
     val bottomSpacerHeight = if (isP2) 8.dp else 16.dp
+    val allowMemberCard = storageService.getAccount()?.terminal?.merchantConfig?.keys?.isNotEmpty()
 
     ModalBottomSheet(
         onDismissRequest = { if (!isProcessing) onDismiss() },
@@ -261,57 +261,62 @@ fun AmountEntrySheet(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    PaymentOptionButton(
-                        text = stringResource(R.string.payment_membership_card),
-                        icon = Icons.Default.CardMembership,
-                        onClick = {
-                            if (isValidAmount && !isProcessing) {
-                                isProcessing = true
-                                loadingButtonType = "MEMBER"
-                                val account = storageService.getAccount()
-                                if (account != null) {
-                                    val paymentRequest = PaymentAppRequest(
-                                        type = "member",
-                                        action = PaymentAction.SALE.value,
-                                        merchantRequestData = MerchantRequestData(
-                                            amount = amountValue
+                    if (allowMemberCard == true) {
+                        PaymentOptionButton(
+                            text = stringResource(R.string.payment_membership_card),
+                            icon = Icons.Default.CardMembership,
+                            onClick = {
+                                if (isValidAmount && !isProcessing) {
+                                    isProcessing = true
+                                    loadingButtonType = "MEMBER"
+                                    val account = storageService.getAccount()
+                                    if (account != null) {
+                                        val paymentRequest = PaymentAppRequest(
+                                            type = "member",
+                                            action = PaymentAction.SALE.value,
+                                            merchantRequestData = MerchantRequestData(
+                                                amount = amountValue
+                                            )
                                         )
-                                    )
-                                    val sdkType = BuildConfig.SDK_TYPE
-                                    val paymentRequestData = paymentHelper.createPaymentAppRequest(account, paymentRequest)
-                                    if (sdkType == "onefin") {
-                                        val intent = Intent(
-                                            context,
-                                            TransparentPaymentActivity::class.java
-                                        ).apply {
-                                            putExtra("REQUEST_DATA", paymentRequestData)
-                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        val sdkType = BuildConfig.SDK_TYPE
+                                        val paymentRequestData =
+                                            paymentHelper.createPaymentAppRequest(
+                                                account,
+                                                paymentRequest
+                                            )
+                                        if (sdkType == "onefin") {
+                                            val intent = Intent(
+                                                context,
+                                                TransparentPaymentActivity::class.java
+                                            ).apply {
+                                                putExtra("REQUEST_DATA", paymentRequestData)
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            context.startActivity(intent)
+                                            onDismiss()
+                                        } else {
+                                            val intent = Intent(
+                                                context,
+                                                PaymentCardActivity::class.java
+                                            ).apply {
+                                                putExtra("REQUEST_DATA", paymentRequestData)
+                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            context.startActivity(intent)
+                                            onDismiss()
                                         }
-                                        context.startActivity(intent)
-                                        onDismiss()
                                     } else {
-                                        val intent = Intent(
-                                            context,
-                                            PaymentCardActivity::class.java
-                                        ).apply {
-                                            putExtra("REQUEST_DATA", paymentRequestData)
-                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }
-                                        context.startActivity(intent)
-                                        onDismiss()
+                                        isProcessing = false
+                                        loadingButtonType = null
                                     }
-                                } else {
-                                    isProcessing = false
-                                    loadingButtonType = null
                                 }
-                            }
-                        },
-                        enabled = isValidAmount && !isProcessing,
-                        isLoading = loadingButtonType == "MEMBER",
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                            },
+                            enabled = isValidAmount && !isProcessing,
+                            isLoading = loadingButtonType == "MEMBER",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
-
                 Spacer(modifier = Modifier.height(bottomSpacerHeight))
             }
         }
