@@ -226,5 +226,70 @@
 
     <string name="merchant_title">Information</string>
     <string name="merchant_config_driver">Driver number</string>
-    <string name="merchant_config_employee">Employee number</string>
+    <string name="merchant_config_employee">Employee</string>
+
+    <string name="pin_input_title">Enter PIN</string>
+    <string name="pin_input_description">Please enter your 6-digit card PIN</string>
+    <string name="pin_input_cancel">Cancel</string>
+    <string name="pin_input_confirm">Confirm</string>
+
+    <!-- Signature -->
+    <string name="signature_title">Please Sign</string>
+    <string name="signature_description">Sign your name in the box below</string>
+    <string name="signature_error">Please sign before confirming</string>
+    <string name="signature_warning">⚠️ Signature is required to complete the transaction</string>
+    <string name="signature_clear">Clear</string>
+    <string name="signature_confirm">Confirm</string>
+
+    <!-- Payment States -->
+    <string name="payment_initializing">Initializing...</string>
+    <string name="payment_waiting_card_pos">Please swipe/tap/insert card</string>
+    <string name="payment_waiting_card_phone">Please tap card on the back of phone</string>
+    <string name="payment_card_detected">Card detected</string>
+    <string name="payment_processing">Processing transaction...</string>
+    <string name="payment_success">Transaction successful</string>
+    <string name="payment_failed">Transaction failed</string>
+    <string name="payment_waiting_signature">Please sign to confirm</string>
+
+    <!-- Payment Messages -->
+    <string name="payment_printing">Printing receipt...</string>
+    <string name="payment_no_account">No account information</string>
+    <string name="payment_printer_not_ready">Printer not ready</string>
+    <string name="payment_printer_not_supported">Device does not support printing</string>
+    <string name="payment_print_success">Receipt printed successfully</string>
+    <string name="payment_print_failed">Failed to print receipt</string>
+    <string name="payment_signature_confirmed">Signature confirmed</string>
+    <string name="payment_signature_confirmed_success">Signature confirmed successfully</string>
+
+    <!-- TTS Messages -->
+    <string name="tts_transaction_success_signature">Transaction successful. Please sign to confirm</string>
+    <string name="tts_transaction_failed">Transaction failed. %1$s</string>
+
+    <!-- Error Messages -->
+    <string name="error_transaction_failed_retry">Transaction failed. Please try again</string>
+
+    <!-- Timeout -->
+    <string name="payment_timeout_error">Transaction time expired</string>
+    <string name="payment_timeout_message">Please try the transaction again</string>
+    <string name="tts_transaction_timeout">Transaction time expired. Please try again</string>
+
+    <!-- Auto close -->
+    <string name="auto_close_after_seconds">Auto close in %1$d seconds</string>
+
+    <!-- Payment Status Card -->
+    <string name="support_payment_types_pos">Support: Magnetic / NFC / Chip Card</string>
+    <string name="support_payment_types_phone">Support: Tap NFC card on the back of phone</string>
+    <string name="error_transaction">Transaction Error</string>
+
+    <!-- Info Labels -->
+    <string name="label_request_id">Request ID</string>
+    <string name="label_mode">Mode</string>
+    <string name="label_card">Card</string>
+    <string name="label_amount">Amount</string>
+
+    <!-- Action Buttons -->
+    <string name="button_printing">Printing...</string>
+    <string name="button_print_receipt">🖨️ Print Receipt</string>
+    <string name="button_close">Close</string>
+    <string name="button_cancel_transaction">Cancel Transaction</string>
 </resources>

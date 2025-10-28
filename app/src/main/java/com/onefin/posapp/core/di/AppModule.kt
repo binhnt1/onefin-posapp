@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.onefin.posapp.core.database.repositories.DriverInfoRepository
 import com.onefin.posapp.core.services.ApiService
+import com.onefin.posapp.core.services.DriverInfoService
 import com.onefin.posapp.core.services.StorageService
 import dagger.Module
 import dagger.Provides
@@ -90,7 +92,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideRabbitMQService(
-        storageService: com.onefin.posapp.core.services.StorageService
+        storageService: StorageService
     ): com.onefin.posapp.core.services.RabbitMQService {
         return com.onefin.posapp.core.services.RabbitMQService(storageService)
     }
@@ -166,8 +168,22 @@ object AppModule {
     @Singleton
     fun provideNfcPhoneReaderManager(
         @ApplicationContext context: Context,
-        storageService: com.onefin.posapp.core.services.StorageService
+        storageService: StorageService
     ): com.onefin.posapp.core.managers.NfcPhoneReaderManager {
         return com.onefin.posapp.core.managers.NfcPhoneReaderManager(context, storageService)
+    }
+
+    /**
+     * Provide DriverInfoRepository
+     */
+    @Provides
+    @Singleton
+    fun provideDriverInfoRepository(
+        gson: Gson,
+        apiService: ApiService,
+        driverInfoService: DriverInfoService,
+        @ApplicationContext context: Context,
+    ): DriverInfoRepository {
+        return DriverInfoRepository(gson, apiService, driverInfoService)
     }
 }

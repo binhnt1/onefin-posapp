@@ -26,9 +26,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import com.onefin.posapp.core.models.ResultApi
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.ui.platform.LocalContext
 
 @AndroidEntryPoint

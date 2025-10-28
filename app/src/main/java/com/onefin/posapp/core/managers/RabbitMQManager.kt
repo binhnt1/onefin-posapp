@@ -1,9 +1,9 @@
 package com.onefin.posapp.core.managers
 
+import android.app.Activity.RESULT_OK
 import android.content.Context
 import android.content.Intent
 import com.google.gson.Gson
-import com.onefin.posapp.core.config.ResultConstants
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentAppResponse
 import com.onefin.posapp.core.models.data.PaymentResponseData
@@ -134,28 +134,22 @@ class RabbitMQManager @Inject constructor(
             val pendingRequest = storageService.getPendingPaymentRequest()
             if (pendingRequest != null) {
                 // Clear context và request
-                storageService.clearExternalPaymentContext()
-
                 val json = JSONObject(jsonObject)
+                storageService.clearExternalPaymentContext()
                 val transactionId = json.optString("TransactionId", "")
                 val transactionTime = json.optString("TransactionTime", notify.dateTime)
 
                 // Return về external app
-                val response = paymentHelper.createPaymentAppResponseSuccess(pendingRequest, transactionId, transactionTime)
                 if (activityTracker.isActivityOfType(QRCodeDisplayActivity::class.java)) {
                     val activity = activityTracker.getCurrentActivity()
-                    val resultIntent = Intent().apply {
-                        putExtra(
-                            ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
-                            gson.toJson(response)
-                        )
+                    if (activity != null) {
+                        val resultIntent = paymentHelper.buildResultIntentSuccess(pendingRequest, transactionId, transactionTime)
+                        activity.setResult(RESULT_OK, resultIntent)
+                        activity.finish()
+                        return
                     }
-                    activity?.setResult(android.app.Activity.RESULT_OK, resultIntent)
-                    activity?.finish()
-                    return
                 }
             } else {
-                // Không tìm thấy pending request
                 storageService.clearExternalPaymentContext()
                 val errorResponse = PaymentAppResponse(
                     type = "qr",
@@ -168,15 +162,12 @@ class RabbitMQManager @Inject constructor(
                 )
                 if (activityTracker.isActivityOfType(QRCodeDisplayActivity::class.java)) {
                     val activity = activityTracker.getCurrentActivity()
-                    val resultIntent = Intent().apply {
-                        putExtra(
-                            ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
-                            gson.toJson(errorResponse)
-                        )
+                    if (activity != null) {
+                        val resultIntent = paymentHelper.buildResultIntentError(errorResponse, "Không tìm thấy thông tin giao dịch")
+                        activity.setResult(RESULT_OK, resultIntent)
+                        activity.finish()
+                        return
                     }
-                    activity?.setResult(android.app.Activity.RESULT_CANCELED, resultIntent)
-                    activity?.finish()
-                    return
                 }
             }
         }

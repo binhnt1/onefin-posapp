@@ -7,9 +7,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.onefin.posapp.R
 import com.onefin.posapp.core.models.data.PaymentState
 
 @Composable
@@ -50,13 +52,13 @@ fun ActionButtons(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                "Đang in...",
+                                stringResource(R.string.button_printing), // ⭐ SONG NGỮ
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         } else {
                             Text(
-                                "🖨️ In hóa đơn",
+                                stringResource(R.string.button_print_receipt), // ⭐ SONG NGỮ
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -82,7 +84,7 @@ fun ActionButtons(
                         )
                     ) {
                         Text(
-                            "Đóng",
+                            stringResource(R.string.button_close), // ⭐ SONG NGỮ
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -103,7 +105,7 @@ fun ActionButtons(
                     )
                 ) {
                     Text(
-                        "Đóng",
+                        stringResource(R.string.button_close), // ⭐ SONG NGỮ
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -111,7 +113,6 @@ fun ActionButtons(
             }
 
             else -> {
-                // Các trạng thái khác: nút Hủy
                 OutlinedButton(
                     onClick = onCancel,
                     modifier = Modifier
@@ -127,7 +128,7 @@ fun ActionButtons(
                     )
                 ) {
                     Text(
-                        "Hủy giao dịch",
+                        stringResource(R.string.button_cancel_transaction), // ⭐ SONG NGỮ
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
                     )

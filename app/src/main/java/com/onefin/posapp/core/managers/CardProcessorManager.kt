@@ -29,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import sunmi.paylib.SunmiPayKernel
 import timber.log.Timber
+import com.onefin.posapp.core.managers.helpers.PinInputCallback
 
 @Singleton
 class CardProcessorManager(
@@ -41,6 +42,7 @@ class CardProcessorManager(
     private var securityOpt: SecurityOptV2? = null
     private var readCardOpt: ReadCardOptV2? = null
     private var sunmiPayKernel: SunmiPayKernel? = null
+    private var pinInputCallback: PinInputCallback? = null
 
     private val terminal: Terminal? by lazy {
         storageService.getAccount()?.terminal
@@ -216,6 +218,9 @@ class CardProcessorManager(
         }
     }
 
+    fun setPinInputCallback(callback: PinInputCallback?) {
+        this.pinInputCallback = callback
+    }
     private fun initializeKernelData(): Boolean {
         if (emvOpt == null) {
             Timber.tag("KernelInit").e("❌ EMV Option is null")
@@ -505,7 +510,7 @@ class CardProcessorManager(
             }
 
             AidlConstants.CardType.MIFARE -> {
-                MifareCardProcessor(context, emvOpt!!, terminal, pinPadOpt!!, readCardOpt!!)
+                MifareCardProcessor(context, emvOpt!!, terminal, pinPadOpt!!, readCardOpt!!, pinInputCallback)
             }
 
             else -> {

@@ -21,12 +21,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 
+interface PinInputCallback {
+    fun requestPinInput(onPinEntered: (String) -> Unit, onCancelled: () -> Unit)
+}
+
 class MifareCardProcessor(
     context: Context,
     emvOpt: EMVOptV2,
     terminal: Terminal?,
     pinPadOpt: PinPadOptV2,
-    readCardOpt: ReadCardOptV2
+    readCardOpt: ReadCardOptV2,
+    private val pinInputCallback: PinInputCallback? = null
 ) : BaseCardProcessor(context, emvOpt, terminal, pinPadOpt, readCardOpt, AidlConstants.CardType.MIFARE) {
 
     private var mifareData: MifareData? = null
@@ -84,17 +89,27 @@ class MifareCardProcessor(
                 )
                 return
             }
-            val pinListener = object : PinPadListenerV2.Stub() {
-                override fun onPinLength(len: Int) {
-                    Timber.d("PIN length: $len")
-                }
 
-                override fun onConfirm(data: Int, pinBlock: ByteArray?) {
-                    Timber.d("✅ PIN confirmed, data=$data")
-                    handlePinConfirm(data, pinBlock)
-                }
+            // ⭐ Sử dụng custom PIN input thay vì hardware pinpad
+            if (pinInputCallback == null) {
+                Timber.e("❌ PinInputCallback not provided")
+                handleError(
+                    PaymentResult.Error.from(
+                        PaymentErrorHandler.ErrorType.PIN_INPUT_FAILED,
+                        "PIN input not configured"
+                    )
+                )
+                return
+            }
 
-                override fun onCancel() {
+            Timber.d("🔐 Requesting custom PIN input...")
+
+            pinInputCallback.requestPinInput(
+                onPinEntered = { clearPin ->
+                    Timber.d("✅ PIN received from custom input (length: ${clearPin.length})")
+                    handleCustomPinInput(clearPin)
+                },
+                onCancelled = {
                     Timber.w("⚠️ PIN entry cancelled by user")
                     handleError(
                         PaymentResult.Error.from(
@@ -103,50 +118,7 @@ class MifareCardProcessor(
                         )
                     )
                 }
-
-                override fun onError(code: Int) {
-                    Timber.e("❌ PIN entry error: code=$code")
-                    handleError(
-                        PaymentResult.Error.from(
-                            PaymentErrorHandler.ErrorType.PIN_INPUT_FAILED,
-                            "PIN entry failed with code: $code",
-                            code.toString()
-                        )
-                    )
-                }
-            }
-
-            // Use startInputPin with special config to get clear PIN
-            val pinBundle = Bundle().apply {
-                putInt("pinPadType", 0) // Normal PIN pad
-                putInt("pinType", 0) // Online PIN
-                putBoolean("isOrderNumKey", false)
-                putInt("minInput", 4)
-                putInt("maxInput", 12)
-                putInt("timeout", 60 * 1000) // 60 seconds
-                putBoolean("isSupportbypass", false)
-                putInt("pinKeyIndex", -1) // -1 = no encryption (clear text)
-                putString("pan", pan)
-                putInt("keySystem", 0)
-                putInt("algorithmType", 0)
-                putInt("pinblockFormat", 0)
-            }
-
-            Timber.d("   Starting PIN input (startInputPin)...")
-            val result = pinPadOpt.startInputPin(pinBundle, pinListener)
-
-            if (result != 0) {
-                Timber.e("❌ Failed to start PIN input: result=$result")
-                handleError(
-                    PaymentResult.Error.from(
-                        PaymentErrorHandler.ErrorType.PIN_INPUT_FAILED,
-                        "Failed to start PIN input",
-                        result.toString()
-                    )
-                )
-            } else {
-                Timber.d("   ✅ startInputPin OK")
-            }
+            )
 
         } catch (e: Exception) {
             Timber.e(e, "❌ Exception in promptPinInput")
@@ -156,35 +128,6 @@ class MifareCardProcessor(
                     "PIN input exception: ${e.message}"
                 )
             )
-        }
-    }
-
-    private fun getClearPin(data: Int): String? {
-        return try {
-            // Use getPinBlock to retrieve clear PIN
-            val pinBundle = Bundle().apply {
-                putInt("pinKeyIndex", -1) // -1 for clear text
-                putInt("keySystem", 0)
-                putInt("algorithmType", 0)
-                putInt("pinblockFormat", 0)
-            }
-
-            val pinBlockBytes = ByteArray(16)
-            val result = pinPadOpt.getPinBlock(pinBundle, pinBlockBytes)
-
-            if (result <= 0) {
-                Timber.e("❌ getPinBlock failed: result=$result")
-                return null
-            }
-
-            // Clear PIN is returned as ASCII bytes
-            val clearPin = String(pinBlockBytes, 0, result, Charsets.UTF_8).trim()
-            Timber.d("🔐 Retrieved clear PIN (length: ${clearPin.length})")
-            clearPin
-
-        } catch (e: Exception) {
-            Timber.e(e, "❌ Exception getting clear PIN")
-            null
         }
     }
 
@@ -277,68 +220,33 @@ class MifareCardProcessor(
         }
     }
 
-    private fun handlePinConfirm(data: Int, pinBlock: ByteArray?) {
+    private fun handleCustomPinInput(clearPin: String) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val clearPin = getClearPin(data)
-
-                if (clearPin == null) {
-                    Timber.e("❌ Failed to get clear PIN")
+                // ⭐ Validate: PIN must be exactly 6 digits
+                if (clearPin.length != 6) {
                     handleError(
                         PaymentResult.Error.from(
                             PaymentErrorHandler.ErrorType.PIN_INPUT_FAILED,
-                            "Failed to retrieve clear PIN"
+                            "PIN phải có đúng 6 số"
                         )
                     )
                     return@launch
                 }
 
-                Timber.d("🔐 Clear PIN received (length: ${clearPin.length})")
-
-                // Get PAN and pkey for encryption
-                val pan = mifareData?.getPanFromTrack2() ?: run {
-                    Timber.e("❌ PAN not available for PIN encryption")
-                    handleError(
-                        PaymentResult.Error.from(
-                            PaymentErrorHandler.ErrorType.CARD_READ_FAILED,
-                            "PAN not available"
-                        )
-                    )
-                    return@launch
-                }
-
-                val pkeyConfig = storageService.getPkeyConfig()
-                val pkeyHex = pkeyConfig?.pkey ?: run {
-                    Timber.e("❌ Pkey not available for PIN encryption")
-                    handleError(
-                        PaymentResult.Error.from(
-                            PaymentErrorHandler.ErrorType.SDK_INIT_FAILED_MIFARE,
-                            "Pkey not available"
-                        )
-                    )
-                    return@launch
-                }
-
-                // Build encrypted PIN block using MifareUtil
-                val encryptedPinBlock = MifareUtil.buildPinBlock(clearPin, pan, pkeyHex)
-                if (encryptedPinBlock == null) {
-                    Timber.e("❌ Failed to build encrypted PIN block")
+                // ⭐ Validate: PIN must be all digits
+                if (!clearPin.all { it.isDigit() }) {
                     handleError(
                         PaymentResult.Error.from(
                             PaymentErrorHandler.ErrorType.PIN_INPUT_FAILED,
-                            "Failed to encrypt PIN"
+                            "PIN chỉ được chứa số"
                         )
                     )
                     return@launch
                 }
-
-                Timber.d("🔐 Encrypted PIN block: $encryptedPinBlock")
-
-                // Complete transaction with encrypted PIN block
-                completeTransaction(encryptedPinBlock)
+                completeTransaction(clearPin)
 
             } catch (e: Exception) {
-                Timber.e(e, "❌ Exception handling PIN confirmation")
                 handleError(
                     PaymentResult.Error.from(
                         PaymentErrorHandler.ErrorType.PIN_INPUT_FAILED,

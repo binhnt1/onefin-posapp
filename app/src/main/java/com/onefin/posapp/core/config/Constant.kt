@@ -68,7 +68,6 @@ object ResultConstants {
     const val RESULT_TYPE = "type"
     const val RESULT_ERROR = "error"
     const val RESULT_ACTION = "action"
-    const val RESULT_MESSAGE = "message"
     const val REQUEST_CODE_PAYMENT = 1000
     const val EXTRA_MERCHANT_REQUEST_DATA = "merchant_request_data"
     const val RESULT_PAYMENT_RESPONSE_DATA = "payment_response_data"

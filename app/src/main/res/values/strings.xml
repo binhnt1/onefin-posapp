@@ -39,7 +39,6 @@
     <string name="auto_close_message">Màn hình sẽ tự đóng sau %1$d giây</string>
     <string name="qr_auto_cancel_countdown">Giao dịch sẽ tự động hủy sau %1$d giây</string>
 
-
     <!-- Transaction Screen -->
     <string name="tab_card">Thẻ</string>
     <string name="tab_vietqr">VietQR</string>
@@ -227,5 +226,71 @@
 
     <string name="merchant_title">Thông tin</string>
     <string name="merchant_config_driver">Biển số xe</string>
-    <string name="merchant_config_employee">Mã nhân viên</string>
+    <string name="merchant_config_employee">Nhân viên</string>
+
+    <!-- PIN Input -->
+    <string name="pin_input_title">Nhập mã PIN</string>
+    <string name="pin_input_description">Vui lòng nhập mã PIN 6 số của thẻ</string>
+    <string name="pin_input_cancel">Hủy</string>
+    <string name="pin_input_confirm">Xác nhận</string>
+
+    <!-- Signature -->
+    <string name="signature_title">Vui lòng ký tên</string>
+    <string name="signature_description">Ký tên của bạn vào khung bên dưới</string>
+    <string name="signature_error">Vui lòng ký tên trước khi xác nhận</string>
+    <string name="signature_warning">⚠️ Bắt buộc phải ký tên để hoàn tất giao dịch</string>
+    <string name="signature_clear">Xóa</string>
+    <string name="signature_confirm">Xác nhận</string>
+
+    <!-- Payment States -->
+    <string name="payment_initializing">Đang khởi tạo...</string>
+    <string name="payment_waiting_card_pos">Vui lòng quẹt/chạm/cắm thẻ</string>
+    <string name="payment_waiting_card_phone">Vui lòng chạm thẻ vào mặt sau điện thoại</string>
+    <string name="payment_card_detected">Đã phát hiện thẻ</string>
+    <string name="payment_processing">Đang xử lý giao dịch...</string>
+    <string name="payment_success">Giao dịch thành công</string>
+    <string name="payment_failed">Giao dịch thất bại</string>
+    <string name="payment_waiting_signature">Vui lòng ký xác nhận</string>
+
+    <!-- Payment Messages -->
+    <string name="payment_printing">Đang in hóa đơn...</string>
+    <string name="payment_no_account">Không có thông tin tài khoản</string>
+    <string name="payment_printer_not_ready">Máy in chưa sẵn sàng</string>
+    <string name="payment_printer_not_supported">Thiết bị không hỗ trợ in</string>
+    <string name="payment_print_success">In hóa đơn thành công</string>
+    <string name="payment_print_failed">In hóa đơn thất bại</string>
+    <string name="payment_signature_confirmed">Đã ký xác nhận</string>
+    <string name="payment_signature_confirmed_success">Đã ký xác nhận thành công</string>
+
+    <!-- TTS Messages -->
+    <string name="tts_transaction_success_signature">Giao dịch thành công. Vui lòng ký xác nhận</string>
+    <string name="tts_transaction_failed">Giao dịch thất bại. %1$s</string>
+
+    <!-- Error Messages -->
+    <string name="error_transaction_failed_retry">Giao dịch thất bại. Vui lòng thử lại</string>
+
+    <!-- Timeout -->
+    <string name="payment_timeout_error">Thời gian giao dịch đã hết hạn</string>
+    <string name="payment_timeout_message">Vui lòng thực hiện lại giao dịch</string>
+    <string name="tts_transaction_timeout">Thời gian giao dịch đã hết hạn. Vui lòng thử lại</string>
+
+    <!-- Auto close -->
+    <string name="auto_close_after_seconds">Tự động đóng sau %1$d giây</string>
+
+    !-- Payment Status Card -->
+    <string name="support_payment_types_pos">Hỗ trợ: Quẹt thẻ từ, Chạm thẻ NFC, Cắm thẻ chip</string>
+    <string name="support_payment_types_phone">Chỉ hỗ trợ: Chạm thẻ NFC vào mặt sau điện thoại</string>
+    <string name="error_transaction">Lỗi giao dịch</string>
+
+    <!-- Info Labels -->
+    <string name="label_request_id">Mã giao dịch</string>
+    <string name="label_mode">Chế độ</string>
+    <string name="label_card">Thẻ</string>
+    <string name="label_amount">Số tiền</string>
+
+    <!-- Action Buttons -->
+    <string name="button_printing">Đang in...</string>
+    <string name="button_print_receipt">🖨️ In hóa đơn</string>
+    <string name="button_close">Đóng</string>
+    <string name="button_cancel_transaction">Hủy giao dịch</string>
 </resources>

@@ -76,9 +76,9 @@ object PaymentStatusCode {
     const val SUCCESS = "00"
     const val CANCELLED = "98"
     const val LOGIN_FAILED = "01"
-    const val NOT_LOGGED_IN = "02"
     const val INVALID_DATA = "03"
-    const val INVALID_ACTION = "04"  // ← New
-    const val INVALID_TYPE = "05"    // ← New
-    const val REFUND_FAILED = "10"   // ← New
+    const val INVALID_TYPE = "05"
+    const val NOT_LOGGED_IN = "02"
+    const val REFUND_FAILED = "10"
+    const val INVALID_ACTION = "04"
 }

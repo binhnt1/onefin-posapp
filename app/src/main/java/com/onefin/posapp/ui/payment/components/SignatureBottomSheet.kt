@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource  // ⭐ Import này
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,26 +28,22 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import timber.log.Timber
 import java.io.ByteArrayOutputStream
 import androidx.core.graphics.toColorInt
+import com.onefin.posapp.R  // ⭐ Import R
 
 @Composable
 fun SignatureBottomSheet(
     onConfirm: (ByteArray?) -> Unit
 ) {
-    // 🔥 Animation state
     var isVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         isVisible = true
     }
 
-    // 🔥 Dùng Dialog với animation
     Dialog(
-        onDismissRequest = {
-            // 🔥 Không cho dismiss
-        },
+        onDismissRequest = { },
         properties = DialogProperties(
             dismissOnBackPress = false,
             dismissOnClickOutside = false,
@@ -58,16 +55,14 @@ fun SignatureBottomSheet(
                 .fillMaxSize()
                 .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f))
                 .pointerInput(Unit) {
-                    // 🔥 Block touch events ở background
                     detectTapGestures { }
                 },
-            contentAlignment = Alignment.BottomCenter  // 🔥 Dính sát đáy
+            contentAlignment = Alignment.BottomCenter
         ) {
-            // 🔥 Animated slide up
             androidx.compose.animation.AnimatedVisibility(
                 visible = isVisible,
                 enter = androidx.compose.animation.slideInVertically(
-                    initialOffsetY = { it },  // Start from bottom
+                    initialOffsetY = { it },
                     animationSpec = androidx.compose.animation.core.tween(300)
                 ) + androidx.compose.animation.fadeIn(
                     animationSpec = androidx.compose.animation.core.tween(300)
@@ -112,7 +107,7 @@ private fun SignatureContent(
     ) {
         // Header
         Text(
-            text = "Vui lòng ký tên",
+            text = stringResource(R.string.signature_title),  // ⭐ Sử dụng stringResource
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = androidx.compose.ui.graphics.Color(0xFF1976D2),
@@ -123,7 +118,7 @@ private fun SignatureContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Ký tên của bạn vào khung bên dưới",
+            text = stringResource(R.string.signature_description),  // ⭐ Sử dụng stringResource
             fontSize = 14.sp,
             color = androidx.compose.ui.graphics.Color.Gray,
             modifier = Modifier.fillMaxWidth(),
@@ -137,7 +132,6 @@ private fun SignatureContent(
             factory = { context ->
                 SignatureView(context).also {
                     signatureView = it
-                    Timber.d("✅ SignatureView created")
                 }
             },
             modifier = Modifier
@@ -150,7 +144,7 @@ private fun SignatureContent(
             Text(
                 fontSize = 14.sp,
                 color = androidx.compose.ui.graphics.Color.Red,
-                text = "Vui lòng ký tên trước khi xác nhận",
+                text = stringResource(R.string.signature_error),  // ⭐ Sử dụng stringResource
                 modifier = Modifier.padding(vertical = 8.dp)
             )
         }
@@ -159,7 +153,7 @@ private fun SignatureContent(
 
         // Info text
         Text(
-            text = "⚠️ Bắt buộc phải ký tên để hoàn tất giao dịch",
+            text = stringResource(R.string.signature_warning),  // ⭐ Sử dụng stringResource
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = androidx.compose.ui.graphics.Color(0xFFE65100),
@@ -179,7 +173,6 @@ private fun SignatureContent(
                 onClick = {
                     signatureView?.clear()
                     showError = false
-                    Timber.d("🗑️ Signature cleared")
                 },
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(8.dp),
@@ -187,7 +180,10 @@ private fun SignatureContent(
                     contentColor = androidx.compose.ui.graphics.Color(0xFF757575)
                 )
             ) {
-                Text("Xóa", fontSize = 16.sp)
+                Text(
+                    stringResource(R.string.signature_clear),  // ⭐ Sử dụng stringResource
+                    fontSize = 16.sp
+                )
             }
 
             // Confirm button
@@ -196,28 +192,21 @@ private fun SignatureContent(
                     val isEmpty = signatureView?.isEmpty() ?: true
                     if (isEmpty) {
                         showError = true
-                        Timber.w("⚠️ No signature drawn")
                     } else {
                         isProcessing = true
-                        Timber.d("✅ Processing signature...")
-
                         scope.launch {
                             try {
-                                // 🔥 Tạo bitmap trên UI thread
                                 val bitmap = withContext(Dispatchers.Main) {
                                     signatureView?.createBitmap()
                                 }
 
                                 if (bitmap != null) {
-                                    // 🔥 Compress trên IO thread
                                     val signatureData = withContext(Dispatchers.IO) {
                                         compressBitmap(bitmap)
                                     }
 
-                                    // 🔥 Cleanup
                                     bitmap.recycle()
 
-                                    // 🔥 Callback
                                     withContext(Dispatchers.Main) {
                                         isProcessing = false
                                         onConfirm(signatureData)
@@ -226,11 +215,9 @@ private fun SignatureContent(
                                     withContext(Dispatchers.Main) {
                                         isProcessing = false
                                         showError = true
-                                        Timber.e("❌ Failed to create bitmap")
                                     }
                                 }
                             } catch (e: Exception) {
-                                Timber.e(e, "❌ Error processing signature")
                                 withContext(Dispatchers.Main) {
                                     isProcessing = false
                                     showError = true
@@ -253,7 +240,10 @@ private fun SignatureContent(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Xác nhận", fontSize = 16.sp)
+                    Text(
+                        stringResource(R.string.signature_confirm),  // ⭐ Sử dụng stringResource
+                        fontSize = 16.sp
+                    )
                 }
             }
         }
@@ -262,7 +252,7 @@ private fun SignatureContent(
     }
 }
 
-// 🔥 Custom SignatureView
+// SignatureView class giữ nguyên - không cần thay đổi
 class SignatureView(context: Context) : View(context) {
 
     private val paint = Paint().apply {
@@ -281,7 +271,6 @@ class SignatureView(context: Context) : View(context) {
 
     init {
         setBackgroundColor("#F5F5F5".toColorInt())
-        Timber.d("🎨 SignatureView initialized")
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -291,7 +280,6 @@ class SignatureView(context: Context) : View(context) {
 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
-                Timber.d("👆 Touch DOWN at ($x, $y)")
                 path.moveTo(x, y)
                 currentX = x
                 currentY = y
@@ -305,7 +293,6 @@ class SignatureView(context: Context) : View(context) {
                 return true
             }
             MotionEvent.ACTION_UP -> {
-                Timber.d("👆 Touch UP - path completed")
                 paths.add(Path(path))
                 path.reset()
                 invalidate()
@@ -318,12 +305,10 @@ class SignatureView(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        // Draw all completed paths
         paths.forEach { savedPath ->
             canvas.drawPath(savedPath, paint)
         }
 
-        // Draw current path
         canvas.drawPath(path, paint)
     }
 
@@ -331,7 +316,6 @@ class SignatureView(context: Context) : View(context) {
         path.reset()
         paths.clear()
         invalidate()
-        Timber.d("🗑️ SignatureView cleared")
     }
 
     fun isEmpty(): Boolean {
@@ -341,7 +325,6 @@ class SignatureView(context: Context) : View(context) {
     fun createBitmap(): Bitmap? {
         return try {
             if (isEmpty()) {
-                Timber.w("⚠️ Signature is empty")
                 return null
             }
 
@@ -357,28 +340,21 @@ class SignatureView(context: Context) : View(context) {
             paths.forEach { savedPath ->
                 canvas.drawPath(savedPath, paint)
             }
-
-            Timber.d("✅ Bitmap created: ${width}x${height}")
             bitmap
         } catch (e: Exception) {
-            Timber.e(e, "❌ Failed to create bitmap")
             null
         }
     }
 }
 
-// 🔥 Compress bitmap
 private fun compressBitmap(bitmap: Bitmap): ByteArray? {
     return try {
         val stream = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
         val byteArray = stream.toByteArray()
         stream.close()
-
-        Timber.d("✅ Bitmap compressed: ${byteArray.size} bytes")
         byteArray
     } catch (e: Exception) {
-        Timber.e(e, "❌ Failed to compress bitmap")
         null
     }
 }

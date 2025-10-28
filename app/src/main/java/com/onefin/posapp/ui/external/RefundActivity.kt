@@ -112,27 +112,16 @@ class RefundActivity : BaseActivity() {
         if (isExternalFlow) {
             val pendingRequest = storageService.getPendingPaymentRequest()
             if (pendingRequest != null) {
-                val response = paymentHelper.createPaymentAppResponseCancel(pendingRequest, errorMessage)
-                storageService.clearExternalPaymentContext()
-                val resultIntent = Intent().apply {
-                    putExtra(
-                        ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
-                        gson.toJson(response)
-                    )
-                }
+                val resultIntent = paymentHelper.buildResultIntentError(pendingRequest, errorMessage)
                 setResult(RESULT_OK, resultIntent)
+                storageService.clearExternalPaymentContext()
                 finish()
             } else {
                 val currentRequest = getPaymentAppRequest()
                 if (currentRequest != null) {
-                    val response = paymentHelper.createPaymentAppResponseCancel(currentRequest, errorMessage)
-                    val resultIntent = Intent().apply {
-                        putExtra(
-                            ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
-                            gson.toJson(response)
-                        )
-                    }
+                    val resultIntent = paymentHelper.buildResultIntentError(currentRequest, errorMessage)
                     setResult(RESULT_OK, resultIntent)
+                    storageService.clearExternalPaymentContext()
                     finish()
                 }
             }

@@ -45,7 +45,6 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import androidx.compose.ui.graphics.asImageBitmap
 import android.graphics.Bitmap
-import android.nfc.NfcAdapter
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.ImageBitmap
@@ -62,7 +61,8 @@ import com.onefin.posapp.ui.modals.AutoLoginDialog
 import com.onefin.posapp.ui.modals.NoNetworkDialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import timber.log.Timber
+import com.onefin.posapp.core.services.DriverInfoService
+import com.onefin.posapp.core.database.entity.DriverInfoEntity
 
 @AndroidEntryPoint
 class HomeActivity : BaseActivity() {
@@ -79,6 +79,9 @@ class HomeActivity : BaseActivity() {
     @Inject
     lateinit var snackbarManager: SnackbarManager
 
+    @Inject
+    lateinit var driverInfoService: DriverInfoService
+
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -94,6 +97,7 @@ class HomeActivity : BaseActivity() {
                     paymentHelper = paymentHelper,
                     storageService = storageService,
                     snackbarManager = snackbarManager,
+                    driverInfoService = driverInfoService,
                 )
 
                 GlobalSnackbarHost(
@@ -120,6 +124,7 @@ fun HomeScreen(
     paymentHelper: PaymentHelper,
     storageService: StorageService,
     snackbarManager: SnackbarManager,
+    driverInfoService: DriverInfoService
 ) {
     val context = LocalContext.current
 
@@ -129,6 +134,7 @@ fun HomeScreen(
     var countdown by remember { mutableIntStateOf(15) }
     var isAutoLoggingIn by remember { mutableStateOf(false) }
     var autoLoginAttempted by remember { mutableStateOf(false) }
+    var driverInfo by remember { mutableStateOf<DriverInfoEntity?>(null) }
 
     var cachedAccount by remember { mutableStateOf<Account?>(null) }
     var screenAlpha by remember { mutableFloatStateOf(0f) }
@@ -192,6 +198,13 @@ fun HomeScreen(
 
                 if (success) {
                     cachedAccount = storageService.getAccount()
+                    cachedAccount?.let { account ->
+                        try {
+                            val serial = storageService.getSerial() ?: ""
+                            driverInfo = driverInfoService.getLatestBySerial(serial)
+                        } catch (e: Exception) {
+                        }
+                    }
                     delay(2000)
                     isAutoLoggingIn = false
                 } else {
@@ -230,6 +243,7 @@ fun HomeScreen(
                     storageService = storageService
                 ) { paddingValues: PaddingValues, _: Account? ->
                     HomeContent(
+                        driverInfo = driverInfo,
                         account = cachedAccount!!,
                         paymentHelper = paymentHelper,
                         storageService = storageService,
@@ -293,10 +307,11 @@ suspend fun performAppKeyLogin(
 @Composable
 fun HomeContent(
     account: Account,
-    paymentHelper: PaymentHelper,
-    storageService: StorageService,
     isNetworkAvailable: Boolean,
-    modifier: Modifier = Modifier
+    paymentHelper: PaymentHelper,
+    modifier: Modifier = Modifier,
+    storageService: StorageService,
+    driverInfo: DriverInfoEntity? = null
 ) {
 
     val isP2 = remember {
@@ -319,6 +334,20 @@ fun HomeContent(
             "employee" to context.getString(R.string.merchant_config_employee),
         )
     }
+    val merchantConfig = remember(driverInfo) {
+        if (driverInfo != null) {
+            mapOf(
+                "driver" to driverInfo.mid,
+                "employee" to if (driverInfo.employeeName != null) {
+                    "${driverInfo.employeeCode} - ${driverInfo.employeeName}"
+                } else {
+                    driverInfo.employeeCode
+                }
+            )
+        } else {
+            account.terminal.merchantConfig // Fallback to old config
+        }
+    }
 
     var showAmountSheet by remember { mutableStateOf(false) }
     Box(
@@ -334,7 +363,7 @@ fun HomeContent(
         ) {
 
             // Spacing nếu có merchant info
-            if (!account.terminal.merchantConfig.isNullOrEmpty()) {
+            if (!merchantConfig.isNullOrEmpty()) {
                 MerchantInfoCard(
                     merchantConfig = account.terminal.merchantConfig,
                     fieldMapping = merchantFieldMapping,

@@ -20,8 +20,7 @@ data class MifareData(
 
     fun getIcData(): String {
         return "${sector0.block0}|${sector0.block1}|${sector0.block2}|" +
-                "${sector1.block0}|${sector1.block1}|${sector1.block2}|" +
-                "${sector2?.block0}|${sector2?.block1}|${sector2?.block2}"
+                "${sector1.block0}|${sector1.block1}|${sector1.block2}"
     }
 
     fun getPanFromTrack2(): String? {

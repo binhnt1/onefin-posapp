@@ -41,11 +41,13 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.ui.payment.DeviceType
 import kotlinx.coroutines.delay
+import com.onefin.posapp.R
 
 @Composable
 @OptIn(ExperimentalAnimationApi::class)
@@ -54,7 +56,9 @@ fun PaymentStatusCard(
     paymentState: PaymentState,
     modifier: Modifier = Modifier,
     currentRequestSale: RequestSale?,
-    deviceType: DeviceType, // 🔥 NEW: Device type parameter
+    deviceType: DeviceType,
+    timeRemaining: Int? = null,
+    onAutoClose: (() -> Unit)? = null, // ⭐ NEW: Callback khi auto close
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -87,7 +91,8 @@ fun PaymentStatusCard(
                         PaymentState.WAITING_CARD -> {
                             WaitingCardContent(
                                 statusMessage = statusMessage,
-                                deviceType = deviceType // 🔥 Pass device type
+                                deviceType = deviceType,
+                                timeRemaining = timeRemaining
                             )
                         }
                         PaymentState.PROCESSING,
@@ -99,10 +104,6 @@ fun PaymentStatusCard(
                             )
                         }
 
-                        PaymentState.ENTERING_PIN -> {
-                            EnteringPinContent(statusMessage)
-                        }
-
                         PaymentState.ERROR -> {
                             ErrorContent(statusMessage)
                         }
@@ -112,6 +113,7 @@ fun PaymentStatusCard(
                             SuccessContent(
                                 statusMessage = statusMessage,
                                 currentRequestSale = currentRequestSale,
+                                onAutoClose = onAutoClose // ⭐ Pass callback
                             )
                         }
                     }
@@ -121,20 +123,24 @@ fun PaymentStatusCard(
     }
 }
 
-
 @Composable
 fun SuccessContent(
     statusMessage: String,
-    currentRequestSale: RequestSale?
+    currentRequestSale: RequestSale?,
+    onAutoClose: (() -> Unit)? = null // ⭐ NEW: Callback
 ) {
-    // ✅ Countdown state
-    var countdown by remember { mutableIntStateOf(3) }
+    // ⭐ Countdown 10s thay vì 3s
+    var countdown by remember { mutableIntStateOf(10) }
 
-    // ✅ Countdown effect
+    // ⭐ Countdown effect with auto close
     LaunchedEffect(Unit) {
         while (countdown > 0) {
             delay(1000)
             countdown--
+        }
+        // ⭐ Khi countdown về 0, tự động đóng
+        if (countdown == 0) {
+            onAutoClose?.invoke()
         }
     }
 
@@ -180,11 +186,11 @@ fun SuccessContent(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ✅ Countdown display
+        // ⭐ Countdown display - SONG NGỮ
         Text(
-            text = "Tự động đóng sau $countdown giây",
+            text = stringResource(R.string.auto_close_after_seconds, countdown),
             fontSize = 14.sp,
-            color = Color(0xFF999999),
+            color = if (countdown <= 3) Color(0xFFEF4444) else Color(0xFF999999), // ⭐ Đỏ khi <= 3s
             fontWeight = FontWeight.Medium
         )
 
@@ -209,15 +215,27 @@ fun SuccessContent(
                     modifier = Modifier.padding(16.dp),
                     horizontalAlignment = Alignment.Start
                 ) {
-                    InfoRow("Request ID", req.requestId)
+                    InfoRow(
+                        label = stringResource(R.string.label_request_id),
+                        value = req.requestId
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                     if (req.data.card.mode != null) {
-                        InfoRow("Mode", req.data.card.mode)
+                        InfoRow(
+                            label = stringResource(R.string.label_mode),
+                            value = req.data.card.mode
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
-                    InfoRow("Card", req.data.card.type ?: "")
+                    InfoRow(
+                        label = stringResource(R.string.label_card),
+                        value = req.data.card.type ?: ""
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
-                    InfoRow("Amount", UtilHelper.formatCurrency(req.data.payment.transAmount, "đ"))
+                    InfoRow(
+                        label = stringResource(R.string.label_amount),
+                        value = UtilHelper.formatCurrency(req.data.payment.transAmount, "đ")
+                    )
                 }
             }
         }

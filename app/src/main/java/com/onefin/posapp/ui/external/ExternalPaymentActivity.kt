@@ -16,6 +16,9 @@ import com.google.gson.reflect.TypeToken
 import com.onefin.posapp.BuildConfig
 import com.onefin.posapp.R
 import com.onefin.posapp.core.config.ResultConstants
+import com.onefin.posapp.core.database.repositories.DriverInfoRepository
+import com.onefin.posapp.core.managers.helpers.PaymentErrorHandler
+import com.onefin.posapp.core.managers.helpers.PaymentErrorHandler.ErrorType
 import com.onefin.posapp.core.models.Account
 import com.onefin.posapp.core.models.ResultApi
 import com.onefin.posapp.core.models.Transaction
@@ -43,7 +46,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import timber.log.Timber
 import javax.inject.Inject
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -62,7 +64,8 @@ class ExternalPaymentActivity : BaseActivity() {
     @Inject
     lateinit var receiptPrinter: ReceiptPrinter
 
-    private val TAG = "ExternalPaymentActivity"
+    @Inject
+    lateinit var driverInfoRepository: DriverInfoRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,8 +80,13 @@ class ExternalPaymentActivity : BaseActivity() {
                     paymentHelper = paymentHelper,
                     receiptPrinter = receiptPrinter,
                     storageService = storageService,
-                    onFinish = { resultCode, response, errorMessage ->
-                        returnResult(resultCode, response, errorMessage)
+                    driverInfoRepository = driverInfoRepository,
+                    onFinish = { response, errorMessage ->
+                        if (response != null) {
+                            returnResult(response, errorMessage)
+                        } else {
+                            returnResultError(errorMessage)
+                        }
                     }
                 )
             }
@@ -92,44 +100,39 @@ class ExternalPaymentActivity : BaseActivity() {
 
         if (data != null) {
             val responseJson = data.getStringExtra(ResultConstants.RESULT_PAYMENT_RESPONSE_DATA)
-            Timber.tag(TAG).d("responseJson: $responseJson")
-
             if (responseJson != null) {
                 try {
                     val response = gson.fromJson(responseJson, PaymentAppResponse::class.java)
-                    Timber.tag(TAG).d("Parsed response: $response")
-                    returnResult(resultCode, response, null)
+                    returnResult(response)
                     return
                 } catch (e: Exception) {
-                    Timber.tag(TAG).e(e, "Error parsing response")
-                    returnResult(RESULT_OK, null, "PARSE_ERROR: ${e.message}")
+                    returnResultError(e.message)
                     return
                 }
-            } else {
-                Timber.tag(TAG).w("responseJson is NULL")
             }
-        } else {
-            Timber.tag(TAG).w("data Intent is NULL")
         }
-
-        val errorMessage = data?.getStringExtra(ResultConstants.RESULT_ERROR) ?: "PAYMENT_CANCELLED"
-        Timber.tag(TAG).d("Returning error: $errorMessage")
-        returnResult(RESULT_CANCELED, null, errorMessage)
+        val errorMessage = data?.getStringExtra(ResultConstants.RESULT_ERROR)
+        returnResultError(errorMessage)
     }
 
-    private fun returnResult(resultCode: Int, response: PaymentAppResponse?, errorMessage: String?) {
-        val resultIntent = Intent().apply {
-            if (response != null) {
-                putExtra(ResultConstants.RESULT_TYPE, response.type)
-                putExtra(ResultConstants.RESULT_ACTION, response.action)
-                putExtra(ResultConstants.RESULT_PAYMENT_RESPONSE_DATA, gson.toJson(response.paymentResponseData))
-            }
-            if (errorMessage != null) {
-                putExtra(ResultConstants.RESULT_ERROR, errorMessage)
-                putExtra(ResultConstants.RESULT_MESSAGE, errorMessage)
-            }
-        }
-        setResult(resultCode, resultIntent)
+    private fun returnResultError(errorMessage: String? = null) {
+        val account = storageService.getAccount()
+        val type = intent.getStringExtra(ResultConstants.RESULT_TYPE) ?: ""
+        val action = intent.getIntExtra(ResultConstants.RESULT_ACTION, -1)
+        val paymentRequest = parsePaymentRequest(intent, gson, account) ?: PaymentAppRequest(
+            type = type,
+            action = action,
+            merchantRequestData = null
+        )
+        val error = errorMessage ?: PaymentErrorHandler.getVietnameseMessage(ErrorType.UNKNOWN_ERROR)
+        val resultIntent = paymentHelper.buildResultIntentError(paymentRequest, error)
+        setResult(RESULT_OK, resultIntent)
+        finish()
+    }
+
+    private fun returnResult(response: PaymentAppResponse, errorMessage: String? = null) {
+        val resultIntent = paymentHelper.buildResultIntentError(response, errorMessage)
+        setResult(RESULT_OK, resultIntent)
         finish()
     }
 }
@@ -143,12 +146,12 @@ fun ExternalPaymentScreen(
     receiptPrinter: ReceiptPrinter,
     storageService: StorageService,
     activity: ExternalPaymentActivity,
-    onFinish: (Int, PaymentAppResponse?, String?) -> Unit
+    driverInfoRepository: DriverInfoRepository,
+    onFinish: (PaymentAppResponse?, String?) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // String resources
     val loginFailedMsg = stringResource(R.string.error_login_failed)
     val pleaseLoginMsg = stringResource(R.string.error_please_login)
     val notLoggedInMsg = stringResource(R.string.error_not_logged_in)
@@ -161,8 +164,38 @@ fun ExternalPaymentScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var loginAttempted by remember { mutableStateOf(false) }
 
-    var requestType by remember { mutableStateOf<String?>(null) }
-    var requestAction by remember { mutableStateOf<Int?>(null) }
+    suspend fun registerMerchant(
+        paymentRequest: PaymentAppRequest,
+        onFinish: (PaymentAppResponse?, String?) -> Unit
+    ): Boolean {
+        if (BuildConfig.FLAVOR != "mailinh") return true
+
+        val account = storageService.getAccount()
+        val tid: String? = account?.terminal?.tid
+        val mid: String? = account?.terminal?.mid
+        val serial: String? = storageService.getSerial()
+        val driverNumber: String? = paymentRequest.merchantRequestData?.tid
+        val employeeCode: String? = paymentRequest.merchantRequestData?.mid
+        val employeeName: String? = (paymentRequest.merchantRequestData?.additionalData as? Map<*, *>)
+            ?.get("driver_name") as? String
+
+        val resultApi = withContext(Dispatchers.IO) {
+            driverInfoRepository.ensureDriverInfoRegistered(
+                tid = tid,
+                mid = mid,
+                serial = serial,
+                driverNumber = driverNumber,
+                employeeCode = employeeCode,
+                employeeName = employeeName
+            )
+        }
+        if (!resultApi.isSuccess()) {
+            val error = "Đăng ký thiết bị thất bại"
+            onFinish(null, error)
+            return false
+        }
+        return true
+    }
 
     DisposableEffect(Unit) {
         @Suppress("DEPRECATION") val job = scope.launch {
@@ -189,14 +222,7 @@ fun ExternalPaymentScreen(
                             if (loginSuccess) {
                                 account = storageService.getAccount()
                             } else {
-                                errorMessage = loginFailedMsg
-                                val errorResponse = createErrorResponse(
-                                    requestType,
-                                    requestAction,
-                                    PaymentStatusCode.LOGIN_FAILED,
-                                    loginFailedMsg
-                                )
-                                onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "LOGIN_FAILED")
+                                onFinish(null, loginFailedMsg)
                                 return@launch
                             }
                         } else {
@@ -207,28 +233,21 @@ fun ExternalPaymentScreen(
                                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                             }
                             context.startActivity(loginIntent)
-                            val errorResponse = createErrorResponse(
-                                requestType,
-                                requestAction,
-                                PaymentStatusCode.NOT_LOGGED_IN,
-                                notLoggedInMsg
-                            )
-                            onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "NOT_LOGGED_IN")
+                            onFinish(null, notLoggedInMsg)
                             return@launch
                         }
                     }
 
                     if (account != null) {
                         val paymentRequest = parsePaymentRequest(intent, gson, account)
-
                         if (paymentRequest != null) {
-                            requestType = paymentRequest.type
-                            requestAction = paymentRequest.action
-
                             storageService.setPendingPaymentRequest(paymentRequest)
-
                             isProcessing = false
                             delay(100)
+
+                            if (!registerMerchant(paymentRequest, onFinish)) {
+                                return@launch
+                            }
 
                             when (paymentRequest.action) {
                                 PaymentAction.SALE.value -> {
@@ -256,26 +275,14 @@ fun ExternalPaymentScreen(
                                         }
                                         else -> {
                                             errorMessage = invalidPaymentTypeMsg
-                                            val errorResponse = createErrorResponse(
-                                                requestType,
-                                                requestAction,
-                                                PaymentStatusCode.INVALID_DATA,
-                                                invalidPaymentTypeMsg
-                                            )
-                                            onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "INVALID_TYPE")
+                                            onFinish(null, errorMessage)
                                         }
                                     }
                                 }
                                 PaymentAction.REFUND.value -> {
                                     if (paymentRequest.type.lowercase() != "member") {
                                         errorMessage = "Refund chỉ hỗ trợ thẻ thành viên"
-                                        val errorResponse = createErrorResponse(
-                                            requestType,
-                                            requestAction,
-                                            PaymentStatusCode.INVALID_TYPE,
-                                            "Refund chỉ hỗ trợ thẻ thành viên"
-                                        )
-                                        onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "INVALID_TYPE")
+                                        onFinish(null, errorMessage)
                                         return@launch
                                     }
                                     isProcessing = false
@@ -290,13 +297,7 @@ fun ExternalPaymentScreen(
                                 PaymentAction.CHANGE_PIN.value -> {
                                     if (paymentRequest.type.lowercase() != "member") {
                                         errorMessage = "Thay đổi PIN chỉ hỗ trợ thẻ thành viên"
-                                        val errorResponse = createErrorResponse(
-                                            requestType,
-                                            requestAction,
-                                            PaymentStatusCode.INVALID_TYPE,
-                                            "Thay đổi PIN chỉ hỗ trợ thẻ thành viên"
-                                        )
-                                        onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "INVALID_TYPE")
+                                        onFinish(null, errorMessage)
                                         return@launch
                                     }
                                     isProcessing = false
@@ -311,13 +312,7 @@ fun ExternalPaymentScreen(
                                 PaymentAction.CHECK_BALANCE.value -> {
                                     if (paymentRequest.type.lowercase() != "member") {
                                         errorMessage = "Kiểm tra số dư chỉ hỗ trợ thẻ thành viên"
-                                        val errorResponse = createErrorResponse(
-                                            requestType,
-                                            requestAction,
-                                            PaymentStatusCode.INVALID_TYPE,
-                                            "Kiểm tra số dư chỉ hỗ trợ thẻ thành viên"
-                                        )
-                                        onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "INVALID_TYPE")
+                                        onFinish(null, errorMessage)
                                         return@launch
                                     }
                                     isProcessing = false
@@ -333,58 +328,37 @@ fun ExternalPaymentScreen(
                                     var billNumber = paymentRequest.merchantRequestData?.billNumber
                                     if (billNumber.isNullOrEmpty()) {
                                         errorMessage = "Thiếu số hóa đơn"
-                                        val errorResponse = createErrorResponse(
-                                            requestType,
-                                            requestAction,
-                                            PaymentStatusCode.INVALID_DATA,
-                                            "Thiếu số hóa đơn"
-                                        )
-                                        onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "MISSING_BILL_NUMBER")
+                                        onFinish(null, errorMessage)
                                         return@launch
                                     }
 
-                                    // hard-code
                                     billNumber = "0444784174"
                                     isProcessing = false
                                     delay(100)
                                     scope.launch {
                                         try {
-                                            // Lấy account
                                             val account = storageService.getAccount()
                                             if (account == null) {
-                                                val errorResponse = createErrorResponse(
-                                                    requestType,
-                                                    requestAction,
-                                                    PaymentStatusCode.ERROR,
-                                                    "Không tìm thấy thông tin tài khoản"
-                                                )
-                                                onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "NO_ACCOUNT")
+                                                val errorMessage = "Không tìm thấy thông tin tài khoản"
+                                                onFinish(null, errorMessage)
                                                 return@launch
                                             }
 
-                                            // Gọi API lấy transaction
                                             val endpoint = "/api/transaction/$billNumber"
                                             val resultApi = apiService.get(endpoint, emptyMap()) as ResultApi<*>
                                             val transactionJson = gson.toJson(resultApi.data)
                                             val transaction = gson.fromJson(transactionJson, Transaction::class.java)
                                             if (transaction == null) {
-                                                val errorResponse = createErrorResponse(
-                                                    requestType,
-                                                    requestAction,
-                                                    PaymentStatusCode.ERROR,
-                                                    "Không tìm thấy giao dịch"
-                                                )
-                                                onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "TRANSACTION_NOT_FOUND")
+                                                val errorMessage = "Không tìm thấy giao dịch"
+                                                onFinish(null, errorMessage)
                                                 return@launch
                                             }
 
-                                            // In hóa đơn
                                             val printResult = receiptPrinter.printReceipt(
                                                 transaction = transaction,
                                                 terminal = account.terminal
                                             )
                                             if (printResult.isSuccess) {
-                                                // Thành công
                                                 val response = PaymentAppResponse(
                                                     type = paymentRequest.type,
                                                     action = PaymentAction.REPRINT_INVOICE.value,
@@ -395,28 +369,15 @@ fun ExternalPaymentScreen(
                                                         transactionId = transaction.transactionId
                                                     )
                                                 )
-                                                onFinish(android.app.Activity.RESULT_OK, response, null)
+                                                onFinish(response, null)
                                             } else {
-                                                // In thất bại
                                                 val errorMessage = printResult.exceptionOrNull()?.message ?: "Lỗi in hóa đơn"
-                                                val errorResponse = createErrorResponse(
-                                                    requestType,
-                                                    requestAction,
-                                                    PaymentStatusCode.ERROR,
-                                                    "In hóa đơn thất bại: $errorMessage"
-                                                )
-                                                onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "PRINT_FAILED")
+                                                onFinish(null, errorMessage)
                                             }
 
                                         } catch (e: Exception) {
-                                            Timber.tag("ExternalPaymentActivity").e(e, "Reprint invoice failed")
-                                            val errorResponse = createErrorResponse(
-                                                requestType,
-                                                requestAction,
-                                                PaymentStatusCode.ERROR,
-                                                "Lỗi: ${e.message}"
-                                            )
-                                            onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "ERROR: ${e.message}")
+                                            val errorMessage = "Lỗi: ${e.message}"
+                                            onFinish(null, errorMessage)
                                         }
                                     }
                                 }
@@ -424,29 +385,15 @@ fun ExternalPaymentScreen(
 
                         } else {
                             errorMessage = invalidDataMsg
-                            val errorResponse = createErrorResponse(
-                                requestType,
-                                requestAction,
-                                PaymentStatusCode.INVALID_DATA,
-                                invalidDataMsg
-                            )
-                            onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "INVALID_DATA")
+                            onFinish(null, errorMessage)
                         }
                     }
 
                 } catch (e: CancellationException) {
-                    Timber.tag("ExternalPaymentActivity").d("Coroutine cancelled")
+                    throw e
                 } catch (e: Exception) {
-                    Timber.tag("ExternalPaymentActivity").e(e, "Error processing payment request")
-                    val errorText = "$errorMsg: ${e.message}"
-                    errorMessage = errorText
-                    val errorResponse = createErrorResponse(
-                        requestType,
-                        requestAction,
-                        PaymentStatusCode.ERROR,
-                        errorText
-                    )
-                    onFinish(android.app.Activity.RESULT_CANCELED, errorResponse, "ERROR: ${e.message}")
+                    errorMessage = "$errorMsg: ${e.message}"
+                    onFinish(null, errorMessage)
                 }
             }
         }
@@ -490,35 +437,11 @@ suspend fun performAppKeyLogin(
         storageService.saveAccount(account)
         true
     } catch (e: Exception) {
-        Timber.tag("ExternalPaymentActivity").e(e, "Auto login failed")
         false
     }
 }
 
-private fun createErrorResponse(
-    type: String?,
-    action: Int?,
-    statusCode: String,
-    description: String
-): PaymentAppResponse? {
-    if (type == null || action == null) return null
-
-    return PaymentAppResponse(
-        type = type,
-        action = action,
-        paymentResponseData = PaymentResponseData(
-            status = statusCode,
-            description = description,
-            isSign = false
-        )
-    )
-}
-
-fun parsePaymentRequest(
-    intent: Intent,
-    gson: Gson,
-    account: Account
-): PaymentAppRequest? {
+fun parsePaymentRequest(intent: Intent, gson: Gson, account: Account?): PaymentAppRequest? {
     return try {
         val type = intent.getStringExtra(ResultConstants.RESULT_TYPE) ?: return null
         val action = intent.getIntExtra(ResultConstants.RESULT_ACTION, -1)
@@ -529,21 +452,17 @@ fun parsePaymentRequest(
             try {
                 gson.fromJson(merchantRequestDataStr, MerchantRequestData::class.java)
             } catch (e: Exception) {
-                Timber.tag("ExternalPaymentActivity").e(e, "Error parsing merchant_request_data")
                 null
             }
         } else {
             null
         }
-
         if (merchantRequestData == null) return null
 
         if (merchantRequestData.tid == null || merchantRequestData.tid == "")
-            merchantRequestData.tid = account.terminal.tid
+            merchantRequestData.tid = account?.terminal?.tid
         if (merchantRequestData.mid == null || merchantRequestData.mid == "")
-            merchantRequestData.mid = account.terminal.mid
-
-        // fix additionalData
+            merchantRequestData.mid = account?.terminal?.mid
         merchantRequestData.additionalData = toMapOrNull(merchantRequestData.additionalData)
         PaymentAppRequest(
             type = type,
@@ -551,7 +470,6 @@ fun parsePaymentRequest(
             merchantRequestData = merchantRequestData
         )
     } catch (e: Exception) {
-        Timber.tag("ExternalPaymentActivity").e(e, "Error parsing payment request")
         null
     }
 }
@@ -570,7 +488,6 @@ fun toMapOrNull(obj: Any?): Map<String, Any>? {
             }
         }
         is Map<*, *> -> {
-            // Validate và filter
             try {
                 obj.entries.associate { (key, value) ->
                     (key as? String ?: return null) to (value ?: return null)

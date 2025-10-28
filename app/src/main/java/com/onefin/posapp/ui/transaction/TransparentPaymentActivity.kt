@@ -18,7 +18,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import java.io.Serializable
 import androidx.activity.OnBackPressedCallback
-import com.onefin.posapp.core.config.ResultConstants
 
 @AndroidEntryPoint
 class TransparentPaymentActivity : AppCompatActivity() {
@@ -39,24 +38,22 @@ class TransparentPaymentActivity : AppCompatActivity() {
         override fun onActivityStarted(activity: Activity) {}
         override fun onActivityResumed(activity: Activity) {}
         override fun onActivityStopped(activity: Activity) {}
-        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
         override fun onActivityDestroyed(activity: Activity) {
-            // Bỏ qua TransparentPaymentActivity chính nó
             if (activity::class.simpleName == this@TransparentPaymentActivity::class.simpleName) {
                 return
             }
-
             // Nếu là SDK activity đã finish
             if (activity !== this@TransparentPaymentActivity && !sdkActivityFinished) {
                 sdkActivityFinished = true
                 Handler(Looper.getMainLooper()).postDelayed({
                     if (sdkActivityFinished) {
-                        sendCancelResponse()
+                        cancelAction("SDK activity đã bị hủy")
                     }
                 }, 500)
             }
         }
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,7 +83,7 @@ class TransparentPaymentActivity : AppCompatActivity() {
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    sendCancelResponse()
+                    cancelAction()
                 }
             }
         )
@@ -96,12 +93,6 @@ class TransparentPaymentActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
 
         sdkActivityFinished = false
-        if (resultCode == RESULT_CANCELED) {
-            sendCancelResponse()
-            return
-        }
-
-        // Xử lý payment success
         paymentHelper.handleActivityResult(
             requestCode, resultCode, data,
             onSuccess = { response ->
@@ -120,21 +111,14 @@ class TransparentPaymentActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun sendCancelResponse() {
+    private fun cancelAction(errorMessage: String? = null) {
         val isExternalFlow = storageService.isExternalPaymentFlow()
         if (isExternalFlow) {
             val request = pendingRequest ?: storageService.getPendingPaymentRequest()
-
             if (request != null) {
-                val response = paymentHelper.createPaymentAppResponseCancel(request)
-                storageService.clearExternalPaymentContext()
-                val resultIntent = Intent().apply {
-                    putExtra(
-                        ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
-                        gson.toJson(response)
-                    )
-                }
+                val resultIntent = paymentHelper.buildResultIntentError(request, errorMessage)
                 setResult(RESULT_OK, resultIntent)
+                storageService.clearExternalPaymentContext()
             }
         }
         finish()
