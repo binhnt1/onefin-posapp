@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -80,7 +81,7 @@ fun ActionButtons(
                         ),
                         border = BorderStroke(
                             width = 2.dp,
-                            brush = androidx.compose.ui.graphics.SolidColor(Color.White)
+                            brush = SolidColor(Color.White)
                         )
                     ) {
                         Text(

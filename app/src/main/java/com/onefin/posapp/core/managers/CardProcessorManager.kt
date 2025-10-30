@@ -259,14 +259,14 @@ class CardProcessorManager(
             // Step 5: Inject Keys (CRITICAL)
             Timber.tag("KernelInit").d("📌 Step 5: Injecting Security Keys...")
             if (!EmvUtil.injectKeys(securityOpt!!, terminal!!)) {
-                Timber.tag("KernelInit").e("❌ Failed to inject keys - CRITICAL ERROR")
-                return false  // ← THÊM RETURN FALSE Ở ĐÂY!
+                return false
             }
             Timber.tag("KernelInit").d("✅ Security Keys injected successfully")
 
             // Step 6: Set additional TLV (optional)
             try {
-                Timber.tag("KernelInit").d("📌 Step 6: Setting additional TLV 9F40...")
+                Timber.tag("" +
+                        "KernelInit").d("📌 Step 6: Setting additional TLV 9F40...")
                 emvOpt!!.setTlv(
                     AidlConstants.EMV.TLVOpCode.OP_NORMAL,
                     "9F40",
@@ -408,7 +408,6 @@ class CardProcessorManager(
 
                         if (readCardOpt == null) {
                             val error = "ReadCardOptV2 not available"
-                            Timber.tag("SDKConnect").e("❌ $error")
                             handleError(
                                 PaymentResult.Error.from(
                                     errorType = PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
@@ -498,19 +497,19 @@ class CardProcessorManager(
 
         currentProcessor = when (cardType) {
             AidlConstants.CardType.IC -> {
-                ChipCardProcessor(context, emvOpt!!, terminal, pinPadOpt!!, readCardOpt!!)
+                ChipCardProcessor(context, emvOpt!!, terminal, pinPadOpt!!, readCardOpt!!, securityOpt!!)
             }
 
             AidlConstants.CardType.NFC -> {
-                NfcCardProcessor(context, emvOpt!!, terminal, pinPadOpt!!, readCardOpt!!)
+                NfcCardProcessor(context, emvOpt!!, terminal, pinPadOpt!!, readCardOpt!!, securityOpt!!)
             }
 
             AidlConstants.CardType.MAGNETIC -> {
-                MagCardProcessor(context, emvOpt!!, terminal, pinPadOpt!!, readCardOpt!!)
+                MagCardProcessor(context, emvOpt!!, terminal, pinPadOpt!!, readCardOpt!!, securityOpt!!)
             }
 
             AidlConstants.CardType.MIFARE -> {
-                MifareCardProcessor(context, emvOpt!!, terminal, pinPadOpt!!, readCardOpt!!, pinInputCallback)
+                MifareCardProcessor(context, emvOpt!!, terminal, pinPadOpt!!, readCardOpt!!, securityOpt!!, pinInputCallback)
             }
 
             else -> {

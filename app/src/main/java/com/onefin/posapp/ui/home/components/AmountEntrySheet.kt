@@ -262,59 +262,64 @@ fun AmountEntrySheet(
                         )
                     }
                     if (allowMemberCard == true) {
-                        PaymentOptionButton(
-                            text = stringResource(R.string.payment_membership_card),
-                            icon = Icons.Default.CardMembership,
-                            onClick = {
-                                if (isValidAmount && !isProcessing) {
-                                    isProcessing = true
-                                    loadingButtonType = "MEMBER"
-                                    val account = storageService.getAccount()
-                                    if (account != null) {
-                                        val paymentRequest = PaymentAppRequest(
-                                            type = "member",
-                                            action = PaymentAction.SALE.value,
-                                            merchantRequestData = MerchantRequestData(
-                                                amount = amountValue
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(defaultSpacerHeight)
+                        ) {
+                            PaymentOptionButton(
+                                text = stringResource(R.string.payment_membership_card),
+                                icon = Icons.Default.CardMembership,
+                                onClick = {
+                                    if (isValidAmount && !isProcessing) {
+                                        isProcessing = true
+                                        loadingButtonType = "MEMBER"
+                                        val account = storageService.getAccount()
+                                        if (account != null) {
+                                            val paymentRequest = PaymentAppRequest(
+                                                type = "member",
+                                                action = PaymentAction.SALE.value,
+                                                merchantRequestData = MerchantRequestData(
+                                                    amount = amountValue
+                                                )
                                             )
-                                        )
-                                        val sdkType = BuildConfig.SDK_TYPE
-                                        val paymentRequestData =
-                                            paymentHelper.createPaymentAppRequest(
-                                                account,
-                                                paymentRequest
-                                            )
-                                        if (sdkType == "onefin") {
-                                            val intent = Intent(
-                                                context,
-                                                TransparentPaymentActivity::class.java
-                                            ).apply {
-                                                putExtra("REQUEST_DATA", paymentRequestData)
-                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            val sdkType = BuildConfig.SDK_TYPE
+                                            val paymentRequestData =
+                                                paymentHelper.createPaymentAppRequest(
+                                                    account,
+                                                    paymentRequest
+                                                )
+                                            if (sdkType == "onefin") {
+                                                val intent = Intent(
+                                                    context,
+                                                    TransparentPaymentActivity::class.java
+                                                ).apply {
+                                                    putExtra("REQUEST_DATA", paymentRequestData)
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                context.startActivity(intent)
+                                                onDismiss()
+                                            } else {
+                                                val intent = Intent(
+                                                    context,
+                                                    PaymentCardActivity::class.java
+                                                ).apply {
+                                                    putExtra("REQUEST_DATA", paymentRequestData)
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                context.startActivity(intent)
+                                                onDismiss()
                                             }
-                                            context.startActivity(intent)
-                                            onDismiss()
                                         } else {
-                                            val intent = Intent(
-                                                context,
-                                                PaymentCardActivity::class.java
-                                            ).apply {
-                                                putExtra("REQUEST_DATA", paymentRequestData)
-                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                            }
-                                            context.startActivity(intent)
-                                            onDismiss()
+                                            isProcessing = false
+                                            loadingButtonType = null
                                         }
-                                    } else {
-                                        isProcessing = false
-                                        loadingButtonType = null
                                     }
-                                }
-                            },
-                            enabled = isValidAmount && !isProcessing,
-                            isLoading = loadingButtonType == "MEMBER",
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                                },
+                                enabled = isValidAmount && !isProcessing,
+                                isLoading = loadingButtonType == "MEMBER",
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(bottomSpacerHeight))

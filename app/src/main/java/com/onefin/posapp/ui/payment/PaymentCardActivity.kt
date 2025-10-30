@@ -9,6 +9,8 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,7 +18,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.gson.Gson
 import com.onefin.posapp.R
 import com.onefin.posapp.core.managers.CardProcessorManager
@@ -26,12 +30,12 @@ import com.onefin.posapp.core.managers.helpers.PaymentErrorHandler
 import com.onefin.posapp.core.managers.helpers.PaymentTTSHelper
 import com.onefin.posapp.core.managers.helpers.PinInputCallback
 import com.onefin.posapp.core.models.ResultApi
+import com.onefin.posapp.core.models.data.DeviceType
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.models.data.PaymentState
 import com.onefin.posapp.core.models.data.RequestSale
 import com.onefin.posapp.core.models.data.SaleResultData
-import com.onefin.posapp.core.models.enums.CardType
 import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.utils.CardHelper
 import com.onefin.posapp.core.utils.PaymentHelper
@@ -52,42 +56,23 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-enum class DeviceType {
-    SUNMI_POS,
-    ANDROID_PHONE
-}
-
 @AndroidEntryPoint
 class PaymentCardActivity : BaseActivity() {
 
     private val gson = Gson()
 
-    @Inject
-    lateinit var ttsManager: TTSManager
-
-    @Inject
-    lateinit var apiService: ApiService
-
-    @Inject
-    lateinit var paymentHelper: PaymentHelper
-
-    @Inject
-    lateinit var printerHelper: PrinterHelper
-
-    @Inject
-    lateinit var receiptPrinter: ReceiptPrinter
-
-    @Inject
-    lateinit var cardProcessorManager: CardProcessorManager
-
-    @Inject
-    lateinit var nfcPhoneReaderManager: NfcPhoneReaderManager
+    @Inject lateinit var ttsManager: TTSManager
+    @Inject lateinit var apiService: ApiService
+    @Inject lateinit var paymentHelper: PaymentHelper
+    @Inject lateinit var printerHelper: PrinterHelper
+    @Inject lateinit var receiptPrinter: ReceiptPrinter
+    @Inject lateinit var cardProcessorManager: CardProcessorManager
+    @Inject lateinit var nfcPhoneReaderManager: NfcPhoneReaderManager
 
     private var deviceType: DeviceType = DeviceType.ANDROID_PHONE
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         deviceType = detectDeviceType()
 
         val requestData = getPaymentAppRequest()
@@ -105,14 +90,11 @@ class PaymentCardActivity : BaseActivity() {
             }
         }
 
-        onBackPressedDispatcher.addCallback(
-            this,
-            object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    cancelTransaction()
-                }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                cancelTransaction()
             }
-        )
+        })
     }
 
     override fun onPause() {
@@ -132,7 +114,7 @@ class PaymentCardActivity : BaseActivity() {
     override fun onDestroy() {
         super.onDestroy()
         when (deviceType) {
-            DeviceType.SUNMI_POS -> {
+            DeviceType.SUNMI_P2, DeviceType.SUNMI_P3 -> {
                 cardProcessorManager.setPinInputCallback(null)
                 cardProcessorManager.cancelPayment()
             }
@@ -161,13 +143,9 @@ class PaymentCardActivity : BaseActivity() {
         return try {
             val manufacturer = Build.MANUFACTURER.lowercase()
             val model = Build.MODEL.lowercase()
-
             val isSunmi = manufacturer.contains("sunmi") ||
-                    model.contains("p2") ||
-                    model.contains("v2") ||
-                    model.contains("p1")
-
-            if (isSunmi) DeviceType.SUNMI_POS else DeviceType.ANDROID_PHONE
+                    model.contains("p2") || model.contains("v2") || model.contains("p1")
+            if (isSunmi) DeviceType.SUNMI_P3 else DeviceType.ANDROID_PHONE
         } catch (e: Exception) {
             DeviceType.ANDROID_PHONE
         }
@@ -175,26 +153,18 @@ class PaymentCardActivity : BaseActivity() {
 
     private fun cancelTransaction(errorMessage: String? = null) {
         when (deviceType) {
-            DeviceType.SUNMI_POS -> cardProcessorManager.cancelPayment()
+            DeviceType.SUNMI_P2, DeviceType.SUNMI_P3 -> cardProcessorManager.cancelPayment()
             DeviceType.ANDROID_PHONE -> nfcPhoneReaderManager.cancelPayment()
         }
 
         val isExternalFlow = storageService.isExternalPaymentFlow()
         if (isExternalFlow) {
             val pendingRequest = storageService.getPendingPaymentRequest()
-            if (pendingRequest != null) {
-                val resultIntent = paymentHelper.buildResultIntentError(pendingRequest, errorMessage)
+            val request = pendingRequest ?: getPaymentAppRequest()
+            request?.let {
+                val resultIntent = paymentHelper.buildResultIntentError(it, errorMessage)
                 setResult(RESULT_OK, resultIntent)
                 storageService.clearExternalPaymentContext()
-                finish()
-            } else {
-                val currentRequest = getPaymentAppRequest()
-                if (currentRequest != null) {
-                    val resultIntent = paymentHelper.buildResultIntentError(currentRequest, errorMessage)
-                    setResult(RESULT_OK, resultIntent)
-                    storageService.clearExternalPaymentContext()
-                    finish()
-                }
             }
         }
         finish()
@@ -202,20 +172,20 @@ class PaymentCardActivity : BaseActivity() {
 
     private fun onSuccess(saleResult: SaleResultData, originalRequest: PaymentAppRequest) {
         val isExternalFlow = storageService.isExternalPaymentFlow()
+
         if (isExternalFlow) {
-            val pendingRequest = storageService.getPendingPaymentRequest() ?: originalRequest
-            val response = CardHelper.returnSaleResponse(saleResult, pendingRequest)
+            val pendingRequest = storageService.getPendingPaymentRequest()
+            val requestToUse = pendingRequest ?: originalRequest
+            val response = CardHelper.returnSaleResponse(saleResult, requestToUse)
             val resultIntent = paymentHelper.buildResultIntentSuccess(response)
             setResult(RESULT_OK, resultIntent)
             storageService.clearExternalPaymentContext()
-            finish()
         } else {
             val response = CardHelper.returnSaleResponse(saleResult, originalRequest)
             val resultIntent = paymentHelper.buildResultIntentSuccess(response)
             setResult(RESULT_OK, resultIntent)
-            storageService.clearExternalPaymentContext()
-            finish()
         }
+        finish()
     }
 }
 
@@ -230,6 +200,13 @@ fun PaymentCardScreen(
     paymentAppRequest: PaymentAppRequest,
 ) {
     val context = LocalContext.current
+    val activityScope = CoroutineScope(Dispatchers.Main)
+    val activity = context as PaymentCardActivity
+    val ttsManager = remember { activity.ttsManager }
+    val storageService = remember { activity.storageService }
+    val cardProcessorManager = remember { activity.cardProcessorManager }
+    val nfcPhoneReaderManager = remember { activity.nfcPhoneReaderManager }
+
     var isPrinting by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorDialogMessage by remember { mutableStateOf("") }
@@ -239,33 +216,22 @@ fun PaymentCardScreen(
     var statusMessage by remember { mutableStateOf(context.getString(R.string.payment_initializing)) }
     var currentRequestSale by remember { mutableStateOf<RequestSale?>(null) }
     var paymentState by remember { mutableStateOf(PaymentState.INITIALIZING) }
-
-    // ⭐ Countdown timer state
     var timeRemaining by remember { mutableIntStateOf(60) }
     var isCountdownActive by remember { mutableStateOf(false) }
-
-    val activity = context as PaymentCardActivity
-    val activityScope = CoroutineScope(Dispatchers.Main)
     var customerSignature by remember { mutableStateOf<ByteArray?>(null) }
     var pendingSaleResult by remember { mutableStateOf<SaleResultData?>(null) }
     var onPinCancelledCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
     var onPinEnteredCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
-
-    val ttsManager = remember { activity.ttsManager }
-    val storageService = remember { activity.storageService }
     var retryTrigger by remember { mutableIntStateOf(0) }
 
-    val cardProcessorManager = remember { activity.cardProcessorManager }
-    val nfcPhoneReaderManager = remember { activity.nfcPhoneReaderManager }
-
     val amount = paymentAppRequest.merchantRequestData?.amount ?: 0
+    val isMemberCard = paymentAppRequest.type.lowercase() == "member"
 
     val waitingCardMessage = when (deviceType) {
-        DeviceType.SUNMI_POS -> stringResource(R.string.payment_waiting_card_pos)
+        DeviceType.SUNMI_P2, DeviceType.SUNMI_P3 -> stringResource(R.string.payment_waiting_card_pos)
         DeviceType.ANDROID_PHONE -> stringResource(R.string.payment_waiting_card_phone)
     }
 
-    // ⭐ Countdown timer effect
     LaunchedEffect(isCountdownActive, timeRemaining) {
         if (isCountdownActive && timeRemaining > 0) {
             delay(1000)
@@ -273,11 +239,10 @@ fun PaymentCardScreen(
         } else if (isCountdownActive && timeRemaining == 0) {
             isCountdownActive = false
             when (deviceType) {
-                DeviceType.SUNMI_POS -> cardProcessorManager.cancelPayment()
+                DeviceType.SUNMI_P2, DeviceType.SUNMI_P3 -> cardProcessorManager.cancelPayment()
                 DeviceType.ANDROID_PHONE -> nfcPhoneReaderManager.cancelPayment()
             }
             ttsManager.speak(context.getString(R.string.tts_transaction_timeout))
-
             delay(300)
             onCancel()
         }
@@ -295,16 +260,13 @@ fun PaymentCardScreen(
         showSignatureDialog = false
         statusMessage = context.getString(R.string.payment_initializing)
         paymentState = PaymentState.INITIALIZING
-
-        // ⭐ Reset countdown
         timeRemaining = 60
         isCountdownActive = false
 
         when (deviceType) {
-            DeviceType.SUNMI_POS -> cardProcessorManager.cancelPayment()
+            DeviceType.SUNMI_P2, DeviceType.SUNMI_P3 -> cardProcessorManager.cancelPayment()
             DeviceType.ANDROID_PHONE -> nfcPhoneReaderManager.cancelPayment()
         }
-
         retryTrigger++
     }
 
@@ -312,9 +274,7 @@ fun PaymentCardScreen(
         activityScope.launch {
             when (result) {
                 is PaymentResult.Success -> {
-                    // ⭐ Stop countdown when card detected
                     isCountdownActive = false
-
                     val requestSale = result.requestSale
 
                     paymentState = PaymentState.CARD_DETECTED
@@ -329,7 +289,6 @@ fun PaymentCardScreen(
                         val result = processPayment(apiService, requestSale)
                         result.onSuccess { saleResultData ->
                             if (saleResultData.status?.code == "00") {
-                                // ⭐ LUÔN LUÔN yêu cầu chữ ký cho cả 2 device type
                                 pendingSaleResult = saleResultData
                                 paymentState = PaymentState.WAITING_SIGNATURE
                                 statusMessage = context.getString(R.string.payment_waiting_signature)
@@ -369,26 +328,20 @@ fun PaymentCardScreen(
     fun startCardReading() {
         paymentState = PaymentState.WAITING_CARD
         statusMessage = waitingCardMessage
-
-        // ⭐ Start countdown timer
         timeRemaining = 60
         isCountdownActive = true
 
         when (deviceType) {
-            DeviceType.SUNMI_POS -> {
+            DeviceType.SUNMI_P2, DeviceType.SUNMI_P3 -> {
                 cardProcessorManager.startPayment(
                     paymentRequest = paymentAppRequest,
-                    onProcessingComplete = { result ->
-                        handlePaymentResult(result)
-                    }
+                    onProcessingComplete = { result -> handlePaymentResult(result) }
                 )
             }
             DeviceType.ANDROID_PHONE -> {
                 nfcPhoneReaderManager.startPayment(
                     paymentRequest = paymentAppRequest,
-                    onProcessingComplete = { result ->
-                        handlePaymentResult(result)
-                    }
+                    onProcessingComplete = { result -> handlePaymentResult(result) }
                 )
             }
         }
@@ -397,10 +350,7 @@ fun PaymentCardScreen(
     LaunchedEffect(retryTrigger) {
         paymentState = PaymentState.INITIALIZING
         val pinCallback = object : PinInputCallback {
-            override fun requestPinInput(
-                onPinEntered: (String) -> Unit,
-                onCancelled: () -> Unit
-            ) {
+            override fun requestPinInput(onPinEntered: (String) -> Unit, onCancelled: () -> Unit) {
                 activityScope.launch(Dispatchers.Main) {
                     onPinCancelledCallback = onCancelled
                     onPinEnteredCallback = onPinEntered
@@ -408,8 +358,9 @@ fun PaymentCardScreen(
                 }
             }
         }
+
         when (deviceType) {
-            DeviceType.SUNMI_POS -> {
+            DeviceType.SUNMI_P2, DeviceType.SUNMI_P3 -> {
                 cardProcessorManager.setPinInputCallback(pinCallback)
                 cardProcessorManager.initialize { success, error ->
                     if (success) {
@@ -449,16 +400,12 @@ fun PaymentCardScreen(
         }
     }
 
-    // Main UI
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF1E3A8A),
-                        Color(0xFF3B82F6)
-                    )
+                    colors = listOf(Color(0xFF1E3A8A), Color(0xFF3B82F6))
                 )
             )
     ) {
@@ -469,33 +416,40 @@ fun PaymentCardScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            if (deviceType == DeviceType.SUNMI_POS) {
+            if (deviceType == DeviceType.SUNMI_P2 || deviceType == DeviceType.SUNMI_P3) {
                 ModernHeader(
                     billNumber = paymentAppRequest.merchantRequestData?.billNumber,
                     referenceId = paymentAppRequest.merchantRequestData?.referenceId
                 )
             }
+
             Spacer(modifier = Modifier.height(16.dp))
-            AmountCard(amount = amount)
+
+            AmountCard(amount = amount, isMemberCard = isMemberCard)
+
             Spacer(modifier = Modifier.height(24.dp))
 
-            PaymentStatusCard(
-                deviceType = deviceType,
-                paymentState = paymentState,
-                statusMessage = statusMessage,
-                currentRequestSale = currentRequestSale,
-                timeRemaining = if (isCountdownActive) timeRemaining else null, // ⭐ Pass countdown
-                onAutoClose = if (paymentState == PaymentState.SUCCESS) {
-                    {
-                        pendingSaleResult?.let { saleResult ->
-                            val ttsMessage = PaymentTTSHelper.getSuccessTTSMessage(amount)
-                            ttsManager.speak(ttsMessage)
-                            onSuccess(saleResult)
+            if (paymentState == PaymentState.INITIALIZING) {
+                InitializingCard(modifier = Modifier.weight(1f))
+            } else {
+                PaymentStatusCard(
+                    deviceType = deviceType,
+                    paymentState = paymentState,
+                    statusMessage = statusMessage,
+                    currentRequestSale = currentRequestSale,
+                    timeRemaining = if (isCountdownActive) timeRemaining else null,
+                    onAutoClose = if (paymentState == PaymentState.SUCCESS) {
+                        {
+                            pendingSaleResult?.let { saleResult ->
+                                val ttsMessage = PaymentTTSHelper.getSuccessTTSMessage(amount)
+                                ttsManager.speak(ttsMessage)
+                                onSuccess(saleResult)
+                            }
                         }
-                    }
-                } else null,
-                modifier = Modifier.weight(1f)
-            )
+                    } else null,
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -525,7 +479,7 @@ fun PaymentCardScreen(
                                     return@launch
                                 }
 
-                                if (deviceType == DeviceType.SUNMI_POS) {
+                                if (deviceType == DeviceType.SUNMI_P2 || deviceType == DeviceType.SUNMI_P3) {
                                     if (!printerHelper.waitForReady(timeoutMs = 3000)) {
                                         ttsManager.speak(context.getString(R.string.payment_printer_not_ready))
                                         isPrinting = false
@@ -548,7 +502,6 @@ fun PaymentCardScreen(
                                     ttsManager.speak(context.getString(R.string.payment_print_success))
                                     onSuccess(saleResult)
                                 }
-
                             } catch (e: Exception) {
                                 statusMessage = context.getString(R.string.payment_print_failed)
                                 ttsManager.speak(context.getString(R.string.payment_print_failed))
@@ -565,9 +518,7 @@ fun PaymentCardScreen(
             ModernErrorDialog(
                 message = errorDialogMessage,
                 errorCode = errorCode,
-                onRetry = {
-                    resetAndRetry()
-                },
+                onRetry = { resetAndRetry() },
                 onCancel = {
                     showErrorDialog = false
                     onCancel()
@@ -599,38 +550,59 @@ fun PaymentCardScreen(
                     customerSignature = signatureData
                     paymentState = PaymentState.SUCCESS
                     statusMessage = context.getString(R.string.payment_signature_confirmed)
-                    ttsManager.speak(context.getString(R.string.payment_signature_confirmed_success))
                 }
             )
         }
     }
 }
 
-suspend fun processPayment(
-    apiService: ApiService,
-    requestSale: RequestSale
-): Result<SaleResultData> {
+@Composable
+private fun InitializingCard(modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.95f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(64.dp),
+                color = Color(0xFF3B82F6),
+                strokeWidth = 6.dp
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = stringResource(R.string.payment_initializing),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF1E3A8A)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Đang khởi tạo thiết bị...",
+                fontSize = 14.sp,
+                color = Color(0xFF64748B)
+            )
+        }
+    }
+}
+
+suspend fun processPayment(apiService: ApiService, requestSale: RequestSale): Result<SaleResultData> {
     val gson = Gson()
     return try {
-        var cardMode = requestSale.data.card.mode
-        when (cardMode) {
-            CardType.CHIP.displayName -> {
-                cardMode = "2"
-            }
-            CardType.MIFARE.displayName -> {
-                cardMode = "3"
-            }
-            CardType.MAGNETIC.displayName -> {
-                cardMode = "1"
-            }
-            CardType.CONTACTLESS.displayName -> {
-                cardMode = "3"
-            }
-        }
         val requestBody = mapOf(
             "data" to mapOf(
                 "card" to mapOf(
-                    "mode" to cardMode,
                     "ksn" to requestSale.data.card.ksn,
                     "pin" to requestSale.data.card.pin,
                     "type" to requestSale.data.card.type,
@@ -642,7 +614,8 @@ suspend fun processPayment(
                     "clearPan" to requestSale.data.card.clearPan,
                     "expiryDate" to requestSale.data.card.expiryDate,
                     "holderName" to requestSale.data.card.holderName,
-                    "issuerName" to requestSale.data.card.issuerName
+                    "issuerName" to requestSale.data.card.issuerName,
+                    "mode" to CardHelper.getCardMode(requestSale.data.card.mode),
                 ),
                 "device" to mapOf(
                     "posEntryMode" to requestSale.data.device.posEntryMode,
@@ -663,10 +636,7 @@ suspend fun processPayment(
         )
 
         val resultApi = apiService.post("/api/card/sale", requestBody) as ResultApi<*>
-        val saleResultData = gson.fromJson(
-            gson.toJson(resultApi.data),
-            SaleResultData::class.java
-        )
+        val saleResultData = gson.fromJson(gson.toJson(resultApi.data), SaleResultData::class.java)
 
         if (saleResultData != null) {
             if (saleResultData.status?.code == "00") {

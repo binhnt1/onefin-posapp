@@ -87,7 +87,7 @@ fun PinInputBottomSheet(
                         text = stringResource(R.string.pin_input_title),
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E3A8A),
+                        color = Color(0xFF101828),
                         modifier = Modifier.weight(1f),
                         textAlign = TextAlign.Center
                     )
@@ -105,7 +105,7 @@ fun PinInputBottomSheet(
                 Text(
                     text = stringResource(R.string.pin_input_description),
                     fontSize = 14.sp,
-                    color = Color.Gray,
+                    color = Color(0xFF667085),
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center
                 )
@@ -155,7 +155,7 @@ fun PinInputBottomSheet(
                             .height(56.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF1E3A8A)
+                            contentColor = Color(0xFF667085)
                         )
                     ) {
                         Text(
@@ -180,7 +180,7 @@ fun PinInputBottomSheet(
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF3B82F6),
-                            disabledContainerColor = Color.Gray
+                            disabledContainerColor = Color(0xFFD0D5DD)
                         )
                     ) {
                         Text(
@@ -345,7 +345,7 @@ fun NumericKeyboard(
                 text = "C",
                 onClick = onClearClick,
                 modifier = Modifier.weight(1f),
-                backgroundColor = Color(0xFFEF4444)
+                isSpecialKey = true
             )
 
             KeyboardButton(
@@ -358,7 +358,7 @@ fun NumericKeyboard(
                 text = "⌫",
                 onClick = onDeleteClick,
                 modifier = Modifier.weight(1f),
-                backgroundColor = Color(0xFFF59E0B)
+                isSpecialKey = true
             )
         }
     }
@@ -388,7 +388,7 @@ fun KeyboardButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    backgroundColor: Color = Color(0xFF3B82F6)
+    isSpecialKey: Boolean = false
 ) {
     var isPressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
@@ -400,7 +400,7 @@ fun KeyboardButton(
         label = "button_press"
     )
 
-    Button(
+    Surface(
         onClick = {
             isPressed = true
             onClick()
@@ -409,20 +409,23 @@ fun KeyboardButton(
             .height(64.dp)
             .scale(scale),
         shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = backgroundColor
-        ),
-        elevation = ButtonDefaults.buttonElevation(
-            defaultElevation = 4.dp,
-            pressedElevation = 2.dp
+        color = if (isSpecialKey) Color(0xFFF2F4F7) else Color(0xFFF9FAFB),
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = Color(0xFFD0D5DD)
         )
     ) {
-        Text(
-            text = text,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Text(
+                text = text,
+                fontSize = 24.sp,
+                fontWeight = if (isSpecialKey) FontWeight.Bold else FontWeight.Normal,
+                color = if (isSpecialKey) Color(0xFF667085) else Color(0xFF101828)
+            )
+        }
     }
 
     LaunchedEffect(isPressed) {

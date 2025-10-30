@@ -5,7 +5,6 @@ import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -25,6 +24,7 @@ import com.google.gson.Gson
 import com.onefin.posapp.R
 import com.onefin.posapp.core.managers.CardProcessorManager
 import com.onefin.posapp.core.managers.NfcPhoneReaderManager
+import com.onefin.posapp.core.models.data.DeviceType
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.models.data.RequestSale
@@ -157,7 +157,7 @@ class SimpleChipTestActivity : BaseActivity() {
 
             if (isSunmi) {
                 Timber.tag("DeviceDetect").d("✅ Detected Sunmi POS device")
-                DeviceType.SUNMI_POS
+                DeviceType.SUNMI_P3
             } else {
                 Timber.tag("DeviceDetect").d("✅ Detected Android Phone")
                 DeviceType.ANDROID_PHONE
@@ -174,7 +174,8 @@ class SimpleChipTestActivity : BaseActivity() {
                 addLog("Đang khởi tạo Payment System...")
 
                 when (deviceType) {
-                    DeviceType.SUNMI_POS -> {
+                    DeviceType.SUNMI_P2,
+                    DeviceType.SUNMI_P3 -> {
                         cardProcessorManager.initialize { success, error ->
                             if (success) {
                                 addLog("✅ Sunmi POS Payment System đã sẵn sàng")
@@ -223,7 +224,8 @@ class SimpleChipTestActivity : BaseActivity() {
         addLog("--- BẮT ĐẦU QUY TRÌNH THANH TOÁN ---")
 
         when (deviceType) {
-            DeviceType.SUNMI_POS -> {
+            DeviceType.SUNMI_P2,
+            DeviceType.SUNMI_P3 -> {
                 val selectedCardTypes = buildList {
                     if (icEnabled) add(AidlConstants.CardType.IC)
                     if (nfcEnabled) {
@@ -333,7 +335,8 @@ class SimpleChipTestActivity : BaseActivity() {
         addLog("--- YÊU CẦU HỦY GIAO DỊCH ---")
         try {
             when (deviceType) {
-                DeviceType.SUNMI_POS -> cardProcessorManager.cancelPayment()
+                DeviceType.SUNMI_P2,
+                DeviceType.SUNMI_P3 -> cardProcessorManager.cancelPayment()
                 DeviceType.ANDROID_PHONE -> nfcPhoneReaderManager.cancelPayment()
             }
             isProcessing = false
@@ -356,7 +359,8 @@ class SimpleChipTestActivity : BaseActivity() {
         super.onDestroy()
         if (isProcessing) {
             when (deviceType) {
-                DeviceType.SUNMI_POS -> cardProcessorManager.cancelPayment()
+                DeviceType.SUNMI_P2,
+                DeviceType.SUNMI_P3 -> cardProcessorManager.cancelPayment()
                 DeviceType.ANDROID_PHONE -> nfcPhoneReaderManager.cancelPayment()
             }
         }
@@ -393,7 +397,7 @@ fun SimpleChipTestScreen(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Test Giao Dịch Thẻ", style = MaterialTheme.typography.headlineSmall)
+            Text("Test Giao dịch Thẻ", style = MaterialTheme.typography.headlineSmall)
             Spacer(modifier = Modifier.height(8.dp))
             Text("Số tiền: ${UtilHelper.formatCurrency(amount, "đ")}")
             Spacer(modifier = Modifier.height(16.dp))
@@ -424,7 +428,8 @@ fun SimpleChipTestScreen(
                                 Text("NFC (Contactless)", modifier = Modifier.padding(start = 8.dp))
                             }
                         }
-                        DeviceType.SUNMI_POS -> {
+                        DeviceType.SUNMI_P2,
+                        DeviceType.SUNMI_P3 -> {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically

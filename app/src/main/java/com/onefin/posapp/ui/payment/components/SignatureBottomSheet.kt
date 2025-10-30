@@ -174,7 +174,9 @@ private fun SignatureContent(
                     signatureView?.clear()
                     showError = false
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = androidx.compose.ui.graphics.Color(0xFF757575)
@@ -227,7 +229,9 @@ private fun SignatureContent(
                     }
                 },
                 enabled = !isProcessing,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = androidx.compose.ui.graphics.Color(0xFF1976D2)
@@ -241,7 +245,7 @@ private fun SignatureContent(
                     )
                 } else {
                     Text(
-                        stringResource(R.string.signature_confirm),  // ⭐ Sử dụng stringResource
+                        stringResource(R.string.signature_confirm),
                         fontSize = 16.sp
                     )
                 }

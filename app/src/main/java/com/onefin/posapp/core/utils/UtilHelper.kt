@@ -114,29 +114,11 @@ object UtilHelper {
         return sdf.format(calendar.time)
     }
 
-    /**
-     * Helper functions for byte conversion
-     */
     fun hexStringToByteArray(hex: String): ByteArray {
-        if (hex.isEmpty()) return ByteArray(0)
-
-        // SỬA LẠI TẠI ĐÂY
-        var cleanHex = hex.replace(" ", "").uppercase(Locale.getDefault())
-        // Nếu độ dài là số lẻ, thêm một số '0' vào đầu
-        if (cleanHex.length % 2 != 0) {
-            cleanHex = "0$cleanHex"
+        val cleanHex = hex.replace(" ", "").replace("-", "")
+        return ByteArray(cleanHex.length / 2) { i ->
+            cleanHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
         }
-
-        val len = cleanHex.length
-        val data = ByteArray(len / 2)
-
-        var i = 0
-        while (i < len) {
-            data[i / 2] = ((Character.digit(cleanHex[i], 16) shl 4) +
-                    Character.digit(cleanHex[i + 1], 16)).toByte()
-            i += 2
-        }
-        return data
     }
 
     fun byteArrayToHexString(byteArray: ByteArray): String {

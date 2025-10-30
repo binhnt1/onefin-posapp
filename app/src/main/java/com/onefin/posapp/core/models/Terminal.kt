@@ -8,10 +8,10 @@ import com.onefin.posapp.core.models.data.CapkData
  */
 data class Terminal(
     @SerializedName("BDK")
-    val bdk: String = "",
+    val bdk: String? = "",
 
     @SerializedName("KSN")
-    val ksn: String = "",
+    val ksn: String? = "",
 
     @SerializedName("MID")
     val mid: String = "",

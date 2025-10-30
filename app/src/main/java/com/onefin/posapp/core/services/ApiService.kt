@@ -56,6 +56,7 @@ class ApiService @Inject constructor(
             val headers = buildHeaders()
 
             // 2. Encrypt and sign body
+            Timber.tag("ApiService").d(gson.toJson(body))
             val encryptedBody = encryptAndSignBody(body)
 
             // 3. Create request

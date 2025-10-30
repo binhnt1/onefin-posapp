@@ -293,4 +293,8 @@
     <string name="button_print_receipt">🖨️ In hóa đơn</string>
     <string name="button_close">Đóng</string>
     <string name="button_cancel_transaction">Hủy giao dịch</string>
+
+    <!-- Payment Amount Card -->
+    <string name="payment_amount_label">Số tiền thanh toán</string>
+    <string name="card_type_bank">Ngân Hàng</string>
 </resources>

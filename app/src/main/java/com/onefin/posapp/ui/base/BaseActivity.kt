@@ -24,7 +24,7 @@ abstract class BaseActivity : ComponentActivity() {
         super.attachBaseContext(LocaleHelper.Companion.setLocaleStatic(newBase, language))
     }
 
-    protected fun getPaymentAppRequest(): PaymentAppRequest? {
+    fun getPaymentAppRequest(): PaymentAppRequest? {
         val rawObject: Serializable? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getSerializableExtra("REQUEST_DATA", Serializable::class.java)
         } else {

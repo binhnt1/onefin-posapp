@@ -11,19 +11,18 @@ import com.sunmi.pay.hardware.aidl.AidlConstants
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
 import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadOptV2
 import com.sunmi.pay.hardware.aidlv2.readcard.ReadCardOptV2
-import timber.log.Timber
+import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
 
 class MagCardProcessor(
     context: Context,
     emvOpt: EMVOptV2,
     terminal: Terminal?,
     pinPadOpt: PinPadOptV2,
-    readCardOpt: ReadCardOptV2
-) : BaseCardProcessor(context, emvOpt, terminal, pinPadOpt, readCardOpt, AidlConstants.CardType.MAGNETIC) {
+    readCardOpt: ReadCardOptV2,
+    securityOpt: SecurityOptV2,
+) : BaseCardProcessor(context, emvOpt, terminal, pinPadOpt, readCardOpt, securityOpt, AidlConstants.CardType.MAGNETIC) {
     override fun processTransaction(info: Bundle) {
         try {
-            logBundle(info)
-
             // check payment request
             val request = currentPaymentAppRequest ?: run {
                 processingComplete(

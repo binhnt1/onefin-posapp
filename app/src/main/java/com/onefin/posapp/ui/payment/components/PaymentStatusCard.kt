@@ -45,20 +45,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.onefin.posapp.core.utils.UtilHelper
-import com.onefin.posapp.ui.payment.DeviceType
 import kotlinx.coroutines.delay
 import com.onefin.posapp.R
+import com.onefin.posapp.core.models.data.DeviceType
 
 @Composable
 @OptIn(ExperimentalAnimationApi::class)
 fun PaymentStatusCard(
     statusMessage: String,
+    deviceType: DeviceType,
     paymentState: PaymentState,
     modifier: Modifier = Modifier,
     currentRequestSale: RequestSale?,
-    deviceType: DeviceType,
     timeRemaining: Int? = null,
-    onAutoClose: (() -> Unit)? = null, // ⭐ NEW: Callback khi auto close
+    onAutoClose: (() -> Unit)? = null,
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),

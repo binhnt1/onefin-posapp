@@ -4,18 +4,14 @@ import android.content.Context
 import android.text.TextUtils
 import com.atg.pos.domain.entities.payment.TLVUtil
 import com.onefin.posapp.core.config.CardConstants
-import com.onefin.posapp.core.config.MifareConstants
 import com.onefin.posapp.core.models.EvmConfig
 import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.CvmConfig
-import com.onefin.posapp.core.models.data.MifareData
-import com.onefin.posapp.core.utils.UtilHelper.hexStringToByteArray
 import com.sunmi.pay.hardware.aidl.AidlConstants
 import com.sunmi.pay.hardware.aidlv2.bean.AidV2
 import com.sunmi.pay.hardware.aidlv2.bean.CapkV2
 import com.sunmi.pay.hardware.aidlv2.bean.EmvTermParamV2
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
-import com.sunmi.pay.hardware.aidlv2.readcard.ReadCardOptV2
 import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
 import timber.log.Timber
 import java.util.Locale
@@ -133,46 +129,46 @@ object EmvUtil {
     fun setTerminalParam(emv: EMVOptV2, terminal: Terminal) {
         try {
             val termParam = EmvTermParamV2().apply {
-                // 🔥 COPY Y CHANG TỪ SDK THÀNH CÔNG
-                capability = "E0B0C8"
-                addCapability = "6000F0A001"
+                // 🔥 COPY Y CHANG TỪ LOG THÀNH CÔNG
+                capability = "E0F8C8"           // Hỗ trợ Enciphered PIN online
+                addCapability = "0300C00000"     // ⚠️ Khác với code cũ!
                 terminalType = "22"
                 countryCode = "0704"
                 currencyCode = "0704"
                 currencyExp = "02"
 
-                // 🔥 QUAN TRỌNG - Các field này
+                // 🔥 KEY SETTINGS
+                bypassPin = true        // Bypass offline PIN verification
+                getDataPIN = true       // Cho phép lấy PIN data để encrypt online
+
                 IsReadLogInCard = false
                 TTQ = "26000080"
                 accountType = "00"
                 adviceFlag = true
                 batchCapture = false
                 bypassAllFlg = false
-                bypassPin = false
                 ectSiFlg = true
                 ectSiVal = true
                 ectTlFlg = true
                 ectTlVal = "100000"
                 forceOnline = false
-                getDataPIN = true
-                ifDsn = "3030303030393035"  // ← SDK có cái này!
+                ifDsn = "3030303030393035"
                 isSupportAccountSelect = true
                 isSupportExceptFile = true
                 isSupportMultiLang = true
                 isSupportSM = true
                 isSupportTransLog = true
                 scriptMode = false
-                surportPSESel = true  // ← PSE!
-                termAIP = true  // ← QUAN TRỌNG!
-                useTermAIPFlg = true  // ← QUAN TRỌNG!
+                surportPSESel = true
+                termAIP = true
+                useTermAIPFlg = true
             }
 
-            Timber.tag("TermParam").d("⚙️ Terminal Params (FULL CONFIG):")
+            Timber.tag("TermParam").d("⚙️ Terminal Params (MATCHING SUCCESSFUL SDK):")
             Timber.tag("TermParam").d("   Capability: ${termParam.capability}")
-            Timber.tag("TermParam").d("   termAIP: ${termParam.termAIP}")
-            Timber.tag("TermParam").d("   useTermAIPFlg: ${termParam.useTermAIPFlg}")
-            Timber.tag("TermParam").d("   surportPSESel: ${termParam.surportPSESel}")
+            Timber.tag("TermParam").d("   addCapability: ${termParam.addCapability}")
             Timber.tag("TermParam").d("   bypassPin: ${termParam.bypassPin}")
+            Timber.tag("TermParam").d("   getDataPIN: ${termParam.getDataPIN}")
 
             val result = emv.setTerminalParam(termParam)
             Timber.tag("TermParam").d("   Result: $result")
@@ -199,64 +195,26 @@ object EmvUtil {
         }
     }
     fun injectKeys(securityOpt: SecurityOptV2, terminal: Terminal): Boolean {
-        Timber.tag("KeyInjection").d("🔑 ====== KEY INJECTION START ======")
-
         return try {
-            val bdk = terminal.bdk
-            val ksn = terminal.ksn
+            // ksn
+            val ksn = terminal.ksn ?: "FFFF4357480393800000"
+            val ksnBytes = UtilHelper.hexStringToByteArray(ksn)
 
-            // Validate inputs
-            if (bdk.isEmpty() || bdk.length != 32) {
-                Timber.tag("KeyInjection").e("❌ Invalid BDK length: ${bdk.length}, expected: 32")
-                return false
-            }
+            // bdk
+            val bdk = terminal.bdk ?: "C1D0F8FB4958670DBA40AB1F3752EF0D"
+            val bdkBytes = UtilHelper.hexStringToByteArray(bdk)
 
-            if (ksn.isEmpty() || ksn.length != 20) {
-                Timber.tag("KeyInjection").e("❌ Invalid KSN length: ${ksn.length}, expected: 20")
-                return false
-            }
-
-            val bdkBytes = hexStringToByteArray(bdk)
-            val ksnBytes = hexStringToByteArray(ksn)
-
-            if (bdkBytes.size != 16 || ksnBytes.size != 10) {
-                Timber.tag("KeyInjection").e("❌ Invalid byte size - BDK: ${bdkBytes.size}, KSN: ${ksnBytes.size}")
-                return false
-            }
-
-            // Delete existing keys at common indexes
-            val keyIndexes = listOf(0, 1, 2)
-            keyIndexes.forEach { index ->
-                try {
-                    securityOpt.deleteKey(index, 2) // Delete DATA key type
-                    Thread.sleep(50)
-                } catch (e: Exception) {
-                    // Ignore - key might not exist
-                }
-            }
-
-            val result = securityOpt.savePlaintextKey(
-                2,              // keyType: 2 = DATA/BDK
-                bdkBytes,       // key bytes
-                null,           // checkValue (auto-calculated)
-                1,              // keyIndex: 1 (proven to work)
-                0               // algorithm: 0 = 3DES
+            val keyType = 7
+            val keyIndex = 1
+            val result = securityOpt.saveKeyDukpt(
+                keyType,
+                bdkBytes,
+                null,
+                ksnBytes,
+                1,              // algorithmType DES
+                keyIndex
             )
-
-            if (result != 0) {
-                Timber.tag("KeyInjection").e("❌ BDK injection failed with code: $result")
-                when (result) {
-                    -1 -> Timber.tag("KeyInjection").e("   Reason: General error")
-                    -2 -> Timber.tag("KeyInjection").e("   Reason: Invalid parameter")
-                    -3 -> Timber.tag("KeyInjection").e("   Reason: Key already exists")
-                    else -> Timber.tag("KeyInjection").e("   Reason: Unknown error")
-                }
-                return false
-            }
-
-            Timber.tag("KeyInjection").d("✅ BDK injected successfully")
-            true
-
+            result == 0
         } catch (e: Exception) {
             false
         }
@@ -368,17 +326,18 @@ object EmvUtil {
 
         val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
 
+        // 🔥 NAPAS CHIP: Force PIN từ 0 đồng
         val chipValues = arrayOf(
             floorLimit,
             floorLimit,
             floorLimit,
-            "E8",
+            chipCvm.contactlessTransLimit,
             chipCvm.cvmRequiredLimit,
             chipCvm.readerCvmRequiredLimit,
             config.tacDefault,
             config.tacDenial,
             config.tacOnline,
-            chipCvm.cvmRequiredLimit
+            chipCvm.pinRequiredLimit
         )
 
         val contactlessValues = arrayOf(
@@ -393,6 +352,12 @@ object EmvUtil {
             config.tacOnline,
             contactlessCvm.cvmRequiredLimit
         )
+
+        Timber.d("📋 NAPAS CVM Config:")
+        Timber.d("   Chip CVM Limit: ${chipValues[4]}")
+        Timber.d("   Chip Reader CVM Limit: ${chipValues[5]}")
+        Timber.d("   Chip PIN Limit: ${chipValues[9]}")
+        Timber.d("   Contactless CVM Limit: ${contactlessCvm.cvmRequiredLimit}")
 
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, chipValues)
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, tags, contactlessValues)

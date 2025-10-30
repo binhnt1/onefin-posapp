@@ -12,9 +12,9 @@ import com.onefin.posapp.core.utils.CardHelper
 import com.onefin.posapp.core.utils.MifareUtil
 import com.sunmi.pay.hardware.aidl.AidlConstants
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
-import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadListenerV2
 import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadOptV2
 import com.sunmi.pay.hardware.aidlv2.readcard.ReadCardOptV2
+import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -31,8 +31,9 @@ class MifareCardProcessor(
     terminal: Terminal?,
     pinPadOpt: PinPadOptV2,
     readCardOpt: ReadCardOptV2,
-    private val pinInputCallback: PinInputCallback? = null
-) : BaseCardProcessor(context, emvOpt, terminal, pinPadOpt, readCardOpt, AidlConstants.CardType.MIFARE) {
+    securityOpt: SecurityOptV2,
+    private val pinInputCallback: PinInputCallback? = null,
+) : BaseCardProcessor(context, emvOpt, terminal, pinPadOpt, readCardOpt, securityOpt, AidlConstants.CardType.MIFARE) {
 
     private var mifareData: MifareData? = null
 
@@ -106,11 +107,9 @@ class MifareCardProcessor(
 
             pinInputCallback.requestPinInput(
                 onPinEntered = { clearPin ->
-                    Timber.d("✅ PIN received from custom input (length: ${clearPin.length})")
                     handleCustomPinInput(clearPin)
                 },
                 onCancelled = {
-                    Timber.w("⚠️ PIN entry cancelled by user")
                     handleError(
                         PaymentResult.Error.from(
                             PaymentErrorHandler.ErrorType.USER_CANCELLED,
@@ -121,7 +120,6 @@ class MifareCardProcessor(
             )
 
         } catch (e: Exception) {
-            Timber.e(e, "❌ Exception in promptPinInput")
             handleError(
                 PaymentResult.Error.from(
                     PaymentErrorHandler.ErrorType.PIN_INPUT_FAILED,
@@ -134,6 +132,9 @@ class MifareCardProcessor(
     private suspend fun readMifareCardData(): Boolean {
         val nfcConfig = storageService.getNfcConfig()
         val nfcKey = nfcConfig?.nfckey
+        Timber.d("🔑 NFC Key: $nfcKey")
+        Timber.d("🔑 Key length: ${nfcKey?.length}")
+
         if (nfcKey.isNullOrEmpty()) {
             handleError(
                 PaymentResult.Error.from(
@@ -144,9 +145,12 @@ class MifareCardProcessor(
             return false
         }
 
+        Timber.d("📖 Starting Mifare card read...")
         mifareData = withContext(Dispatchers.IO) {
             MifareUtil.readMifareCard(readCardOpt, nfcKey)
         }
+        Timber.d("📊 Mifare data result: ${mifareData != null}")
+
         if (mifareData == null) {
             Timber.e("❌ Failed to read Mifare card")
             handleError(
@@ -184,14 +188,7 @@ class MifareCardProcessor(
             val icData = data.getIcData()
             val pan = data.getPanFromTrack2() ?: ""
             val expiry = data.getExpiryFromTrack2()
-            val serialNumber = data.getSerialNumber()
-
-            Timber.d("🎉 ====== MIFARE TRANSACTION COMPLETE ======")
-            Timber.d("   PAN: ${pan.take(6)}****${pan.takeLast(4)}")
-            Timber.d("   Expiry: $expiry")
-            Timber.d("   Serial: $serialNumber")
-            Timber.d("   PIN Block: ${pinBlock ?: "N/A"}")
-
+            val holderName = data.getCardHolderName(icData)
             val requestSale = CardHelper.buildRequestSale(
                 request,
                 RequestSale.Data.Card(
@@ -201,8 +198,8 @@ class MifareCardProcessor(
                     pin = pinBlock,
                     track2 = track2,
                     emvData = icData,
-                    holderName = null,
                     expiryDate = expiry,
+                    holderName = holderName,
                     mode = CardType.MIFARE.displayName,
                     type = CardHelper.detectBrand(pan),
                     issuerName = storageService.getAccount()?.name,

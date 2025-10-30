@@ -32,7 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.onefin.posapp.R
-import com.onefin.posapp.ui.payment.DeviceType
+import com.onefin.posapp.core.models.data.DeviceType
 
 @Composable
 fun WaitingCardContent(
@@ -54,7 +54,8 @@ fun WaitingCardContent(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         val icon = when (deviceType) {
-            DeviceType.SUNMI_POS -> Icons.Default.CreditCard
+            DeviceType.SUNMI_P2,
+            DeviceType.SUNMI_P3 -> Icons.Default.CreditCard
             DeviceType.ANDROID_PHONE -> Icons.Default.Nfc
         }
 
@@ -90,7 +91,8 @@ fun WaitingCardContent(
 
         // ⭐ Instruction text - SONG NGỮ
         val instructionText = when (deviceType) {
-            DeviceType.SUNMI_POS -> stringResource(R.string.support_payment_types_pos)
+            DeviceType.SUNMI_P2,
+            DeviceType.SUNMI_P3 -> stringResource(R.string.support_payment_types_pos)
             DeviceType.ANDROID_PHONE -> stringResource(R.string.support_payment_types_phone)
         }
 

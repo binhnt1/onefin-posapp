@@ -2,9 +2,6 @@ package com.onefin.posapp.core.utils
 
 import android.annotation.SuppressLint
 import com.github.devnied.emvnfccard.model.EmvCard
-import com.onefin.posapp.core.config.CardConstants
-import com.onefin.posapp.core.models.EvmConfig
-import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.EmvCardData
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentAppResponse
@@ -12,201 +9,13 @@ import com.onefin.posapp.core.models.data.PaymentResponseData
 import com.onefin.posapp.core.models.data.RequestSale
 import com.onefin.posapp.core.models.data.SaleResultData
 import com.onefin.posapp.core.models.enums.CardBrand
-import com.onefin.posapp.core.utils.UtilHelper.decimalStringToByteArray
-import com.onefin.posapp.core.utils.UtilHelper.hexStringToByteArray
-import com.onefin.posapp.core.utils.UtilHelper.stringToByte
-import com.onefin.posapp.core.utils.UtilHelper.stringToByteArray
-import com.sunmi.pay.hardware.aidlv2.bean.AidV2
-import com.sunmi.pay.hardware.aidlv2.bean.EmvTermParamV2
-import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
-import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
+import com.onefin.posapp.core.models.enums.CardType
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
 
 object CardHelper {
-    fun injectAid(emv: EMVOptV2, config: EvmConfig) {
-        try {
-            val aid = AidV2().apply {
-                val aidBytes = hexStringToByteArray(config.aid9F06)
-                aid = aidBytes
-
-                TACDefault = hexStringToByteArray(config.tacDefault).copyOf(5)
-                TACOnline = hexStringToByteArray(config.tacOnline).copyOf(5)
-                TACDenial = hexStringToByteArray(config.tacDenial).copyOf(5)
-
-                floorLimit = hexStringToByteArray(config.floorLimit9F1B)
-
-                if (config.threshold.isNotEmpty()) {
-                    threshold = decimalStringToByteArray(config.threshold, 4)
-                }
-
-                if (config.targetPercent.isNotEmpty()) {
-                    targetPer = stringToByte(config.targetPercent)
-                }
-                if (config.maxTargetPercent.isNotEmpty()) {
-                    maxTargetPer = stringToByte(config.maxTargetPercent)
-                }
-
-                version = hexStringToByteArray(config.version9F09).copyOf(2)
-
-                if (config.defaultDDOL.isNotEmpty()) {
-                    dDOL = hexStringToByteArray(config.defaultDDOL)
-                }
-                if (config.defaultTDOL.isNotEmpty()) {
-                    tDOL = hexStringToByteArray(config.defaultTDOL)
-                }
-
-                merchName = stringToByteArray(config.merchantName, 128)
-                merchId = stringToByteArray(config.merchantId9F16, 16)
-                termId = stringToByteArray(config.terminalId9F1C, 8)
-                merchCateCode = hexStringToByteArray(config.mcc9F15).copyOf(2)
-
-                if (config.acquierId9F01.isNotEmpty()) {
-                    AcquierId = hexStringToByteArray(config.acquierId9F01).copyOf(6)
-                }
-
-                if (config.riskManagementData9F1D.isNotEmpty()) {
-                    val rmd = hexStringToByteArray(config.riskManagementData9F1D)
-                    riskManData = rmd.copyOf(8)
-                    rMDLen = minOf(rmd.size, 8).toByte()
-                }
-
-                randTransSel = if (config.enableRandomTransSel == "1") 1.toByte() else 0.toByte()
-                velocityCheck = if (config.enableVelocityCheck == "1") 1.toByte() else 0.toByte()
-
-                selFlag = 0x01.toByte()
-
-                cvmLmt = hexStringToByteArray("000000500000").copyOf(6)
-                termClssLmt = hexStringToByteArray("000005000000").copyOf(6)
-                termOfflineFloorLmt = hexStringToByteArray(
-                    config.floorLimit9F1B.ifEmpty { "000000000000" }
-                ).copyOf(6)
-                termClssOfflineFloorLmt = hexStringToByteArray("000000000000").copyOf(6)
-
-                if (config.referCurrencyCode9F3C.isNotEmpty()) {
-                    referCurrCode = hexStringToByteArray(config.referCurrencyCode9F3C)
-                }
-                if (config.referCurrencyExp9F3D.isNotEmpty()) {
-                    referCurrExp = stringToByte(config.referCurrencyExp9F3D)
-                }
-
-                kernelType = 0.toByte()
-                paramType = 2.toByte()
-
-                ttq = when (config.vendorName.uppercase(Locale.getDefault())) {
-                    "VISA" -> hexStringToByteArray("26000080").copyOf(4)
-                    "MASTERCARD" -> hexStringToByteArray("3600C080").copyOf(4)
-                    "AMEX" -> hexStringToByteArray("2600C080").copyOf(4)
-                    "JCB" -> hexStringToByteArray("3600C080").copyOf(4)
-                    "NAPAS" -> hexStringToByteArray("3600C080").copyOf(4)
-                    else -> hexStringToByteArray("26000080").copyOf(4)
-                }
-
-                clsStatusCheck = 1.toByte()
-            }
-
-            emv.addAid(aid)
-
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    fun setEmvTlvs(emv: EMVOptV2, terminal: Terminal?) {
-        val evmConfigs = terminal?.evmConfigs
-        setGlobalTlvs(emv, terminal)
-
-        evmConfigs?.forEach { config ->
-            when (config.vendorName.uppercase(Locale.getDefault())) {
-                "JCB" -> setJcbTlvs(emv, config)
-                "NAPAS" -> setNapasTlvs(emv, config)
-                "VISA" -> setPayWaveTlvs(emv, config)
-                "MASTERCARD" -> setPayPassTlvs(emv, config)
-                "UNIONPAY", "UNION PAY" -> setQpbocTlvs(emv, config)
-                "AMEX", "AMERICAN EXPRESS" -> setExpressPayTlvs(emv, config)
-            }
-        }
-    }
-
-    fun setTerminalParam(emv: EMVOptV2, terminal: Terminal) {
-        try {
-            val termParam = EmvTermParamV2().apply {
-                capability = "E0B0C8"
-                addCapability = "6000F0A001"
-                terminalType = "22"
-                countryCode = "0704"
-                currencyCode = "0704"
-                currencyExp = "02"
-
-                IsReadLogInCard = false
-                TTQ = "26000080"
-                accountType = "00"
-                adviceFlag = true
-                batchCapture = false
-                bypassAllFlg = false
-                bypassPin = true
-                ectSiFlg = true
-                ectSiVal = true
-                ectTlFlg = true
-                ectTlVal = "100000"
-                forceOnline = false
-                getDataPIN = true
-                ifDsn = "3030303030393035"
-                isSupportAccountSelect = true
-                isSupportExceptFile = true
-                isSupportMultiLang = true
-                isSupportSM = true
-                isSupportTransLog = true
-                scriptMode = false
-                surportPSESel = true
-                termAIP = true
-                useTermAIPFlg = true
-            }
-
-            emv.setTerminalParam(termParam)
-
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    fun injectKeys(securityOpt: SecurityOptV2, terminal: Terminal): Boolean {
-        return try {
-            val bdk = terminal.bdk
-            val ksn = terminal.ksn
-
-            if (bdk.isEmpty() || bdk.length != 32) return false
-            if (ksn.isEmpty() || ksn.length != 20) return false
-
-            val bdkBytes = hexStringToByteArray(bdk)
-            val ksnBytes = hexStringToByteArray(ksn)
-
-            if (bdkBytes.size != 16 || ksnBytes.size != 10) return false
-
-            val keyIndexes = listOf(0, 1, 2)
-            keyIndexes.forEach { index ->
-                try {
-                    securityOpt.deleteKey(index, 2)
-                    Thread.sleep(50)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-
-            val result = securityOpt.savePlaintextKey(2, bdkBytes, null, 1, 0)
-
-            if (result != 0) return false
-
-            true
-
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
-    }
-
     fun detectBrand(pan: String): String {
         if (pan.isEmpty()) return CardBrand.UNKNOWN.displayName
 
@@ -231,6 +40,25 @@ object CardHelper {
             bin6.startsWith("65") -> CardBrand.DISCOVER.displayName
             else -> CardBrand.UNKNOWN.displayName
         }
+    }
+
+    fun getCardMode(mode: String?): String {
+        var cardMode = "3"
+        when (mode) {
+            CardType.CHIP.displayName -> {
+                cardMode = "2"
+            }
+            CardType.MIFARE.displayName -> {
+                cardMode = "3"
+            }
+            CardType.MAGNETIC.displayName -> {
+                cardMode = "1"
+            }
+            CardType.CONTACTLESS.displayName -> {
+                cardMode = "3"
+            }
+        }
+        return cardMode
     }
 
     fun extractEmvDataHex(emvCard: EmvCard): String {
@@ -298,37 +126,6 @@ object CardHelper {
             e.printStackTrace()
         }
         return result
-    }
-
-    fun setGlobalTlvs(emv: EMVOptV2, terminal: Terminal?) {
-        val config: EvmConfig = terminal?.evmConfigs?.firstOrNull() ?: EvmConfig()
-
-        val globalTags = arrayOf(
-            "9F1A", "5F2A", "5F36", "9F33", "9F35", "9F40",
-            "9F66", "9F09", "9F1C", "9F15", "9F16", "9F1E"
-        )
-
-        val ttq = when (config.vendorName.uppercase(Locale.getDefault())) {
-            "VISA" -> "26000080"
-            "MASTERCARD" -> "3600C080"
-            else -> "3600C080"
-        }
-        val globalValues = arrayOf(
-            config.countryCode9F1A,
-            config.transCurrencyCode5F2A,
-            config.transCurrencyExp,
-            config.terminalCap9F33,
-            config.terminalType9F35,
-            config.exTerminalCap9F40,
-            ttq,
-            config.version9F09,
-            terminal?.tid ?: config.terminalId9F1C,
-            config.mcc9F15,
-            terminal?.mid ?: config.merchantId9F16,
-            "00000001"
-        )
-
-        emv.setTlvList(CardConstants.OP_NORMAL, globalTags, globalValues)
     }
 
     private fun parseMagneticTrack1(track1: String): String? {
@@ -562,18 +359,19 @@ object CardHelper {
     fun returnSaleResponse(saleResult: SaleResultData, originalRequest: PaymentAppRequest): PaymentAppResponse {
         val paymentResponseData = PaymentResponseData(
             refNo = saleResult.data?.refNo,
-            tip = saleResult.requestData?.tip,
-            tid = saleResult.requestData?.tid,
-            mid = saleResult.requestData?.mid,
             description = saleResult.status?.message,
             status = saleResult.status?.code ?: "99",
             transactionId = saleResult.header?.transId,
-            billNumber = saleResult.requestData?.billNumber,
-            referenceId = saleResult.requestData?.referenceId,
+            tip = originalRequest.merchantRequestData?.tip,
+            tid = originalRequest.merchantRequestData?.tid,
+            mid = originalRequest.merchantRequestData?.mid,
             transactionTime = saleResult.header?.transmitsDateTime,
-            additionalData = saleResult.requestData?.additionalData,
             amount = saleResult.data?.totalAmount?.toLongOrNull() ?: 0,
+            billNumber = originalRequest.merchantRequestData?.billNumber,
+
+            referenceId = originalRequest.merchantRequestData?.referenceId,
             ccy = saleResult.data?.currency ?: saleResult.requestData?.currency,
+            additionalData = originalRequest.merchantRequestData?.additionalData,
         )
 
         val response = PaymentAppResponse(
@@ -671,128 +469,6 @@ object CardHelper {
         val valueBytes = value.length / 2
         val length = valueBytes.toString(16).padStart(2, '0').uppercase()
         return "$tag$length$value"
-    }
-
-    private fun setJcbTlvs(emv: EMVOptV2, config: EvmConfig) {
-        val tags = arrayOf(
-            "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
-            "DF8123", "DF8124", "DF8125", "DF8126"
-        )
-
-        val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
-
-        val values = arrayOf(
-            floorLimit,
-            floorLimit,
-            floorLimit,
-            "E8",
-            "00",
-            floorLimit,
-            config.tacDefault,
-            config.tacDenial,
-            config.tacOnline,
-            floorLimit
-        )
-        emv.setTlvList(CardConstants.OP_NORMAL, tags, values)
-    }
-
-    private fun setQpbocTlvs(emv: EMVOptV2, config: EvmConfig) {
-        val tags = arrayOf("DF69", "DF70", "DF71", "DF72", "DF73")
-        val values = arrayOf("E0", "F8", "F8", "E8", "00")
-        emv.setTlvList(CardConstants.OP_NORMAL, tags, values)
-    }
-
-    private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig) {
-        val tags = arrayOf(
-            "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
-            "DF8123", "DF8124", "DF8125", "DF8126"
-        )
-
-        val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
-
-        val values = arrayOf(
-            floorLimit,
-            floorLimit,
-            floorLimit,
-            "E8",
-            "00",
-            floorLimit,
-            config.tacDefault,
-            config.tacDenial,
-            config.tacOnline,
-            floorLimit
-        )
-
-        emv.setTlvList(CardConstants.OP_NORMAL, tags, values)
-    }
-
-    private fun setPayWaveTlvs(emv: EMVOptV2, config: EvmConfig) {
-        val tags = arrayOf(
-            "DF8117", "DF8118", "DF8119", "DF811B", "DF811D", "DF811E",
-            "DF811F", "DF8120", "DF8121", "DF8122", "DF8123", "DF8124",
-            "DF8125", "DF812C"
-        )
-
-        val floorLimit = config.floorLimit9F1B.ifEmpty { "000005000000" }
-
-        val values = arrayOf(
-            floorLimit,
-            "000000000000",
-            "000000999999",
-            "30",
-            "02",
-            floorLimit,
-            floorLimit,
-            "000000999999",
-            floorLimit,
-            "0000000000",
-            config.tacDefault,
-            config.tacDenial,
-            config.tacOnline,
-            floorLimit
-        )
-        emv.setTlvList(CardConstants.OP_NORMAL, tags, values)
-    }
-
-    private fun setPayPassTlvs(emv: EMVOptV2, config: EvmConfig) {
-        val tags = arrayOf(
-            "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
-            "DF8123", "DF8124", "DF8125", "DF8126", "DF811B", "DF811D",
-            "DF8122", "DF8120", "DF8121"
-        )
-
-        val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
-
-        val values = arrayOf(
-            floorLimit,
-            floorLimit,
-            floorLimit,
-            "E8",
-            "00",
-            floorLimit,
-            config.tacDefault,
-            config.tacDenial,
-            config.tacOnline,
-            floorLimit,
-            "30",
-            "02",
-            "0000000000",
-            "000000000000",
-            "000000000000"
-        )
-        emv.setTlvList(CardConstants.OP_NORMAL, tags, values)
-    }
-
-    private fun setExpressPayTlvs(emv: EMVOptV2, config: EvmConfig) {
-        val tags = arrayOf(
-            "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
-            "DF8123", "DF8124", "DF8125"
-        )
-        val values = arrayOf(
-            "E0", "F8", "F8", "E8", "00", "00",
-            config.tacDefault, config.tacDenial, config.tacOnline
-        )
-        emv.setTlvList(CardConstants.OP_NORMAL, tags, values)
     }
 
     private fun parseTrack2FromHex(track2Hex: String): EmvCardData? {

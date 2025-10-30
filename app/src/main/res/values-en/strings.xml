@@ -292,4 +292,8 @@
     <string name="button_print_receipt">🖨️ Print Receipt</string>
     <string name="button_close">Close</string>
     <string name="button_cancel_transaction">Cancel Transaction</string>
+
+    <!-- Payment Amount Card -->
+    <string name="payment_amount_label">Payment Amount</string>
+    <string name="card_type_bank">Bank</string>
 </resources>

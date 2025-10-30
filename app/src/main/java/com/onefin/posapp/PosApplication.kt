@@ -131,26 +131,26 @@ class PosApplication : Application() {
     private fun initializeBackgroundServices() {
         applicationScope.launch {
             // Wave 1: 500ms
-            delay(500)
             launch(Dispatchers.IO) {
                 bindPrinterService()
             }
 
             // Wave 2: 1500ms - PAYMENT SDK
-            delay(1000)
-            launch(Dispatchers.IO) {
-                try {
-                    val startTime = System.currentTimeMillis()
-                    paymentHelper.initSDK(this@PosApplication)
-                    val duration = System.currentTimeMillis() - startTime
-                    Timber.tag("Performance").d("✅ Payment SDK: ${duration}ms")
-                } catch (e: Exception) {
-                    Timber.tag("PosApp").e(e, "❌ Payment SDK failed")
+            val sdkType = BuildConfig.SDK_TYPE
+            if (sdkType == "onefin") {
+                launch(Dispatchers.IO) {
+                    try {
+                        val startTime = System.currentTimeMillis()
+                        paymentHelper.initSDK(this@PosApplication)
+                        val duration = System.currentTimeMillis() - startTime
+                        Timber.tag("Performance").d("✅ Payment SDK: ${duration}ms")
+                    } catch (e: Exception) {
+                        Timber.tag("PosApp").e(e, "❌ Payment SDK failed")
+                    }
                 }
             }
 
             // Wave 3: 2500ms - RabbitMQ
-            delay(1000)
             launch(Dispatchers.IO) {
                 if (storageService.isLoggedIn()) {
                     rabbitMQManager.startAfterLogin()

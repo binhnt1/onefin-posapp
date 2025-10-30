@@ -27,5 +27,5 @@ data class DeviceInfo(
 enum class DeviceType {
     SUNMI_P2,
     SUNMI_P3,
-    OTHER;
+    ANDROID_PHONE
 }

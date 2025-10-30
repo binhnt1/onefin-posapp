@@ -113,7 +113,7 @@ android {
             versionNameSuffix = "-sgpt"
             applicationIdSuffix = ".sgpt"
             resValue("string", "app_name", "POS App - SGPT")
-            buildConfigField("String", "SDK_TYPE", "\"onefin\"")
+            buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "USERNAME", "\"sgpt@yopmail.com\"")
             buildConfigField("String", "APP_KEY", "\"21f7d3f50ab94f23a0b0b3e081fa8ced\"")
         }
@@ -133,7 +133,7 @@ android {
         create("default") {
             dimension = "customer"
             buildConfigField("String", "APP_KEY", "\"\"")
-            buildConfigField("String", "SDK_TYPE", "\"onefin\"")
+            buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "USERNAME", "\"\"")
         }
     }

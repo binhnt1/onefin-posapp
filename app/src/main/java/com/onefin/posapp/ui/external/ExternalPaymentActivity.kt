@@ -40,7 +40,6 @@ import com.onefin.posapp.ui.modals.ErrorDialog
 import com.onefin.posapp.ui.modals.ProcessingDialog
 import com.onefin.posapp.ui.payment.PaymentCardActivity
 import com.onefin.posapp.ui.theme.PosAppTheme
-import com.onefin.posapp.ui.transaction.TransparentPaymentActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -83,7 +82,7 @@ class ExternalPaymentActivity : BaseActivity() {
                     driverInfoRepository = driverInfoRepository,
                     onFinish = { response, errorMessage ->
                         if (response != null) {
-                            returnResult(response, errorMessage)
+                            returnResultSuccess(response)
                         } else {
                             returnResultError(errorMessage)
                         }
@@ -93,26 +92,44 @@ class ExternalPaymentActivity : BaseActivity() {
         }
     }
 
+    // ExternalPaymentActivity.kt
     @Deprecated("")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
-
         if (data != null) {
-            val responseJson = data.getStringExtra(ResultConstants.RESULT_PAYMENT_RESPONSE_DATA)
-            if (responseJson != null) {
-                try {
-                    val response = gson.fromJson(responseJson, PaymentAppResponse::class.java)
-                    returnResult(response)
-                    return
-                } catch (e: Exception) {
-                    returnResultError(e.message)
+            try {
+                val type = data.getStringExtra(ResultConstants.RESULT_TYPE) ?: "card"
+                val action = data.getIntExtra(ResultConstants.RESULT_ACTION, -1)
+                val responseDataJson = data.getStringExtra(ResultConstants.RESULT_PAYMENT_RESPONSE_DATA)
+                if (responseDataJson != null) {
+                    val paymentResponseData = gson.fromJson(responseDataJson, PaymentResponseData::class.java)
+                    val response = PaymentAppResponse(
+                        type = type,
+                        action = action,
+                        paymentResponseData = paymentResponseData
+                    )
+
+                    if (paymentResponseData.status == PaymentStatusCode.SUCCESS) {
+                        returnResultSuccess(response)
+                    } else {
+                        returnResultError(paymentResponseData.description)
+                    }
                     return
                 }
+            } catch (e: Exception) {
+                returnResultError(e.message)
+                return
             }
         }
         val errorMessage = data?.getStringExtra(ResultConstants.RESULT_ERROR)
         returnResultError(errorMessage)
+    }
+
+    private fun returnResultSuccess(response: PaymentAppResponse) {
+        val resultIntent = paymentHelper.buildResultIntentSuccess(response)
+        setResult(RESULT_OK, resultIntent)
+        finish()
     }
 
     private fun returnResultError(errorMessage: String? = null) {
@@ -126,12 +143,6 @@ class ExternalPaymentActivity : BaseActivity() {
         )
         val error = errorMessage ?: PaymentErrorHandler.getVietnameseMessage(ErrorType.UNKNOWN_ERROR)
         val resultIntent = paymentHelper.buildResultIntentError(paymentRequest, error)
-        setResult(RESULT_OK, resultIntent)
-        finish()
-    }
-
-    private fun returnResult(response: PaymentAppResponse, errorMessage: String? = null) {
-        val resultIntent = paymentHelper.buildResultIntentError(response, errorMessage)
         setResult(RESULT_OK, resultIntent)
         finish()
     }
@@ -174,8 +185,8 @@ fun ExternalPaymentScreen(
         val tid: String? = account?.terminal?.tid
         val mid: String? = account?.terminal?.mid
         val serial: String? = storageService.getSerial()
-        val driverNumber: String? = paymentRequest.merchantRequestData?.tid
-        val employeeCode: String? = paymentRequest.merchantRequestData?.mid
+        val driverNumber: String? = paymentRequest.merchantRequestData?.mid
+        val employeeCode: String? = paymentRequest.merchantRequestData?.tid
         val employeeName: String? = (paymentRequest.merchantRequestData?.additionalData as? Map<*, *>)
             ?.get("driver_name") as? String
 
@@ -190,8 +201,7 @@ fun ExternalPaymentScreen(
             )
         }
         if (!resultApi.isSuccess()) {
-            val error = "Đăng ký thiết bị thất bại"
-            onFinish(null, error)
+            onFinish(null, resultApi.description)
             return false
         }
         return true
@@ -244,9 +254,12 @@ fun ExternalPaymentScreen(
                             storageService.setPendingPaymentRequest(paymentRequest)
                             isProcessing = false
                             delay(100)
-
-                            if (!registerMerchant(paymentRequest, onFinish)) {
-                                return@launch
+                            if (paymentRequest.action == PaymentAction.SALE.value ||
+                                paymentRequest.action == PaymentAction.CHANGE_PIN.value ||
+                                paymentRequest.action == PaymentAction.CHECK_BALANCE.value) {
+                                if (!registerMerchant(paymentRequest, onFinish)) {
+                                    return@launch
+                                }
                             }
 
                             when (paymentRequest.action) {
@@ -267,7 +280,7 @@ fun ExternalPaymentScreen(
                                             activity.startActivityForResult(paymentIntent, ResultConstants.REQUEST_CODE_PAYMENT)
                                         }
                                         "member" -> {
-                                            val paymentIntent = Intent(context, TransparentPaymentActivity::class.java).apply {
+                                            val paymentIntent = Intent(context, PaymentCardActivity::class.java).apply {
                                                 putExtra("REQUEST_DATA", paymentRequest)
                                                 putExtra("IS_EXTERNAL_PAYMENT", true)
                                             }
@@ -280,8 +293,8 @@ fun ExternalPaymentScreen(
                                     }
                                 }
                                 PaymentAction.REFUND.value -> {
-                                    if (paymentRequest.type.lowercase() != "member") {
-                                        errorMessage = "Refund chỉ hỗ trợ thẻ thành viên"
+                                    if (paymentRequest.type.lowercase() != "member" && paymentRequest.type.lowercase() != "card") {
+                                        errorMessage = "Refund chỉ hỗ trợ thẻ ngân hàng/thẻ thành viên"
                                         onFinish(null, errorMessage)
                                         return@launch
                                     }

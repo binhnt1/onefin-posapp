@@ -98,7 +98,7 @@ class DeviceHelper @Inject constructor(
         return when {
             model.contains("p2") -> DeviceType.SUNMI_P2
             model.contains("p3") -> DeviceType.SUNMI_P3
-            else -> DeviceType.OTHER
+            else -> DeviceType.ANDROID_PHONE
         }
     }
 

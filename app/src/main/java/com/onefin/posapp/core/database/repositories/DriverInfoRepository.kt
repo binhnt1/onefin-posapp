@@ -31,8 +31,7 @@ class DriverInfoRepository @Inject constructor(
             if (serial.isNullOrEmpty()) return errorResult("Serial không được để trống")
             if (driverNumber.isNullOrEmpty()) return errorResult("Driver number không được để trống")
             if (employeeCode.isNullOrEmpty()) return errorResult("Employee code không được để trống")
-
-            val exists = driverInfoService.exists(serial, tid, mid, driverNumber, employeeCode)
+            val exists = driverInfoService.exists(tid, mid, serial, driverNumber, employeeCode)
 
             if (exists) {
                 val existing = driverInfoService.getLatestBySerial(serial)
@@ -41,7 +40,6 @@ class DriverInfoRepository @Inject constructor(
                 }
             }
             return registerAndSave(tid, mid, serial, driverNumber, employeeCode, employeeName)
-
         } catch (e: Exception) {
             return errorResult(e.toString())
         }
@@ -69,12 +67,7 @@ class DriverInfoRepository @Inject constructor(
                 object : TypeToken<Map<String, Any>>() {}.type
             )
 
-            val resultApi = try {
-                apiService.post("/api/card/registerTidMid", mapBody) as ResultApi<*>
-            } catch (e: Exception) {
-                return errorResult("Không thể kết nối đến server: ${e.toString()}")
-            }
-
+            val resultApi = apiService.post("/api/card/registerTidMid", mapBody) as ResultApi<*>
             if (!resultApi.isSuccess()) {
                 return errorResult("Đăng ký thất bại: ${resultApi.description}")
             }
@@ -93,7 +86,6 @@ class DriverInfoRepository @Inject constructor(
 
             if (response.tid.isEmpty()) return errorResult("TID trong response không hợp lệ")
             if (response.mid.isEmpty()) return errorResult("MID trong response không hợp lệ")
-
             val entity = DriverInfoEntity(
                 serial = serial,
                 tid = response.tid,

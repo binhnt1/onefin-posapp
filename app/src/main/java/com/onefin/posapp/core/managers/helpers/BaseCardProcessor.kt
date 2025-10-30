@@ -3,21 +3,21 @@ package com.onefin.posapp.core.managers.helpers
 import android.content.Context
 import android.os.Bundle
 import com.atg.pos.domain.entities.payment.TLVUtil
-import com.onefin.posapp.core.config.CardConstants
 import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.models.data.RequestSale
 import com.onefin.posapp.core.models.enums.CardType
 import com.onefin.posapp.core.utils.CardHelper
-import com.onefin.posapp.core.utils.UtilHelper
 import com.sunmi.pay.hardware.aidl.AidlConstants
 import com.sunmi.pay.hardware.aidlv2.bean.EMVCandidateV2
+import com.sunmi.pay.hardware.aidlv2.bean.PinPadConfigV2
 import com.sunmi.pay.hardware.aidlv2.emv.EMVListenerV2
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
 import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadListenerV2
 import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadOptV2
 import com.sunmi.pay.hardware.aidlv2.readcard.ReadCardOptV2
+import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
 import timber.log.Timber
 
 abstract class BaseCardProcessor(
@@ -26,6 +26,7 @@ abstract class BaseCardProcessor(
     protected val terminal: Terminal?,
     protected val pinPadOpt: PinPadOptV2,
     protected val readCardOpt: ReadCardOptV2,
+    protected val securityOpt: SecurityOptV2,
     protected val cardType: AidlConstants.CardType,
 ) {
     // --- Shared State ---
@@ -35,6 +36,10 @@ abstract class BaseCardProcessor(
     protected var currentAmount: String = "000000000000"
     protected var currentPaymentAppRequest: PaymentAppRequest? = null
     protected lateinit var processingComplete: ((PaymentResult) -> Unit)
+
+    // 🔥 Add these for PIN block storage
+    protected var currentKsn: String? = null
+    protected var currentPinBlock: String? = null
 
     protected abstract fun processTransaction(info: Bundle)
 
@@ -92,76 +97,48 @@ abstract class BaseCardProcessor(
 
     protected fun handleSuccessResult() {
         try {
-            // check payment request
             val request = currentPaymentAppRequest ?: run {
-                processingComplete(
-                    PaymentResult.Error.from(
-                        errorType = PaymentErrorHandler.ErrorType.PAYMENT_REQUEST_NOT_INITIALIZED
-                    )
-                )
+                processingComplete(PaymentResult.Error.from(
+                    errorType = PaymentErrorHandler.ErrorType.PAYMENT_REQUEST_NOT_INITIALIZED
+                ))
                 return
             }
 
-            // check emvTags
             val tagsToRead = arrayOf(
-                "5A", // Application PAN
-                "56", // Track 1 Equivalent Data 🔥 ADDED
-                "57", // Track 2 Equivalent Data
-                "5F24", // Application Expiration Date
-                "5F34", // Application PAN Sequence Number
-                "9F06", // AID
-                "9F26", // Application Cryptogram
-                "9F27", // Cryptogram Information Data
-                "9F10", // Issuer Application Data
-                "9F37", // Unpredictable Number
-                "9F36", // Application Transaction Counter
-                "95",   // Terminal Verification Results
-                "9A",   // Transaction Date
-                "9C",   // Transaction Type
-                "9F02", // Amount, Authorized
-                "9F03", // Amount, Other
-                "5F2A", // Transaction Currency Code
-                "82",   // Application Interchange Profile
-                "9F1A", // Terminal Country Code
-                "9F33", // Terminal Capabilities
-                "9F34", // CVM Results
-                "9F35", // Terminal Type
-                "9F09", // Application Version Number
-                "9F1E", // Interface Device Serial Number
-                "84",   // DF Name
-                "9F41", // Transaction Sequence Counter
-                "50",   // Application Label
-                "5F20", // Cardholder Name
-                "9F0B", // Cardholder Name Extended
-                "5F2D", // Language Preference
+                "5A", "56", "57", "5F24", "5F34", "9F06", "9F26", "9F27",
+                "9F10", "9F37", "9F36", "95", "9A", "9C", "9F02", "9F03",
+                "5F2A", "82", "9F1A", "9F33", "9F34", "9F35", "9F09",
+                "9F1E", "84", "9F41", "50", "5F20", "9F0B", "5F2D"
             )
+
             val emvTagsHex = readEmvTags(tagsToRead) ?: run {
-                processingComplete(
-                    PaymentResult.Error.from(
-                        errorType = PaymentErrorHandler.ErrorType.EMV_DATA_INVALID
-                    )
-                )
+                processingComplete(PaymentResult.Error.from(
+                    errorType = PaymentErrorHandler.ErrorType.EMV_DATA_INVALID
+                ))
                 return
             }
-            val tagsMap = TLVUtil.buildTLVMap(emvTagsHex)
 
-            // DÙNG TLVUtil để parse
+            val tagsMap = TLVUtil.buildTLVMap(emvTagsHex)
+            val cvmResults = tagsMap["9F34"]?.value ?: ""
+
+            Timber.d("📊 CVM Results: $cvmResults")
+            Timber.d("🔐 PIN Block: $currentPinBlock")
+            Timber.d("🔑 KSN: $currentKsn")
+
             val track1 = tagsMap["56"]?.value ?: ""
             val track2 = tagsMap["57"]?.value ?: ""
             val cardData = CardHelper.parseEmvData(emvTagsHex, track1, track2) ?: run {
-                processingComplete(
-                    PaymentResult.Error.from(
-                        errorType = PaymentErrorHandler.ErrorType.EMV_DATA_INVALID
-                    )
-                )
+                processingComplete(PaymentResult.Error.from(
+                    errorType = PaymentErrorHandler.ErrorType.EMV_DATA_INVALID
+                ))
                 return
             }
 
             val requestSale = CardHelper.buildRequestSale(
                 request,
                 RequestSale.Data.Card(
-                    ksn = "",
-                    pin = null,
+                    ksn = currentKsn ?: "",                // ✅ KSN from DUKPT
+                    pin = currentPinBlock,                  // ✅ Encrypted PIN block
                     track2 = track2,
                     track1 = track1,
                     emvData = emvTagsHex,
@@ -173,15 +150,14 @@ abstract class BaseCardProcessor(
                     type = CardHelper.detectBrand(cardData.pan),
                 )
             )
+
             processingComplete(PaymentResult.Success(requestSale))
 
         } catch (e: Exception) {
-            handleError(
-                PaymentResult.Error.from(
-                    PaymentErrorHandler.ErrorType.UNKNOWN_ERROR,
-                    "Exception processing success result: ${e.message}"
-                )
-            )
+            handleError(PaymentResult.Error.from(
+                PaymentErrorHandler.ErrorType.UNKNOWN_ERROR,
+                "Exception: ${e.message}"
+            ))
         }
     }
     protected fun handleError(error: PaymentResult.Error) {
@@ -200,35 +176,6 @@ abstract class BaseCardProcessor(
             putInt("cardType", cardType.value)
             putString("amount", currentAmount)
         }
-    }
-    protected fun logBundle(bundle: Bundle?) {
-        val tag = "MagCard"
-        if (bundle == null) {
-            Timber.tag(tag).d("Bundle is NULL")
-            return
-        }
-
-        Timber.tag(tag).d("=== BUNDLE CONTENT START ===")
-        Timber.tag(tag).d("Bundle size: ${bundle.size()}")
-
-        try {
-            for (key in bundle.keySet()) {
-                @Suppress("DEPRECATION") val value = bundle.get(key)
-                val valueType = value?.javaClass?.simpleName ?: "null"
-                val valueString = when (value) {
-                    is ByteArray -> "ByteArray(${value.size}) = ${UtilHelper.byteArrayToHexString(value)}"
-                    is IntArray -> "IntArray(${value.size}) = ${value.contentToString()}"
-                    is ArrayList<*> -> "ArrayList(${value.size}) = $value"
-                    is String -> "\"$value\""
-                    else -> value.toString()
-                }
-                Timber.tag(tag).d("  [$key] ($valueType) = $valueString")
-            }
-        } catch (e: Exception) {
-            Timber.tag(tag).e(e, "Error reading bundle keys")
-        }
-
-        Timber.tag(tag).d("=== BUNDLE CONTENT END ===")
     }
     protected fun createEmvListener(): EMVListenerV2 {
         return object : EMVListenerV2.Stub() {
@@ -256,12 +203,9 @@ abstract class BaseCardProcessor(
                 tags,
                 outData
             )
-
             if (len > 0) {
-                val tlvHex = outData.copyOf(len).joinToString("") { "%02X".format(it) }
-                tlvHex
+                outData.copyOf(len).joinToString("") { "%02X".format(it) }
             } else {
-                Timber.e("❌ Failed to read tags (len=$len)")
                 null
             }
         } catch (e: Exception) {
@@ -275,7 +219,11 @@ abstract class BaseCardProcessor(
         try {
             val onlineResultStatus = AidlConstants.EMV.OnlineResult.ONLINE_APPROVAL
             val importResult = emvOpt.importOnlineProcStatus(onlineResultStatus, null, null, ByteArray(1))
-            if (importResult < 0) throw Exception("importOnlineProcStatus failed: Code=$importResult")
+            if (importResult < 0) {
+                handleError(PaymentResult.Error.from(
+                    PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
+                    "Exception in onOnlineProc: Code=$importResult"))
+            }
         } catch (e: Exception) {
             handleError(PaymentResult.Error.from(
                 PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
@@ -313,7 +261,10 @@ abstract class BaseCardProcessor(
         Timber.d("✔️ onConfirmationCodeVerified")
     }
     private fun onEmvConfirmCardNo(cardNo: String?) {
-        Timber.d("📊 onConfirmCardNo")
+        Timber.d("📊 onConfirmCardNo: $cardNo")
+        if (!cardNo.isNullOrEmpty()) {
+            cardPanForPin = cardNo
+        }
         try {
             emvOpt.importCardNoStatus(0)
         } catch (e: Exception) {
@@ -366,75 +317,58 @@ abstract class BaseCardProcessor(
         }
     }
     private fun onEmvRequestShowPinPad(pinType: Int, timeoutSeconds: Int) {
-        Timber.d("⌨️ Emv Request Pin Pad")
         val pinPadCallback = object : PinPadListenerV2.Stub() {
-            override fun onPinLength(len: Int) {
-                Timber.d("⌨️ PIN Length: $len")
-            }
-
-            override fun onConfirm(resultCode: Int, pinBlock: ByteArray?) {
-                Timber.d("⌨️ PIN Confirm: Code=$resultCode, BlockSize=${pinBlock?.size ?: 0}")
-                try {
-                    when {
-                        resultCode == 0 && pinBlock != null && pinBlock.isNotEmpty() -> emvOpt.importPinInputStatus(pinType, 0) // Success
-                        resultCode == -3 -> emvOpt.importPinInputStatus(pinType, 2) // Bypass
-                        else -> emvOpt.importPinInputStatus(pinType, if (resultCode == -1) 4 else 3) // Timeout(4) or Fail(3)
-                    }
-                } catch (e: Exception) {
-                    handleError(PaymentResult.Error.from(PaymentErrorHandler.ErrorType.SDK_INIT_FAILED, "Import PIN Confirm failed"))
-                }
-            }
-
             override fun onCancel() {
-                Timber.d("⌨️ PIN Cancelled")
-                try {
-                    emvOpt.importPinInputStatus(pinType, 1)
-                } catch (e: Exception) {
-                    handleError(PaymentResult.Error.from(PaymentErrorHandler.ErrorType.SDK_INIT_FAILED, "Import PIN Cancel failed"))
-                }
+                emvOpt.importPinInputStatus(pinType, 1)
+            }
+
+            override fun onPinLength(len: Int) {
             }
 
             override fun onError(errorCode: Int) {
-                Timber.e("⌨️ PIN Error: $errorCode")
-                try {
+                emvOpt.importPinInputStatus(pinType, 3)
+            }
+
+            override fun onConfirm(resultCode: Int, pinBlock: ByteArray?) {
+                if (resultCode == 0 && pinBlock != null && pinBlock.isNotEmpty()) {
+                    val blockHex = pinBlock.joinToString("") { "%02X".format(it) }
+                    Timber.d("✅ PIN Block: $blockHex")
+
+                    // 🔥 LẤY KSN SAU KHI CONFIRM
+                    val ksnBytes = ByteArray(10)
+                    securityOpt.dukptCurrentKSN(1, ksnBytes)
+                    val ksnHex = ksnBytes.joinToString("") { "%02X".format(it) }
+                    Timber.d("✅ KSN: $ksnHex")
+
+                    currentKsn = ksnHex
+                    currentPinBlock = blockHex
+                    emvOpt.importPinInputStatus(pinType, 0)
+                } else {
                     emvOpt.importPinInputStatus(pinType, 3)
-                } catch (e: Exception) {
-                    handleError(PaymentResult.Error.from(PaymentErrorHandler.ErrorType.SDK_INIT_FAILED, "Import PIN Error failed"))
                 }
             }
         }
-
         try {
-            val pinpadBundle = Bundle().apply {
-                putInt("pinPadType", 0)
-                putInt("pinType", pinType)
-                putBoolean("isOrderNumKey", false)
-                putInt("minInput", 4)
-                putInt("maxInput", 12)
-                putInt("timeout", timeoutSeconds * 1000)
-                putBoolean("isSupportbypass", true)
-                putInt("pinKeyIndex", CardConstants.PIN_KEY_INDEX)
-                putString("pan", cardPanForPin ?: "")
-                putInt("keySystem", 0)
-                putInt("algorithmType", 0)
-                putInt("pinblockFormat", 0)
+            val config = PinPadConfigV2().apply {
+                minInput = 4
+                maxInput = 6
+                keySystem = 1
+                timeout = 60000
+                pinKeyIndex = 1
+                algorithmType = 0
+                pinblockFormat = 0
+                pinPadType = pinType
+                isOrderNumKey = false
+                val panSubstring = cardPanForPin?.substring(
+                    (cardPanForPin?.length ?: 0) - 13,
+                    (cardPanForPin?.length ?: 0) - 1
+                ) ?: ""
+                pan = panSubstring.toByteArray(Charsets.US_ASCII)
             }
-            Timber.d("   Bắt đầu hiển thị PIN Pad (startInputPin)...")
-            val startResult = pinPadOpt.startInputPin(pinpadBundle, pinPadCallback)
-            if (startResult != 0) {
-                Timber.e("   ❌ startInputPin thất bại: Code=$startResult")
-                emvOpt.importPinInputStatus(pinType, 3)
-            } else {
-                Timber.d("   ✅ startInputPin OK.")
-            }
+            pinPadOpt.initPinPad(config, pinPadCallback)  // ← initPinPad!
+
         } catch (e: Exception) {
-            Timber.e(e, "❌ Lỗi nghiêm trọng khi hiển thị PIN Pad")
-            try {
-                emvOpt.importPinInputStatus(pinType, 3)
-            } catch (ignore: Exception) {
-                // Ignore
-            }
-            handleError(PaymentResult.Error.from(PaymentErrorHandler.ErrorType.SDK_INIT_FAILED, "Exception showing PIN Pad: ${e.message}"))
+            emvOpt.importPinInputStatus(pinType, 3)
         }
     }
     private fun onEmvDataStorageProc(tags: Array<out String?>?, values: Array<out String?>?) {
