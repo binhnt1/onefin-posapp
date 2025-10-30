@@ -139,12 +139,6 @@ object MifareUtil {
                 Timber.e("   ❌ Failed to read blocks (0:${block0 != null}, 1:${block1 != null}, 2:${block2 != null})")
                 return null
             }
-
-            Timber.d("   ✅ Read 3 blocks successfully")
-            Timber.d("      Block 0: ${block0.take(32)}...")
-            Timber.d("      Block 1: ${block1.take(32)}...")
-            Timber.d("      Block 2: ${block2.take(32)}...")
-
             MifareData.SectorData(
                 block0 = block0,
                 block1 = block1,

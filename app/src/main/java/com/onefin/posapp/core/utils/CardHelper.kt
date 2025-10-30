@@ -38,6 +38,7 @@ object CardHelper {
             bin8.toIntOrNull()?.let { it in 622126..622925 } == true -> CardBrand.DISCOVER.displayName
             bin6.substring(0, 3).toIntOrNull()?.let { it in 644..649 } == true -> CardBrand.DISCOVER.displayName
             bin6.startsWith("65") -> CardBrand.DISCOVER.displayName
+            bin6.startsWith("1207") -> CardBrand.MEMBER.displayName
             else -> CardBrand.UNKNOWN.displayName
         }
     }

@@ -64,12 +64,15 @@ class CardProcessorManager(
             return
         }
 
-        try {
-            connectSdk(onComplete)
-        } catch (e: Exception) {
-            val error = "Initialize failed: ${e.message}"
-            Timber.tag("Initialize").e("❌ $error")
-            onComplete(false, error)
+        // Run initialization on IO thread to prevent blocking UI
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                connectSdk(onComplete)
+            } catch (e: Exception) {
+                val error = "Initialize failed: ${e.message}"
+                Timber.tag("Initialize").e("❌ $error")
+                onComplete(false, error)
+            }
         }
     }
 
@@ -400,30 +403,50 @@ class CardProcessorManager(
                 override fun onConnectPaySDK() {
                     Timber.tag("SDKConnect").d("✅ SDK Connected")
 
-                    try {
-                        emvOpt = sunmiPayKernel?.mEMVOptV2
-                        pinPadOpt = sunmiPayKernel?.mPinPadOptV2
-                        securityOpt = sunmiPayKernel?.mSecurityOptV2
-                        readCardOpt = sunmiPayKernel?.mReadCardOptV2
+                    // Run initialization on IO thread to avoid blocking UI
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            emvOpt = sunmiPayKernel?.mEMVOptV2
+                            pinPadOpt = sunmiPayKernel?.mPinPadOptV2
+                            securityOpt = sunmiPayKernel?.mSecurityOptV2
+                            readCardOpt = sunmiPayKernel?.mReadCardOptV2
 
-                        if (readCardOpt == null) {
-                            val error = "ReadCardOptV2 not available"
-                            handleError(
-                                PaymentResult.Error.from(
-                                    errorType = PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
-                                    technicalMessage = error
+                            if (readCardOpt == null) {
+                                val error = "ReadCardOptV2 not available"
+                                handleError(
+                                    PaymentResult.Error.from(
+                                        errorType = PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
+                                        technicalMessage = error
+                                    )
                                 )
-                            )
-                            onComplete(false, error)
-                            return
-                        }
+                                onComplete(false, error)
+                                return@launch
+                            }
 
-                        isSdkConnected = true
-                        Timber.tag("SDKConnect").d("📦 Initializing kernel data...")
+                            isSdkConnected = true
+                            Timber.tag("SDKConnect").d("📦 Initializing kernel data...")
 
-                        if (!initializeKernelData()) {
-                            val error = "Failed to initialize kernel data"
+                            if (!initializeKernelData()) {
+                                val error = "Failed to initialize kernel data"
+                                Timber.tag("SDKConnect").e("❌ $error")
+                                handleError(
+                                    PaymentResult.Error.from(
+                                        errorType = PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
+                                        technicalMessage = error
+                                    )
+                                )
+                                onComplete(false, error)
+                                return@launch
+                            }
+
+                            isKernelInitialized = true
+                            Timber.tag("SDKConnect").d("🎉 SDK initialization completed successfully")
+                            onComplete(true, null)
+
+                        } catch (e: Exception) {
+                            val error = "Error in onConnectPaySDK: ${e.message}"
                             Timber.tag("SDKConnect").e("❌ $error")
+                            e.printStackTrace()
                             handleError(
                                 PaymentResult.Error.from(
                                     errorType = PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
@@ -431,24 +454,7 @@ class CardProcessorManager(
                                 )
                             )
                             onComplete(false, error)
-                            return
                         }
-
-                        isKernelInitialized = true
-                        Timber.tag("SDKConnect").d("🎉 SDK initialization completed successfully")
-                        onComplete(true, null)
-
-                    } catch (e: Exception) {
-                        val error = "Error in onConnectPaySDK: ${e.message}"
-                        Timber.tag("SDKConnect").e("❌ $error")
-                        e.printStackTrace()
-                        handleError(
-                            PaymentResult.Error.from(
-                                errorType = PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
-                                technicalMessage = error
-                            )
-                        )
-                        onComplete(false, error)
                     }
                 }
 

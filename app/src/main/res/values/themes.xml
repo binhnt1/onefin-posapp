@@ -7,14 +7,12 @@
         <item name="android:windowLightStatusBar">true</item>
     </style>
 
-    <!-- Splash Theme - Hiển thị ngay khi app khởi động -->
-    <style name="Theme.OnefinPosApp.Splash" parent="Theme.OnefinPosApp">
-        <item name="android:windowBackground">@drawable/splash_background</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowActionBar">false</item>
-        <item name="android:windowFullscreen">false</item>
-        <item name="android:windowContentOverlay">@null</item>
-        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+    <!-- ✅ Splash Screen Theme - Dùng cho HomeActivity -->
+    <style name="Theme.OnefinPosApp.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#FFFFFF</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_animated</item>
+        <item name="windowSplashScreenAnimationDuration">1000</item>
+        <item name="postSplashScreenTheme">@style/Theme.OnefinPosApp</item>
     </style>
 
     <!-- LogoutDialog Theme -->
