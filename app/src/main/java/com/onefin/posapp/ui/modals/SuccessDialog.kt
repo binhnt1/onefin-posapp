@@ -1,5 +1,6 @@
 package com.onefin.posapp.ui.modals
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -10,26 +11,53 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.onefin.posapp.R
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
-fun AlertDialog(
-    content: String,
-    onDismiss: () -> Unit
+fun SuccessDialog(
+    message: String,
+    countdownSeconds: Int = 3,
+    onCountdownComplete: () -> Unit
 ) {
+    var countdown by remember { mutableIntStateOf(countdownSeconds) }
+    val scope = rememberCoroutineScope()
+
+    // Animation cho icon
+    val scale by rememberInfiniteTransition(label = "scale").animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
+    // Countdown timer
+    LaunchedEffect(Unit) {
+        scope.launch {
+            for (i in countdownSeconds downTo 1) {
+                countdown = i
+                delay(1000)
+            }
+            onCountdownComplete()
+        }
+    }
+
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { },
         properties = DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
         )
     ) {
         Surface(
@@ -42,7 +70,7 @@ fun AlertDialog(
                 modifier = Modifier.padding(32.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Icon với background circle
+                // Icon với background circle và animation
                 Box(
                     modifier = Modifier
                         .size(80.dp)
@@ -56,14 +84,16 @@ fun AlertDialog(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
                         tint = Color(0xFF10B981),
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier
+                            .size(48.dp)
+                            .scale(scale)
                     )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    text = stringResource(R.string.notification_title),
+                    text = "Thành công",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF101828),
@@ -73,7 +103,7 @@ fun AlertDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = content,
+                    text = message,
                     fontSize = 14.sp,
                     color = Color(0xFF667085),
                     textAlign = TextAlign.Center,
@@ -82,23 +112,32 @@ fun AlertDialog(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Button(
-                    onClick = onDismiss,
+                // Countdown display
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF10B981)
-                    )
+                        .size(48.dp)
+                        .background(
+                            color = Color(0xFF10B981).copy(alpha = 0.1f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = stringResource(R.string.btn_close),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
+                        text = countdown.toString(),
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF10B981)
                     )
                 }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Tự động đóng sau $countdown giây",
+                    fontSize = 12.sp,
+                    color = Color(0xFF9CA3AF),
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }

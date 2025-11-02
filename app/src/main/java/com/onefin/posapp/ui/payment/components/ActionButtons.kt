@@ -1,137 +1,138 @@
 package com.onefin.posapp.ui.payment.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.onefin.posapp.R
 import com.onefin.posapp.core.models.data.PaymentState
 
 @Composable
 fun ActionButtons(
-    paymentState: PaymentState,
     onCancel: () -> Unit,
-    isPrinting: Boolean = false,
+    isPrinting: Boolean,
+    paymentState: PaymentState,
+    onClose: (() -> Unit)? = null,
     onPrint: (() -> Unit)? = null,
-    onClose: (() -> Unit)? = null
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        when (paymentState) {
-            PaymentState.SUCCESS -> {
-                // 🔥 Sau khi ký xong: hiện 2 nút [In] [Đóng]
-
-                // Nút IN
-                if (onPrint != null) {
-                    Button(
-                        onClick = onPrint,
-                        enabled = !isPrinting,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF16A34A),
-                            disabledContainerColor = Color(0xFF16A34A).copy(alpha = 0.6f)
+        when {
+            paymentState == PaymentState.SUCCESS && onPrint != null -> {
+                // Nút In hóa đơn - màu xanh dương
+                Button(
+                    onClick = onPrint,
+                    enabled = !isPrinting,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF3B82F6),
+                        contentColor = Color.White,
+                        disabledContainerColor = Color(0xFFE5E7EB),
+                        disabledContentColor = Color(0xFF9CA3AF)
+                    ),
+                    // ✨ KHÔNG SHADOW
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp,
+                        disabledElevation = 0.dp
+                    )
+                ) {
+                    if (isPrinting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
                         )
-                    ) {
-                        if (isPrinting) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                stringResource(R.string.button_printing), // ⭐ SONG NGỮ
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        } else {
-                            Text(
-                                stringResource(R.string.button_print_receipt), // ⭐ SONG NGỮ
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
+                        Spacer(modifier = Modifier.width(8.dp))
                     }
+                    Text(
+                        text = if (isPrinting) "Đang in..." else "In hóa đơn",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
 
-                // Nút ĐÓNG
-                if (onClose != null) {
-                    OutlinedButton(
-                        onClick = onClose,
-                        enabled = !isPrinting,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color.White
-                        ),
-                        border = BorderStroke(
-                            width = 2.dp,
-                            brush = SolidColor(Color.White)
-                        )
-                    ) {
-                        Text(
-                            stringResource(R.string.button_close), // ⭐ SONG NGỮ
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                // Nút Đóng - màu xanh lá
+                Button(
+                    onClick = { onClose?.invoke() },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF10B981),
+                        contentColor = Color.White
+                    ),
+                    // ✨ KHÔNG SHADOW
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp
+                    )
+                ) {
+                    Text(
+                        text = "Đóng",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
-
-            PaymentState.ERROR -> {
-                // Khi lỗi: chỉ có nút Đóng
+            paymentState == PaymentState.SUCCESS && onClose != null -> {
+                // Chỉ có nút Đóng - toàn màn hình
+                Button(
+                    onClick = { onClose.invoke() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF10B981),
+                        contentColor = Color.White
+                    ),
+                    // ✨ KHÔNG SHADOW
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp
+                    )
+                ) {
+                    Text(
+                        text = "Đóng",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            else -> {
+                // ✨ NÚT HỦY MÀU VÀNG NHẠT NỔI BẬT
                 Button(
                     onClick = onCancel,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFDC2626)
-                    )
-                ) {
-                    Text(
-                        stringResource(R.string.button_close), // ⭐ SONG NGỮ
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-
-            else -> {
-                OutlinedButton(
-                    onClick = onCancel,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.White
+                        containerColor = Color(0xFFFEF3C7), // Vàng rất nhạt
+                        contentColor = Color(0xFFD97706) // Text màu vàng đậm
                     ),
-                    border = BorderStroke(
-                        width = 2.dp,
-                        brush = androidx.compose.ui.graphics.SolidColor(Color.White)
+                    // ✨ KHÔNG SHADOW
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 0.dp,
+                        pressedElevation = 0.dp
                     )
                 ) {
                     Text(
-                        stringResource(R.string.button_cancel_transaction), // ⭐ SONG NGỮ
+                        text = "Hủy giao dịch",
                         fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold // Đậm hơn để nổi bật
                     )
                 }
             }

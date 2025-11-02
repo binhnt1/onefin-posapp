@@ -7,27 +7,18 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.gson.Gson
@@ -52,8 +43,11 @@ import com.onefin.posapp.core.utils.PrinterHelper
 import com.onefin.posapp.core.utils.ReceiptPrinter
 import com.onefin.posapp.ui.base.BaseActivity
 import com.onefin.posapp.ui.payment.components.ActionButtons
+import com.onefin.posapp.ui.payment.components.CardInfoCard
+import com.onefin.posapp.ui.payment.components.ModernBillCard
 import com.onefin.posapp.ui.payment.components.ModernErrorDialog
 import com.onefin.posapp.ui.payment.components.PinInputBottomSheet
+import com.onefin.posapp.ui.payment.components.PulseStatusCard
 import com.onefin.posapp.ui.payment.components.SignatureBottomSheet
 import dagger.hilt.android.AndroidEntryPoint
 import jakarta.inject.Inject
@@ -93,7 +87,7 @@ class PaymentCardActivity : BaseActivity() {
                     receiptPrinter = receiptPrinter,
                     paymentAppRequest = requestData,
                     onCancel = { cancelTransaction() },
-                    onSuccess = { saleResult -> onSuccess(saleResult, requestData) },
+                    onSuccess = { saleResult -> returnSuccess(saleResult, requestData) },
                 )
             }
         }
@@ -178,13 +172,12 @@ class PaymentCardActivity : BaseActivity() {
         finish()
     }
 
-    private fun onSuccess(saleResult: SaleResultData, originalRequest: PaymentAppRequest) {
+    private fun returnSuccess(saleResult: SaleResultData, originalRequest: PaymentAppRequest) {
         val isExternalFlow = storageService.isExternalPaymentFlow()
 
         if (isExternalFlow) {
-            val pendingRequest = storageService.getPendingPaymentRequest()
-            val requestToUse = pendingRequest ?: originalRequest
-            val response = CardHelper.returnSaleResponse(saleResult, requestToUse)
+            val pendingRequest = storageService.getPendingPaymentRequest() ?: originalRequest
+            val response = CardHelper.returnSaleResponse(saleResult, pendingRequest)
             val resultIntent = paymentHelper.buildResultIntentSuccess(response)
             setResult(RESULT_OK, resultIntent)
             storageService.clearExternalPaymentContext()
@@ -227,11 +220,12 @@ fun PaymentCardScreen(
     var showPinInputDialog by remember { mutableStateOf(false) }
     var showSignatureDialog by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf(context.getString(R.string.payment_initializing)) }
-    var currentRequestSale by remember { mutableStateOf<RequestSale?>(null) }
     var detectedCardInfo by remember { mutableStateOf<RequestSale?>(null) }
     var paymentState by remember { mutableStateOf(PaymentState.INITIALIZING) }
     var timeRemaining by remember { mutableIntStateOf(60) }
     var isCountdownActive by remember { mutableStateOf(false) }
+    var successCountdown by remember { mutableIntStateOf(10) }
+    var isSuccessCountdownActive by remember { mutableStateOf(false) }
     var customerSignature by remember { mutableStateOf<ByteArray?>(null) }
     var pendingSaleResult by remember { mutableStateOf<SaleResultData?>(null) }
     var onPinCancelledCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -251,17 +245,18 @@ fun PaymentCardScreen(
         isPrinting = false
         timeRemaining = 60
         isInitializing = true
+        successCountdown = 10
         showErrorDialog = false
         errorDialogMessage = ""
+        detectedCardInfo = null
         pendingSaleResult = null
         customerSignature = null
         isCountdownActive = false
-        currentRequestSale = null
-        detectedCardInfo = null
         showPinInputDialog = false
         showSignatureDialog = false
-        paymentState = PaymentState.INITIALIZING
+        isSuccessCountdownActive = false
         statusMessage = context.getString(R.string.payment_initializing)
+        paymentState = PaymentState.INITIALIZING
 
         when (deviceType) {
             DeviceType.SUNMI_P2, DeviceType.SUNMI_P3 -> cardProcessorManager?.cancelPayment()
@@ -279,7 +274,6 @@ fun PaymentCardScreen(
 
                     paymentState = PaymentState.CARD_DETECTED
                     statusMessage = context.getString(R.string.payment_card_detected)
-                    currentRequestSale = requestSale
                     detectedCardInfo = requestSale // Save card info persistently
                     delay(1000)
 
@@ -368,13 +362,29 @@ fun PaymentCardScreen(
         }
     }
 
+    LaunchedEffect(isSuccessCountdownActive) {
+        if (isSuccessCountdownActive) {
+            successCountdown = 10
+            while (successCountdown > 0 && isSuccessCountdownActive) {
+                delay(1000)
+                if (isSuccessCountdownActive) {
+                    successCountdown--
+                }
+            }
+            if (successCountdown <= 0 && isSuccessCountdownActive) {
+                // Tự động đóng và trả kết quả
+                pendingSaleResult?.let { saleResult ->
+                    onSuccess(saleResult)
+                }
+            }
+        }
+    }
+
     LaunchedEffect(retryTrigger) {
         isInitializing = true
         paymentState = PaymentState.INITIALIZING
         statusMessage = context.getString(R.string.payment_initializing)
 
-        // Give UI a chance to render the first frame with loading indicator
-        // This ensures the CircularProgressIndicator is drawn before we do any heavy work
         yield() // Let compose render the current state
         delay(50) // Additional small delay to ensure frame is committed
 
@@ -471,11 +481,7 @@ fun PaymentCardScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(Color(0xFF0F172A), Color(0xFF1E293B))
-                )
-            )
+            .background(Color.White)
     ) {
         Column(
             modifier = Modifier
@@ -500,13 +506,16 @@ fun PaymentCardScreen(
             } else {
                 Column(modifier = Modifier.weight(1f)) {
                     PulseStatusCard(
+                        isMemberCard = isMemberCard,
                         paymentState = paymentState,
                         statusMessage = statusMessage,
-                        timeRemaining = if (isCountdownActive) timeRemaining else null,
-                        currentRequestSale = currentRequestSale,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        timeRemaining = when {
+                            isSuccessCountdownActive -> successCountdown
+                            isCountdownActive -> timeRemaining
+                            else -> null
+                        }
                     )
-
                     if (detectedCardInfo != null) {
                         Spacer(modifier = Modifier.height(16.dp))
                         CardInfoCard(requestSale = detectedCardInfo!!)
@@ -523,8 +532,6 @@ fun PaymentCardScreen(
                 onClose = if (paymentState == PaymentState.SUCCESS) {
                     {
                         pendingSaleResult?.let { saleResult ->
-                            val ttsMessage = PaymentTTSHelper.getSuccessTTSMessage(amount)
-                            ttsManager.speak(ttsMessage)
                             onSuccess(saleResult)
                         }
                     }
@@ -613,6 +620,7 @@ fun PaymentCardScreen(
                     customerSignature = signatureData
                     paymentState = PaymentState.SUCCESS
                     statusMessage = context.getString(R.string.payment_signature_confirmed)
+                    isSuccessCountdownActive = true
                 }
             )
         }
@@ -622,10 +630,16 @@ fun PaymentCardScreen(
 @Composable
 private fun InitializingCard(modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = Color(0xFFE5E7EB),
+                shape = RoundedCornerShape(8.dp)
+            ),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.9f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -646,7 +660,7 @@ private fun InitializingCard(modifier: Modifier = Modifier) {
                 text = "Đang khởi tạo thiết bị",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = Color(0xFF111827)
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -654,698 +668,8 @@ private fun InitializingCard(modifier: Modifier = Modifier) {
             Text(
                 text = "Vui lòng chờ...",
                 fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.7f)
+                color = Color(0xFF6B7280)
             )
-        }
-    }
-}
-
-@Composable
-private fun ModernBillCard(
-    amount: Long,
-    isMemberCard: Boolean,
-    billNumber: String?,
-    referenceId: String?,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF1E293B).copy(alpha = 0.9f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Onefin Logo
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(
-                        color = Color(0xFF3B82F6),
-                        shape = RoundedCornerShape(8.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.logo),
-                    contentDescription = "Logo",
-                    modifier = Modifier
-                        .height(24.dp),
-                    contentScale = ContentScale.Fit
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "${amount.toString().replace(Regex("(\\d)(?=(\\d{3})+$)"), "$1,")} đ",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (billNumber != null) {
-                        Text(
-                            text = "Bill: $billNumber",
-                            fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                    }
-                    if (referenceId != null) {
-                        Text(
-                            text = "• Ref: $referenceId",
-                            fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun WaveAnimation(
-    size: Dp,
-    modifier: Modifier = Modifier
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "wave")
-
-    val wave1 by infiniteTransition.animateFloat(
-        initialValue = -20f,
-        targetValue = 20f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "wave1"
-    )
-
-    val wave2 by infiniteTransition.animateFloat(
-        initialValue = -15f,
-        targetValue = 15f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "wave2"
-    )
-
-    val wave3 by infiniteTransition.animateFloat(
-        initialValue = -10f,
-        targetValue = 10f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(3000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "wave3"
-    )
-
-    Box(
-        modifier = modifier.size(size),
-        contentAlignment = Alignment.Center
-    ) {
-        // Card icon
-        Box(
-            modifier = Modifier
-                .size(size * 0.5f)
-                .background(
-                    color = Color(0xFF3B82F6),
-                    shape = RoundedCornerShape(8.dp)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "💳",
-                fontSize = (size.value * 0.25f).sp
-            )
-        }
-
-        // Wave layers
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val centerY = this.size.height / 2
-
-            // Wave 1
-            drawPath(
-                path = createWavePath(this.size, wave1, centerY + 40.dp.toPx()),
-                color = Color(0xFF60A5FA).copy(alpha = 0.3f),
-                style = androidx.compose.ui.graphics.drawscope.Fill
-            )
-
-            // Wave 2
-            drawPath(
-                path = createWavePath(this.size, wave2, centerY + 50.dp.toPx()),
-                color = Color(0xFF60A5FA).copy(alpha = 0.2f),
-                style = androidx.compose.ui.graphics.drawscope.Fill
-            )
-
-            // Wave 3
-            drawPath(
-                path = createWavePath(this.size, wave3, centerY + 60.dp.toPx()),
-                color = Color(0xFF60A5FA).copy(alpha = 0.1f),
-                style = androidx.compose.ui.graphics.drawscope.Fill
-            )
-        }
-    }
-}
-
-private fun createWavePath(size: androidx.compose.ui.geometry.Size, offset: Float, baseY: Float): androidx.compose.ui.graphics.Path {
-    return androidx.compose.ui.graphics.Path().apply {
-        moveTo(0f, baseY + offset)
-
-        val waveLength = size.width / 3
-        for (i in 0..3) {
-            val x = i * waveLength
-            cubicTo(
-                x + waveLength * 0.25f, baseY + offset - 10f,
-                x + waveLength * 0.75f, baseY + offset + 10f,
-                x + waveLength, baseY + offset
-            )
-        }
-
-        lineTo(size.width, size.height)
-        lineTo(0f, size.height)
-        close()
-    }
-}
-
-@Composable
-private fun CardInfoCard(
-    requestSale: RequestSale,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.9f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Card icon
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(
-                        color = Color(0xFF10B981),
-                        shape = RoundedCornerShape(8.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "💳",
-                    fontSize = 28.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                // Card type
-                val cardType = requestSale.data.card.type?.uppercase() ?: "CARD"
-                Text(
-                    text = cardType,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF60A5FA)
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Card number
-                val cardNumber = requestSale.data.card.clearPan
-                Text(
-                    text = formatCardNumber(cardNumber),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    letterSpacing = 1.sp
-                )
-
-                val holderName = requestSale.data.card.holderName
-                val expiryDate = requestSale.data.card.expiryDate
-                if ((holderName != null && holderName.isNotBlank()) || expiryDate.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Holder name
-                        if (holderName != null && holderName.isNotBlank()) {
-                            Text(
-                                text = holderName,
-                                fontSize = 12.sp,
-                                color = Color.White.copy(alpha = 0.9f)
-                            )
-                        }
-
-                        // Separator (chỉ hiển thị khi cả 2 đều có)
-                        if (holderName != null && holderName.isNotBlank() && expiryDate.isNotBlank()) {
-                            Text(
-                                text = "-",
-                                fontSize = 12.sp,
-                                color = Color.White.copy(alpha = 0.7f)
-                            )
-                        }
-
-                        // Expiry date
-                        if (expiryDate.isNotBlank()) {
-                            Text(
-                                text = "HSD: ${formatExpiryDate(expiryDate)}",
-                                fontSize = 12.sp,
-                                color = Color.White.copy(alpha = 0.7f)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CardInfoDisplay(
-    requestSale: RequestSale,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Card icon
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .background(
-                    color = Color(0xFF10B981),
-                    shape = RoundedCornerShape(8.dp)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "✓",
-                fontSize = 40.sp,
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Card type
-        val cardType = requestSale.data.card.type?.uppercase() ?: "CARD"
-        Text(
-            text = cardType,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF60A5FA)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Card number
-        val cardNumber = requestSale.data.card.clearPan
-        Text(
-            text = formatCardNumber(cardNumber),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-            letterSpacing = 2.sp
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Holder name
-        val holderName = requestSale.data.card.holderName
-        if (holderName != null && holderName.isNotBlank()) {
-            Text(
-                text = holderName,
-                fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.9f)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-
-        // Expiry date
-        val expiryDate = requestSale.data.card.expiryDate
-        if (expiryDate.isNotBlank()) {
-            Text(
-                text = "Hết hạn: ${formatExpiryDate(expiryDate)}",
-                fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.7f)
-            )
-        }
-    }
-}
-
-private fun formatCardNumber(cardNumber: String): String {
-    return if (cardNumber.length > 4) {
-        val masked = "**** **** **** ${cardNumber.takeLast(4)}"
-        masked
-    } else {
-        cardNumber
-    }
-}
-
-private fun formatExpiryDate(expiryDate: String): String {
-    return if (expiryDate.length >= 4) {
-        "${expiryDate.substring(0, 2)}/${expiryDate.substring(2)}"
-    } else {
-        expiryDate
-    }
-}
-
-@Composable
-private fun PulseAnimation(
-    icon: String,
-    size: Dp,
-    modifier: Modifier = Modifier
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.5f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scale"
-    )
-
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.2f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
-
-    Box(
-        modifier = modifier.size(size),
-        contentAlignment = Alignment.Center
-    ) {
-        // Outer pulse circles
-        repeat(3) { index ->
-            Box(
-                modifier = Modifier
-                    .size(size * (0.6f + index * 0.2f) * scale)
-                    .background(
-                        color = Color(0xFF3B82F6).copy(alpha = alpha / (index + 1)),
-                        shape = CircleShape
-                    )
-            )
-        }
-
-        // Center icon
-        Box(
-            modifier = Modifier
-                .size(size * 0.4f)
-                .background(
-                    color = Color(0xFF3B82F6),
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = icon,
-                fontSize = (size.value * 0.2f).sp,
-                color = Color.White
-            )
-        }
-    }
-}
-
-@Composable
-private fun PulseStatusCard(
-    paymentState: PaymentState,
-    statusMessage: String,
-    timeRemaining: Int?,
-    currentRequestSale: RequestSale?,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B).copy(alpha = 0.9f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(48.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            when (paymentState) {
-                PaymentState.WAITING_CARD -> {
-                    WaveAnimation(size = 120.dp)
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Text(
-                        text = statusMessage,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        textAlign = TextAlign.Center
-                    )
-                }
-                PaymentState.CARD_DETECTED -> {
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .background(
-                                color = Color(0xFF10B981),
-                                shape = RoundedCornerShape(8.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "✓",
-                            fontSize = 40.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Text(
-                        text = statusMessage,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF10B981),
-                        textAlign = TextAlign.Center
-                    )
-                }
-                PaymentState.PROCESSING -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(80.dp),
-                        color = Color(0xFF60A5FA),
-                        strokeWidth = 6.dp
-                    )
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Text(
-                        text = statusMessage,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        textAlign = TextAlign.Center
-                    )
-                }
-                PaymentState.SUCCESS -> {
-                    SuccessAnimation(size = 120.dp)
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Text(
-                        text = statusMessage,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF10B981),
-                        textAlign = TextAlign.Center
-                    )
-                }
-                else -> {
-                    WaveAnimation(size = 120.dp)
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Text(
-                        text = statusMessage,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-
-            if (timeRemaining != null && timeRemaining > 0) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "Tự động đóng sau ${timeRemaining}s",
-                    fontSize = 14.sp,
-                    color = Color.White.copy(alpha = 0.7f),
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            StepIndicators(paymentState = paymentState)
-        }
-    }
-}
-
-@Composable
-private fun RotatingAnimation(
-    icon: String,
-    size: Dp,
-    modifier: Modifier = Modifier
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "rotate")
-
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "rotation"
-    )
-
-    Box(
-        modifier = modifier.size(size),
-        contentAlignment = Alignment.Center
-    ) {
-        // Rotating circles
-        repeat(3) { index ->
-            Box(
-                modifier = Modifier
-                    .size(size * (0.6f + index * 0.2f))
-                    .graphicsLayer(rotationZ = rotation + index * 120f)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .background(
-                            color = Color(0xFF3B82F6).copy(alpha = 0.3f),
-                            shape = CircleShape
-                        )
-                )
-            }
-        }
-
-        // Center icon
-        Box(
-            modifier = Modifier
-                .size(size * 0.4f)
-                .background(
-                    color = Color(0xFF3B82F6),
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = icon,
-                fontSize = (size.value * 0.2f).sp,
-                color = Color.White
-            )
-        }
-    }
-}
-
-@Composable
-private fun SuccessAnimation(
-    size: Dp,
-    modifier: Modifier = Modifier
-) {
-    val scale = remember { Animatable(0f) }
-
-    LaunchedEffect(Unit) {
-        scale.animateTo(
-            targetValue = 1f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            )
-        )
-    }
-
-    Box(
-        modifier = modifier.size(size),
-        contentAlignment = Alignment.Center
-    ) {
-        // Success circle
-        Box(
-            modifier = Modifier
-                .size(size * 0.8f * scale.value)
-                .background(
-                    color = Color(0xFF10B981),
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "✓",
-                fontSize = (size.value * 0.4f).sp,
-                color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
-}
-
-@Composable
-private fun StepIndicators(
-    paymentState: PaymentState,
-    modifier: Modifier = Modifier
-) {
-    val currentStep = when (paymentState) {
-        PaymentState.WAITING_CARD, PaymentState.INITIALIZING -> 0
-        PaymentState.CARD_DETECTED, PaymentState.PROCESSING -> 1
-        PaymentState.SUCCESS, PaymentState.WAITING_SIGNATURE -> 2
-        else -> 0
-    }
-
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        repeat(3) { index ->
-            Box(
-                modifier = Modifier
-                    .size(12.dp)
-                    .background(
-                        color = if (index <= currentStep) Color(0xFF60A5FA) else Color.White.copy(alpha = 0.3f),
-                        shape = CircleShape
-                    )
-            )
-
-            if (index < 2) {
-                Box(
-                    modifier = Modifier
-                        .width(32.dp)
-                        .height(2.dp)
-                        .background(
-                            color = if (index < currentStep) Color(0xFF60A5FA) else Color.White.copy(alpha = 0.3f)
-                        )
-                )
-            }
         }
     }
 }
@@ -1356,6 +680,8 @@ suspend fun processPayment(apiService: ApiService, requestSale: RequestSale): Re
         val requestBody = mapOf(
             "data" to mapOf(
                 "card" to mapOf(
+                    "tc" to requestSale.data.card.tc,
+                    "aid" to requestSale.data.card.aid,
                     "ksn" to requestSale.data.card.ksn,
                     "pin" to requestSale.data.card.pin,
                     "type" to requestSale.data.card.type,
@@ -1389,17 +715,16 @@ suspend fun processPayment(apiService: ApiService, requestSale: RequestSale): Re
         )
 
         val resultApi = apiService.post("/api/card/sale", requestBody) as ResultApi<*>
-        val saleResultData = gson.fromJson(gson.toJson(resultApi.data), SaleResultData::class.java)
-
-        if (saleResultData != null) {
-            if (saleResultData.status?.code == "00") {
-                Result.success(saleResultData)
-            } else {
-                Result.failure(Exception(saleResultData.status?.message))
-            }
-        } else {
-            Result.failure(Exception("API returned null data"))
-        }
+        if (resultApi.isSuccess()) {
+            val saleResultData = gson.fromJson(gson.toJson(resultApi.data), SaleResultData::class.java)
+            if (saleResultData != null) {
+                if (saleResultData.status?.code == "00") {
+                    Result.success(saleResultData)
+                } else {
+                    Result.failure(Exception(saleResultData.status?.message))
+                }
+            } else Result.failure(Exception("Dữ liệu trả về không hợp lệ"))
+        } else Result.failure(Exception(resultApi.description))
     } catch (e: Exception) {
         Result.failure(e)
     }

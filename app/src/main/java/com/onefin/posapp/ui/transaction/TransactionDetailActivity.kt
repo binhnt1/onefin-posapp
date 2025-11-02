@@ -4,32 +4,45 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.gson.Gson
 import com.onefin.posapp.R
 import com.onefin.posapp.core.models.Account
 import com.onefin.posapp.core.models.ResultApi
 import com.onefin.posapp.core.models.Transaction
+import com.onefin.posapp.core.models.data.VoidResultData
 import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.PrinterHelper
 import com.onefin.posapp.core.utils.ReceiptPrinter
+import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.ui.base.BaseActivity
+import com.onefin.posapp.ui.components.PinInputSheet
+import com.onefin.posapp.ui.modals.ProcessingDialog
+import com.onefin.posapp.ui.modals.SuccessDialog
+import com.onefin.posapp.ui.payment.components.ModernErrorDialog
+import com.onefin.posapp.ui.settlement.SettlementActivity
 import com.onefin.posapp.ui.theme.PosAppTheme
 import com.onefin.posapp.ui.transaction.components.SendEmailSheet
 import com.onefin.posapp.ui.transaction.components.TransactionDetailContent
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -76,15 +89,21 @@ fun TransactionDetailScreen(
 ) {
     var transaction by remember { mutableStateOf<Transaction?>(null) }
     var isLoading by remember { mutableStateOf(false) }
-    var isPrinting by remember { mutableStateOf(false) }
-    var isCancelling by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var notes by remember { mutableStateOf("") }
     var isEnabled by remember { mutableStateOf(true) }
     var showEmailSheet by remember { mutableStateOf(false) }
-    var showCancelDialog by remember { mutableStateOf(false) }
-    val customGreenColor = Color(0xFF16A34A)
-    val customRedColor = Color(0xFFDC2626)
+    var showPinSheet by remember { mutableStateOf(false) }
+    var showProcessingDialog by remember { mutableStateOf(false) }
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
+    var errorDialogMessage by remember { mutableStateOf("") }
+    var apiErrorCode by remember { mutableStateOf<String?>(null) }
+    var isCancelSuccess by remember { mutableStateOf(false) }
+
+    val customGreenColor = Color(0xFF10B981)
+    val customRedColor = Color(0xFFEF4444)
+
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var account by remember { mutableStateOf<Account?>(null) }
@@ -94,6 +113,12 @@ fun TransactionDetailScreen(
     val errorPrinterNotReady = stringResource(id = R.string.error_printer_not_ready)
     val successPrintReceipt = stringResource(id = R.string.success_print_receipt)
     val errorPrintReceiptFailed = stringResource(id = R.string.error_print_receipt_failed)
+    val successMessage = stringResource(id = R.string.success_cancel_transaction)
+
+    // Determine password length based on transaction type
+    val passwordLength = remember(transaction) {
+        if (transaction?.formType ==  1) 4 else if (transaction?.formType == 3) 6 else 0
+    }
 
     LaunchedEffect(Unit) {
         account = storageService.getAccount()
@@ -105,9 +130,9 @@ fun TransactionDetailScreen(
             errorMessage = null
 
             try {
+                val gson = Gson()
                 val endpoint = "/api/transaction/$transactionId"
                 val resultApi = apiService.get(endpoint, emptyMap()) as ResultApi<*>
-                val gson = com.google.gson.Gson()
                 val jsonString = gson.toJson(resultApi.data)
                 transaction = gson.fromJson(jsonString, Transaction::class.java)
             } catch (e: Exception) {
@@ -118,166 +143,250 @@ fun TransactionDetailScreen(
         }
     }
 
+    // Function to call Cancel/Void API
+    suspend fun callCancelAPI(password: String): Result<VoidResultData> {
+        delay(1000)
+        return try {
+            val gson = Gson()
+            val requestId = UtilHelper.generateRequestId()
+            val body = mapOf(
+                "requestId" to requestId,
+                "data" to mapOf(
+                    "originalTransId" to (transaction?.transactionId ?: ""),
+                    "payment" to mapOf(
+                        "currency" to "VND",
+                        "transAmount" to (transaction?.totalTransAmt ?: 0),
+                    ),
+                ),
+                "refundapproval" to password
+            )
+
+            val resultApi = apiService.post("/api/card/void", body) as ResultApi<*>
+            if (resultApi.isSuccess()) {
+                val voidResultData = gson.fromJson(gson.toJson(resultApi.data), VoidResultData::class.java)
+                if (voidResultData != null) {
+                    if (voidResultData.status?.code == "00") {
+                        Result.success(voidResultData)
+                    } else {
+                        Result.failure(Exception(voidResultData.status?.message))
+                    }
+                } else Result.failure(Exception("Dữ liệu trả về không hợp lệ"))
+            } else {
+                Result.failure(Exception(resultApi.description))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     Scaffold(
         snackbarHost = {
             SnackbarHost(
                 hostState = snackbarHostState,
                 snackbar = { data ->
-                    Snackbar(
-                        snackbarData = data,
-                        containerColor = if (data.visuals.message.contains("thành công") || data.visuals.message.contains("successfully"))
-                            customGreenColor
-                        else
-                            customRedColor,
-                        contentColor = Color.White,
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.padding(16.dp)
-                    )
+                    Card(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .shadow(8.dp, RoundedCornerShape(16.dp)),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (data.visuals.message.contains("thành công") ||
+                                data.visuals.message.contains("successfully")
+                            )
+                                customGreenColor
+                            else
+                                customRedColor
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (data.visuals.message.contains("thành công") ||
+                                    data.visuals.message.contains("successfully")
+                                )
+                                    Icons.Default.CheckCircle
+                                else
+                                    Icons.Default.Error,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = data.visuals.message,
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             )
         },
         topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Text(
-                            stringResource(id = R.string.title_transaction_detail),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBackPressed) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = stringResource(id = R.string.content_desc_back)
+            Surface(
+                shadowElevation = 4.dp,
+                color = Color.White
+            ) {
+                Column {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                stringResource(id = R.string.title_transaction_detail),
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF111827)
                             )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White,
-                        titleContentColor = Color.Black
+                        },
+                        navigationIcon = {
+                            IconButton(
+                                onClick = onBackPressed,
+                                modifier = Modifier
+                                    .padding(8.dp)
+                                    .clip(CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(id = R.string.content_desc_back),
+                                    tint = Color(0xFF111827)
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.White,
+                            titleContentColor = Color(0xFF111827)
+                        )
                     )
-                )
-                HorizontalDivider(
-                    thickness = 1.dp,
-                    color = Color(0xFFE5E7EB)
-                )
+                }
             }
         },
         bottomBar = {
-            val showSendAndPrint = transaction != null && transaction!!.showButtons()
-            val allowCancel = account?.terminal?.systemConfig?.allowCancel == true
+            // Ẩn nút nếu đã hủy thành công
+            if (!isCancelSuccess) {
+                val showSendAndPrint = transaction != null && transaction!!.showButtons()
+                val allowCancel =
+                    account?.terminal?.systemConfig?.allowCancel == true && (transaction?.processStatus == 0 || transaction?.processStatus == 1)
 
-            if (showSendAndPrint || allowCancel) {
-                Surface(
-                    shadowElevation = 8.dp,
-                    color = Color.White
-                ) {
-                    Row(
+                if (showSendAndPrint || allowCancel) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            .background(Color(0xFFE5E7EB))
+                            .padding(top = 1.dp)
+                            .background(Color.White)
+                            .padding(20.dp)
                     ) {
-                        if (allowCancel) {
-                            OutlinedButton(
-                                onClick = { showCancelDialog = true },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = customRedColor
-                                ),
-                                border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
-                                    width = 1.dp,
-                                    brush = SolidColor(customRedColor)
-                                ),
-                                enabled = !isCancelling
-                            ) {
-                                if (isCancelling) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
-                                        color = customRedColor,
-                                        strokeWidth = 2.dp
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            if (allowCancel) {
+                                OutlinedButton(
+                                    onClick = { showPinSheet = true },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(56.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = customRedColor
+                                    ),
+                                    border = ButtonDefaults.outlinedButtonBorder(enabled = true).copy(
+                                        width = 1.dp
                                     )
-                                } else {
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = stringResource(id = R.string.btn_cancel),
                                         fontSize = 16.sp,
-                                        fontWeight = FontWeight.Medium
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 }
                             }
-                        }
 
-                        if (showSendAndPrint) {
-                            OutlinedButton(
-                                onClick = { showEmailSheet = true },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = customGreenColor
-                                ),
-                                enabled = isEnabled,
-                                border = ButtonDefaults.outlinedButtonBorder(enabled = isEnabled).copy(
-                                    width = 1.dp,
-                                    brush = SolidColor(customGreenColor)
-                                )
-                            ) {
-                                Text(
-                                    text = stringResource(id = R.string.btn_send_bill),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-
-                            Button(
-                                onClick = {
-                                    scope.launch {
-                                        isPrinting = true
-                                        if (account == null) {
-                                            snackbarHostState.showSnackbar(errorNoAccountInfo)
-                                            isPrinting = false
-                                            return@launch
-                                        }
-
-                                        if (!printerHelper.waitForReady(timeoutMs = 3000)) {
-                                            snackbarHostState.showSnackbar(errorPrinterNotReady)
-                                            isPrinting = false
-                                            return@launch
-                                        }
-
-                                        val result = receiptPrinter.printReceipt(
-                                            transaction = transaction!!,
-                                            terminal = account!!.terminal
+                            if (showSendAndPrint) {
+                                OutlinedButton(
+                                    onClick = { showEmailSheet = true },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(56.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = customGreenColor
+                                    ),
+                                    enabled = isEnabled,
+                                    border = ButtonDefaults.outlinedButtonBorder(enabled = isEnabled)
+                                        .copy(
+                                            width = 1.dp
                                         )
+                                ) {
+                                    Text(
+                                        text = stringResource(id = R.string.btn_send_bill),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
 
-                                        if (result.isSuccess) {
-                                            snackbarHostState.showSnackbar(successPrintReceipt)
-                                        } else {
-                                            snackbarHostState.showSnackbar(errorPrintReceiptFailed.format(result.exceptionOrNull()?.message ?: ""))
+                                Button(
+                                    onClick = {
+                                        scope.launch {
+                                            showProcessingDialog = true
+
+                                            if (account == null) {
+                                                showProcessingDialog = false
+                                                snackbarHostState.showSnackbar(errorNoAccountInfo)
+                                                return@launch
+                                            }
+
+                                            if (!printerHelper.waitForReady(timeoutMs = 3000)) {
+                                                showProcessingDialog = false
+                                                snackbarHostState.showSnackbar(errorPrinterNotReady)
+                                                return@launch
+                                            }
+
+                                            val result = receiptPrinter.printReceipt(
+                                                transaction = transaction!!,
+                                                terminal = account!!.terminal
+                                            )
+
+                                            showProcessingDialog = false
+
+                                            if (result.isSuccess) {
+                                                snackbarHostState.showSnackbar(successPrintReceipt)
+                                            } else {
+                                                snackbarHostState.showSnackbar(
+                                                    errorPrintReceiptFailed.format(
+                                                        result.exceptionOrNull()?.message ?: ""
+                                                    )
+                                                )
+                                            }
                                         }
-                                        isPrinting = false
-                                    }
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = customGreenColor
-                                ),
-                                enabled = !isPrinting
-                            ) {
-                                Text(
-                                    text = stringResource(id = R.string.btn_print_receipt),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(56.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = customGreenColor
+                                    )
+                                ) {
+                                    Text(
+                                        text = stringResource(id = R.string.btn_print_receipt),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                             }
                         }
                     }
@@ -289,7 +398,14 @@ fun TransactionDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color(0xFFF9FAFB))
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFFF9FAFB),
+                            Color(0xFFFFFFFF)
+                        )
+                    )
+                )
         ) {
             when {
                 isLoading -> {
@@ -297,21 +413,61 @@ fun TransactionDetailScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = Color(0xFF16A34A))
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = customGreenColor,
+                                strokeWidth = 3.dp,
+                                modifier = Modifier.size(48.dp)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Đang tải...",
+                                fontSize = 14.sp,
+                                color = Color(0xFF6B7280),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
+
                 errorMessage != null -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = errorMessage ?: "",
-                            color = Color(0xFFDC2626),
-                            fontSize = 14.sp
-                        )
+                        Card(
+                            modifier = Modifier
+                                .padding(24.dp)
+                                .shadow(4.dp, RoundedCornerShape(16.dp)),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFFEE2E2)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(20.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Error,
+                                    contentDescription = null,
+                                    tint = customRedColor,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(
+                                    text = errorMessage ?: "",
+                                    color = customRedColor,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
                     }
                 }
+
                 transaction != null -> {
                     TransactionDetailContent(
                         transaction = transaction!!,
@@ -323,66 +479,99 @@ fun TransactionDetailScreen(
         }
     }
 
-    if (showCancelDialog) {
-        val successMessage = stringResource(id = R.string.success_cancel_transaction)
-        val unknownError = stringResource(id = R.string.error_unknown)
-        val failedMessage = stringResource(id = R.string.error_cancel_transaction_failed)
-        AlertDialog(
-            onDismissRequest = { showCancelDialog = false },
-            title = { Text(stringResource(id = R.string.dialog_cancel_transaction_title)) },
-            text = { Text(stringResource(id = R.string.dialog_cancel_transaction_message)) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            isCancelling = true
-                            showCancelDialog = false
-                            try {
-                                val endpoint = "/api/transaction/cancel"
-                                val body = mapOf("OrgRefNo" to transaction!!.transactionId)
-                                apiService.post(endpoint, body)
+    // PIN Input Sheet for Cancel Transaction
+    if (showPinSheet && transaction != null) {
+        PinInputSheet(
+            title = "Nhập mật khẩu hủy giao dịch",
+            subtitle = "Mật khẩu có $passwordLength chữ số",
+            pinLength = passwordLength,
+            isLoading = showProcessingDialog,
+            tipText = "Mật khẩu hủy giao dịch khác với mã PIN thẻ",
+            onComplete = { password ->
+                scope.launch {
+                    showPinSheet = false
+                    showProcessingDialog = true
+                    val result = callCancelAPI(password)
 
-                                snackbarHostState.showSnackbar(successMessage)
-                                onBackPressed()
-                            } catch (e: Exception) {
-                                val errorMsg = e.message ?: unknownError
-                                snackbarHostState.showSnackbar(failedMessage.format(errorMsg))
-                            } finally {
-                                isCancelling = false
-                            }
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = customRedColor)
-                ) {
-                    Text(stringResource(id = R.string.btn_confirm))
+                    result.onSuccess {
+                        showProcessingDialog = false
+                        isCancelSuccess = true
+                        showSuccessDialog = true
+                    }
+
+                    result.onFailure { error ->
+                        showProcessingDialog = false
+                        apiErrorCode = "API_ERROR"
+                        errorDialogMessage = error.message ?: "Hủy giao dịch thất bại"
+                        showErrorDialog = true
+                    }
                 }
             },
-            dismissButton = {
-                OutlinedButton(onClick = { showCancelDialog = false }) {
-                    Text(stringResource(id = R.string.btn_dismiss))
-                }
+            onDismiss = {
+                showPinSheet = false
             }
         )
     }
 
+    // Success Dialog with Countdown
+    if (showSuccessDialog) {
+        SuccessDialog(
+            message = successMessage,
+            countdownSeconds = 3,
+            onCountdownComplete = {
+                showSuccessDialog = false
+                SettlementActivity.shouldRefresh = true
+                TransactionActivity.shouldRefresh = true
+                onBackPressed()
+            }
+        )
+    }
+
+    // Error Dialog
+    if (showErrorDialog) {
+        ModernErrorDialog(
+            message = errorDialogMessage,
+            errorCode = apiErrorCode,
+            onRetry = {
+                showErrorDialog = false
+                showPinSheet = true
+            },
+            onCancel = {
+                showErrorDialog = false
+            }
+        )
+    }
+
+    if (showProcessingDialog && !showPinSheet) {
+        ProcessingDialog()
+    }
+
     if (showEmailSheet && transaction != null) {
-        val successMessage = stringResource(id = R.string.success_send_email)
-        val failedMessage = stringResource(id = R.string.error_send_email_failed)
+        val successEmailMessage = stringResource(id = R.string.success_send_email)
+        val failedEmailMessage = stringResource(id = R.string.error_send_email_failed)
         SendEmailSheet(
-            transactionId = transaction!!.transactionId,
+            transactionId = transaction?.transactionId ?: "",
             apiService = apiService,
             storageService = storageService,
-            onDismiss = { showEmailSheet = false },
+            onDismiss = {
+                showEmailSheet = false
+            },
+            onProcessingStart = {
+                showProcessingDialog = true
+            },
+            onProcessingEnd = {
+                showProcessingDialog = false
+            },
             onSuccess = {
                 showEmailSheet = false
                 scope.launch {
-                    snackbarHostState.showSnackbar(successMessage)
+                    snackbarHostState.showSnackbar(successEmailMessage)
                 }
             },
             onError = { error ->
                 showEmailSheet = false
                 scope.launch {
-                    snackbarHostState.showSnackbar(failedMessage.format(error))
+                    snackbarHostState.showSnackbar(failedEmailMessage.format(error))
                 }
             }
         )

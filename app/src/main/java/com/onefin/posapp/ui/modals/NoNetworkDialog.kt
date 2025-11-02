@@ -90,7 +90,7 @@ fun NoNetworkDialog(
                 Text(
                     text = stringResource(R.string.network_dialog_checking),
                     fontSize = 12.sp,
-                    color = Color(0xFF9CA3AF)
+                    color = Color(0xFF3B82F6)
                 )
             }
         }

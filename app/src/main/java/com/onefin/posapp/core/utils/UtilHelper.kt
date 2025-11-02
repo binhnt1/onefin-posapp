@@ -1,6 +1,10 @@
 package com.onefin.posapp.core.utils
 
 import androidx.compose.ui.graphics.Color
+import com.google.gson.Gson
+import com.google.gson.JsonObject
+import com.google.gson.reflect.TypeToken
+import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.StatusInfo
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -8,11 +12,23 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
 import kotlin.collections.joinToString
 import kotlin.random.Random
 
 object UtilHelper {
 
+    fun getDayOfWeek(dateString: String): Int {
+        return try {
+            val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+            val date = sdf.parse(dateString)
+            val calendar = Calendar.getInstance()
+            calendar.time = date ?: Date()
+            calendar.get(Calendar.DAY_OF_WEEK)
+        } catch (e: Exception) {
+            1 // Default to Sunday
+        }
+    }
     fun maskCardNumber(cardNumber: String?): String {
         if (cardNumber.isNullOrEmpty())
             return ""
@@ -94,10 +110,20 @@ object UtilHelper {
             )
         }
     }
-
+    fun formatExpiryDate(expiryDate: String): String {
+        return if (expiryDate.length >= 4) {
+            "${expiryDate.substring(0, 2)}/${expiryDate.substring(2)}"
+        } else {
+            expiryDate
+        }
+    }
     fun getTodayDate(): String {
         val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
         return sdf.format(Date())
+    }
+
+    fun generateRequestId(): String {
+        return UUID.randomUUID().toString().replace("-", "")
     }
 
     fun getYesterdayDate(): String {
@@ -157,6 +183,86 @@ object UtilHelper {
             str.toIntOrNull()?.toByte() ?: 0.toByte()
         } catch (e: Exception) {
             0.toByte()
+        }
+    }
+
+    fun toMapOrNull(obj: Any?): Map<String, Any>? {
+        return when (obj) {
+            null -> null
+            is String -> {
+                try {
+                    Gson().fromJson(
+                        obj,
+                        object : TypeToken<Map<String, Any>>() {}.type
+                    )
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            is Map<*, *> -> {
+                try {
+                    obj.entries.associate { (key, value) ->
+                        (key as? String ?: return null) to (value ?: return null)
+                    }
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            else -> null
+        }
+    }
+
+    fun toPaymentAppRequestOrNull(data: Any?): PaymentAppRequest? {
+        return try {
+            val gson = Gson()
+            when (data) {
+                null -> null
+                is PaymentAppRequest -> data
+                is String -> {
+                    parsePaymentAppRequest(data)
+                }
+                is Map<*, *> -> {
+                    val json = gson.toJson(data)
+                    parsePaymentAppRequest(json)
+                }
+                else -> {
+                    val json = gson.toJson(data)
+                    parsePaymentAppRequest(json)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+    private fun parsePaymentAppRequest(jsonString: String): PaymentAppRequest? {
+        return try {
+            // Parse to JsonObject first
+            val gson = Gson()
+            val jsonObject = gson.fromJson(jsonString, JsonObject::class.java)
+
+            // Check if merchant_request_data is a JSON string that needs parsing
+            if (jsonObject.has("merchant_request_data")) {
+                val merchantData = jsonObject.get("merchant_request_data")
+
+                // If it's a string, parse it to JsonObject
+                if (merchantData.isJsonPrimitive && merchantData.asJsonPrimitive.isString) {
+                    try {
+                        val merchantDataString = merchantData.asString
+                        val merchantDataObject = gson.fromJson(merchantDataString, JsonObject::class.java)
+                        jsonObject.add("merchant_request_data", merchantDataObject)
+                    } catch (e: Exception) {
+                        // If parsing fails, keep original string
+                        e.printStackTrace()
+                    }
+                }
+            }
+
+            // Now parse to PaymentAppRequest
+            gson.fromJson(jsonObject, PaymentAppRequest::class.java)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 }

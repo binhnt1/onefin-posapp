@@ -34,7 +34,9 @@ fun TransactionList(
 
     LazyColumn(
         state = listState,
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .background(Color.White)
+            .fillMaxSize()
     ) {
         groupedTransactions.forEach { (date, transactionsForDate) ->
             // Date header - Màu #F0F9FF

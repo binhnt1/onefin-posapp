@@ -6,6 +6,7 @@ import android.database.MatrixCursor
 import android.net.Uri
 import com.google.gson.Gson
 import com.onefin.posapp.core.models.ResultApi
+import com.onefin.posapp.core.models.data.SaleResultData
 import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.services.StorageService
 import dagger.hilt.EntryPoint
@@ -13,9 +14,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.runBlocking
-import timber.log.Timber
 import androidx.core.net.toUri
-import com.onefin.posapp.core.models.data.SaleResultData
 
 class TransactionProvider : ContentProvider() {
 
@@ -68,7 +67,6 @@ class TransactionProvider : ContentProvider() {
     }
 
     override fun onCreate(): Boolean {
-        Timber.tag("TransactionProvider").d("Provider created")
         return true
     }
 
@@ -79,19 +77,15 @@ class TransactionProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
         sortOrder: String?
     ): Cursor? {
-        Timber.tag("TransactionProvider").d("Query called with URI: $uri")
-
         return when (uriMatcher.match(uri)) {
             TRANS_ID -> {
                 val billNumber = uri.lastPathSegment
                 if (billNumber == null) {
-                    Timber.tag("TransactionProvider").e("Bill number is null")
                     return createErrorCursor("Bill number is required")
                 }
                 queryTransaction(billNumber)
             }
             else -> {
-                Timber.tag("TransactionProvider").e("Unknown URI: $uri")
                 createErrorCursor("Invalid URI")
             }
         }
@@ -105,6 +99,7 @@ class TransactionProvider : ContentProvider() {
     ): Int {
         TODO("Not yet implemented")
     }
+
     override fun delete(
         p0: Uri,
         p1: String?,
@@ -112,6 +107,7 @@ class TransactionProvider : ContentProvider() {
     ): Int {
         TODO("Not yet implemented")
     }
+
     override fun getType(uri: Uri): String? {
         return when (uriMatcher.match(uri)) {
             TRANS_ID -> "vnd.android.cursor.item/vnd.$AUTHORITY.$PATH_TRANS_ID"
@@ -122,58 +118,112 @@ class TransactionProvider : ContentProvider() {
     override fun insert(p0: Uri, p1: ContentValues?): Uri? {
         TODO("Not yet implemented")
     }
+
     private fun queryTransaction(billNumber: String): Cursor {
         val cursor = MatrixCursor(arrayOf(COLUMN_MEMBER_RESPONSE_DATA))
 
         try {
-            Timber.tag("TransactionProvider").d("Querying transaction: $billNumber")
-
             // Check if user is logged in
             val account = storageService.getAccount()
             if (account == null) {
-                Timber.tag("TransactionProvider").e("User not logged in")
-                cursor.addRow(arrayOf(createErrorJson("User not logged in")))
+                cursor.addRow(arrayOf(createErrorJson("Vui lòng đăng nhập để truy cập")))
                 return cursor
             }
 
             // Query transaction from API
-            val transaction = runBlocking {
+            val saleResult = runBlocking {
                 try {
-                    val billNumberNew = "PS0000005068"
-                    val endpoint = "/api/card/transaction/$billNumberNew"
+                    val endpoint = "/api/card/transaction/$billNumber"
                     val resultApi = apiService.get(endpoint, emptyMap()) as ResultApi<*>
-                    val transactionJson = gson.toJson(resultApi.data)
-                    gson.fromJson(transactionJson, SaleResultData::class.java)
+                    if (resultApi.isSuccess()) {
+                        val transactionJson = gson.toJson(resultApi.data)
+                        gson.fromJson(transactionJson, SaleResultData::class.java)
+                    } else {
+                        null
+                    }
                 } catch (e: Exception) {
-                    Timber.tag("TransactionProvider").e(e, "Failed to query transaction")
                     null
                 }
             }
 
-            if (transaction != null) {
-                // Return transaction as JSON
-                val responseJson = gson.toJson(transaction)
-                cursor.addRow(arrayOf(responseJson))
-                Timber.tag("TransactionProvider").d("Transaction found: $billNumber")
-            } else {
-                // Transaction not found
-                cursor.addRow(arrayOf(createErrorJson("Transaction not found")))
-                Timber.tag("TransactionProvider").w("Transaction not found: $billNumber")
-            }
+            if (saleResult != null) {
+                try {
+                    // Build response map directly without parsing to PaymentAppRequest
+                    val responseMap = mutableMapOf<String, Any?>()
 
+                    // Extract type and action from requestData
+                    val requestDataMap = when (val requestData = saleResult.requestData) {
+                        is String -> {
+                            @Suppress("UNCHECKED_CAST")
+                            gson.fromJson(requestData, Map::class.java) as? Map<String, Any?>
+                        }
+                        else -> {
+                            val json = gson.toJson(requestData)
+                            @Suppress("UNCHECKED_CAST")
+                            gson.fromJson(json, Map::class.java) as? Map<String, Any?>
+                        }
+                    } ?: emptyMap()
+
+                    responseMap["type"] = requestDataMap["type"] ?: "card"
+                    responseMap["action"] = requestDataMap["action"] ?: 1
+
+                    // Build payment_response_data
+                    val paymentResponseData = mutableMapOf<String, Any?>()
+                    paymentResponseData["status"] = saleResult.status?.code ?: "99"
+                    paymentResponseData["description"] = saleResult.status?.message
+                    paymentResponseData["ref_no"] = saleResult.data?.refNo
+                    paymentResponseData["transaction_id"] = saleResult.header?.transId
+                    paymentResponseData["transaction_time"] = saleResult.header?.transmitsDateTime
+                    paymentResponseData["amount"] = saleResult.data?.totalAmount?.toLongOrNull() ?: 0L
+                    paymentResponseData["ccy"] = saleResult.data?.currency ?: "704"
+
+                    // Extract merchant data if exists
+                    val merchantRequestData = requestDataMap["merchant_request_data"]
+                    val merchantDataMap = when (merchantRequestData) {
+                        is String -> {
+                            @Suppress("UNCHECKED_CAST")
+                            gson.fromJson(merchantRequestData, Map::class.java) as? Map<String, Any?>
+                        }
+                        is Map<*, *> -> {
+                            @Suppress("UNCHECKED_CAST")
+                            merchantRequestData as? Map<String, Any?>
+                        }
+                        else -> null
+                    }
+
+                    merchantDataMap?.let { merchantData ->
+                        paymentResponseData["bill_number"] = merchantData["bill_number"]
+                        paymentResponseData["reference_id"] = merchantData["reference_id"]
+                        paymentResponseData["additional_data"] = merchantData["additional_data"]
+                        paymentResponseData["tip"] = merchantData["tip"]
+                        paymentResponseData["tid"] = merchantData["tid"]
+                        paymentResponseData["mid"] = merchantData["mid"]
+                    }
+
+                    responseMap["payment_response_data"] = paymentResponseData
+
+                    val responseJson = gson.toJson(responseMap)
+                    cursor.addRow(arrayOf(responseJson))
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    cursor.addRow(arrayOf(createErrorJson("Lỗi xử lý dữ liệu: ${e.message}")))
+                }
+            } else {
+                cursor.addRow(arrayOf(createErrorJson("Giao dịch không tồn tại")))
+            }
         } catch (e: Exception) {
-            Timber.tag("TransactionProvider").e(e, "Error querying transaction")
             cursor.addRow(arrayOf(createErrorJson("Error: ${e.message}")))
         }
-
         return cursor
     }
+
     private fun createErrorJson(errorMessage: String): String {
         return gson.toJson(mapOf(
             "status" to "error",
             "message" to errorMessage
         ))
     }
+
     private fun createErrorCursor(errorMessage: String): Cursor {
         val cursor = MatrixCursor(arrayOf(COLUMN_MEMBER_RESPONSE_DATA))
         cursor.addRow(arrayOf(createErrorJson(errorMessage)))

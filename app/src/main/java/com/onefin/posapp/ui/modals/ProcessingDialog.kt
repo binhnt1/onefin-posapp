@@ -1,5 +1,9 @@
 package com.onefin.posapp.ui.modals
 
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +26,45 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.onefin.posapp.ui.base.BaseActivity
+import com.onefin.posapp.ui.theme.PosAppTheme
+
+class ProcessingActivity : BaseActivity() {
+
+    companion object {
+        private var currentInstance: ProcessingActivity? = null
+
+        fun show(context: Context) {
+            val intent = Intent(context, ProcessingActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        }
+
+        fun dismiss() {
+            currentInstance?.finish()
+            currentInstance = null
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        currentInstance = this
+
+        setContent {
+            PosAppTheme {
+                ProcessingDialog()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (currentInstance == this) {
+            currentInstance = null
+        }
+    }
+}
 
 @Composable
 fun ProcessingDialog() {

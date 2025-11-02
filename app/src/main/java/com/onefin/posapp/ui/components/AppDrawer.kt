@@ -222,7 +222,7 @@ private fun LanguageToggleSection(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (currentLanguage == LanguageConstants.VIETNAMESE)
-                        Color(0xFF16A34A) else Color(0xFF9CA3AF)
+                        Color(0xFF16A34A) else Color(0xFF3B82F6)
                 )
 
                 Switch(
@@ -247,7 +247,7 @@ private fun LanguageToggleSection(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (currentLanguage == LanguageConstants.ENGLISH)
-                        Color(0xFF16A34A) else Color(0xFF9CA3AF)
+                        Color(0xFF16A34A) else Color(0xFF3B82F6)
                 )
             }
         }

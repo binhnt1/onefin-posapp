@@ -80,6 +80,7 @@
     <string name="label_transaction_id">Transaction ID</string>
     <string name="label_time">Time</string>
     <string name="label_enter_notes">Enter notes</string>
+    <string name="label_invoice_number">Invoice number</string>
 
     <!-- Validation Messages -->
     <string name="error_email_empty">Please enter email.</string>
@@ -296,4 +297,25 @@
     <!-- Payment Amount Card -->
     <string name="payment_amount_label">Payment Amount</string>
     <string name="card_type_bank">Bank</string>
+
+    <!-- Settlement Dialog -->
+    <string name="dialog_settlement_title">Confirm Settlement</string>
+    <string name="dialog_settlement_message">Are you sure you want to settle all these transactions?</string>
+
+    <!-- Settlement Messages -->
+    <string name="success_settlement">Settlement successful</string>
+    <string name="error_settlement_failed">Settlement failed: %s</string>
+
+    <string name="transaction_type_card">Card</string>
+    <string name="transaction_type_qr">VietQR</string>
+    <string name="transaction_type_member">Member</string>
+    <string name="transaction_type_cancelled">Cancelled</string>
+
+    <string name="label_payment_info">Payment Information</string>
+    <string name="label_card_number">Card Number</string>
+    <string name="label_transaction_details">Transaction Details</string>
+    <string name="label_bank">Bank</string>
+    <string name="label_card_type">Card Type</string>
+    <string name="label_transaction_type">Transaction Type</string>
+    <string name="label_account_name">Holder Name</string>
 </resources>

@@ -28,11 +28,12 @@ fun SendEmailSheet(
     apiService: ApiService,
     storageService: StorageService,
     onDismiss: () -> Unit,
+    onProcessingStart: () -> Unit,
+    onProcessingEnd: () -> Unit,
     onSuccess: () -> Unit,
     onError: (String) -> Unit
 ) {
     var email by remember { mutableStateOf("") }
-    var isSending by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true
@@ -45,9 +46,7 @@ fun SendEmailSheet(
 
     ModalBottomSheet(
         onDismissRequest = {
-            if (!isSending) {
-                onDismiss()
-            }
+            onDismiss()
         },
         sheetState = sheetState,
         containerColor = Color.White,
@@ -64,11 +63,8 @@ fun SendEmailSheet(
             ) {
                 IconButton(
                     onClick = {
-                        if (!isSending) {
-                            onDismiss()
-                        }
+                        onDismiss()
                     },
-                    enabled = !isSending,
                     modifier = Modifier.align(Alignment.TopEnd)
                 ) {
                     Icon(
@@ -128,7 +124,7 @@ fun SendEmailSheet(
                 placeholder = {
                     Text(
                         text = stringResource(id = R.string.placeholder_email),
-                        color = Color(0xFF9CA3AF)
+                        color = Color(0xFF3B82F6)
                     )
                 },
                 shape = RoundedCornerShape(8.dp),
@@ -139,7 +135,6 @@ fun SendEmailSheet(
                     focusedTextColor = Color(0xFF111827),
                     unfocusedTextColor = Color(0xFF111827)
                 ),
-                enabled = !isSending,
                 singleLine = true
             )
 
@@ -149,7 +144,7 @@ fun SendEmailSheet(
             Button(
                 onClick = {
                     if (email.isNotEmpty()) {
-                        isSending = true
+                        onProcessingStart()  // ✅ HIỂN THỊ DIALOG
                         scope.launch {
                             try {
                                 val params = mapOf(
@@ -157,11 +152,11 @@ fun SendEmailSheet(
                                     "Email" to email
                                 )
                                 apiService.post("/api/transaction/print", params)
+                                onProcessingEnd()
                                 onSuccess()
                             } catch (e: Exception) {
+                                onProcessingEnd()
                                 onError(e.message ?: unknownError)
-                            } finally {
-                                isSending = false
                             }
                         }
                     }
@@ -171,25 +166,16 @@ fun SendEmailSheet(
                     .height(48.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF16A34A),
-                    disabledContainerColor = Color(0xFFD1D5DB)
+                    containerColor = Color(0xFF16A34A)
                 ),
-                enabled = email.isNotEmpty() && !isSending
+                enabled = email.isNotEmpty()  // ✅ BỎ && !isSending
             ) {
-                if (isSending) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text(
-                        text = stringResource(id = R.string.btn_send),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White
-                    )
-                }
+                Text(
+                    text = stringResource(id = R.string.btn_send),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))

@@ -117,16 +117,12 @@ abstract class BaseCardProcessor(
                 ))
                 return
             }
-
             val tagsMap = TLVUtil.buildTLVMap(emvTagsHex)
-            val cvmResults = tagsMap["9F34"]?.value ?: ""
 
-            Timber.d("📊 CVM Results: $cvmResults")
-            Timber.d("🔐 PIN Block: $currentPinBlock")
-            Timber.d("🔑 KSN: $currentKsn")
-
+            val tc = tagsMap["9F26"]?.value ?: ""
             val track1 = tagsMap["56"]?.value ?: ""
             val track2 = tagsMap["57"]?.value ?: ""
+            val aid = tagsMap["9F06"]?.value ?: tagsMap["84"]?.value ?: ""
             val cardData = CardHelper.parseEmvData(emvTagsHex, track1, track2) ?: run {
                 processingComplete(PaymentResult.Error.from(
                     errorType = PaymentErrorHandler.ErrorType.EMV_DATA_INVALID
@@ -137,11 +133,13 @@ abstract class BaseCardProcessor(
             val requestSale = CardHelper.buildRequestSale(
                 request,
                 RequestSale.Data.Card(
-                    ksn = currentKsn ?: "",                // ✅ KSN from DUKPT
-                    pin = currentPinBlock,                  // ✅ Encrypted PIN block
+                    tc = tc,
+                    aid = aid,
                     track2 = track2,
                     track1 = track1,
                     emvData = emvTagsHex,
+                    pin = currentPinBlock,
+                    ksn = currentKsn ?: "",
                     clearPan = cardData.pan,
                     expiryDate = cardData.expiry,
                     mode = CardType.CHIP.displayName,

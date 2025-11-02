@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -55,7 +56,6 @@ import com.onefin.posapp.core.managers.SnackbarManager
 import com.onefin.posapp.core.managers.TTSManager
 import com.onefin.posapp.core.utils.LocaleHelper
 import com.onefin.posapp.ui.components.GlobalSnackbarHost
-import com.onefin.posapp.ui.home.components.MerchantInfoCard
 import com.onefin.posapp.ui.login.LoginActivity
 import com.onefin.posapp.ui.modals.AutoLoginDialog
 import com.onefin.posapp.ui.modals.NoNetworkDialog
@@ -332,20 +332,35 @@ fun HomeContent(
         mapOf(
             "driver" to context.getString(R.string.merchant_config_driver),
             "employee" to context.getString(R.string.merchant_config_employee),
+            "tid" to "TID",
+            "mid" to "MID",
+            "provider" to "Ngân hàng"
         )
     }
-    val merchantConfig = remember(driverInfo) {
-        if (driverInfo != null) {
-            mapOf(
-                "driver" to driverInfo.mid,
-                "employee" to if (driverInfo.employeeName != null) {
+
+    val merchantConfig = remember(driverInfo, account) {
+        buildMap {
+            // Driver info
+            if (driverInfo != null) {
+                put("driver", driverInfo.mid)
+                put("employee", if (driverInfo.employeeName != null) {
                     "${driverInfo.employeeCode} - ${driverInfo.employeeName}"
                 } else {
                     driverInfo.employeeCode
+                })
+            } else {
+                // Fallback to old config for driver/employee
+                account.terminal.merchantConfig?.forEach { (key, value) ->
+                    if (key == "driver" || key == "employee") {
+                        put(key, value.toString())
+                    }
                 }
-            )
-        } else {
-            account.terminal.merchantConfig // Fallback to old config
+            }
+
+            // Terminal info - always add
+            put("tid", account.terminal.tid)
+            put("mid", account.terminal.mid)
+            put("provider", account.terminal.provider)
         }
     }
 
@@ -362,10 +377,10 @@ fun HomeContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
-            // Spacing nếu có merchant info
-            if (!merchantConfig.isNullOrEmpty()) {
-                MerchantInfoCard(
-                    merchantConfig = account.terminal.merchantConfig,
+            // Enhanced Merchant Info Card
+            if (merchantConfig.isNotEmpty()) {
+                EnhancedMerchantInfoCard(
+                    merchantConfig = merchantConfig,
                     fieldMapping = merchantFieldMapping,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -492,7 +507,7 @@ fun HomeContent(
                                     containerColor = Color(0xFF12B76A),
                                     disabledContainerColor = Color(0xFFD1D5DB)
                                 ),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(8.dp),
                                 elevation = ButtonDefaults.buttonElevation(
                                     defaultElevation = 0.dp
                                 )
@@ -501,14 +516,14 @@ fun HomeContent(
                                     imageVector = Icons.Default.Add,
                                     contentDescription = null,
                                     modifier = Modifier.size(24.dp),
-                                    tint = if (isNetworkAvailable) Color.White else Color(0xFF9CA3AF)
+                                    tint = if (isNetworkAvailable) Color.White else Color(0xFF3B82F6)
                                 )
                                 Spacer(modifier = Modifier.width(if (isP2) 4.dp else 8.dp))
                                 Text(
                                     text = stringResource(R.string.home_enter_amount),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isNetworkAvailable) Color.White else Color(0xFF9CA3AF)
+                                    color = if (isNetworkAvailable) Color.White else Color(0xFF3B82F6)
                                 )
                             }
                         }
@@ -524,6 +539,238 @@ fun HomeContent(
             storageService = storageService,
             onDismiss = { showAmountSheet = false }
         )
+    }
+}
+
+// Enhanced Merchant Info Card Component - Modern Design
+@Composable
+fun EnhancedMerchantInfoCard(
+    merchantConfig: Map<String, String>,
+    fieldMapping: Map<String, String>,
+    modifier: Modifier = Modifier
+) {
+    val isP2 = remember { Build.MODEL.lowercase().contains("p2") }
+
+    // Icons mapping
+    val iconMapping = remember {
+        mapOf(
+            "driver" to R.drawable.ic_car,
+            "employee" to R.drawable.ic_person,
+            "tid" to R.drawable.ic_terminal,
+            "mid" to R.drawable.ic_merchant,
+            "provider" to R.drawable.ic_bank
+        )
+    }
+
+    // Color mapping for icons
+    val iconColorMapping = remember {
+        mapOf(
+            "driver" to Color(0xFF3B82F6),    // Blue
+            "employee" to Color(0xFF8B5CF6),  // Purple
+            "tid" to Color(0xFF10B981),       // Green
+            "mid" to Color(0xFFF59E0B),       // Amber
+            "provider" to Color(0xFFEF4444)   // Red
+        )
+    }
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        color = Color.White,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(if (isP2) 12.dp else 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Row 1: Driver & Employee Info
+            val hasDriverInfo = merchantConfig.containsKey("driver") || merchantConfig.containsKey("employee")
+            if (hasDriverInfo && !merchantConfig["driver"].isNullOrEmpty() && !merchantConfig["employee"].isNullOrEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Driver Plate
+                    merchantConfig["driver"]?.let { value ->
+                        HorizontalInfoCard(
+                            value = value,
+                            icon = iconMapping["driver"] ?: R.drawable.ic_car,
+                            iconColor = iconColorMapping["driver"] ?: Color.Gray,
+                            modifier = Modifier.weight(1f),
+                            isP2 = isP2
+                        )
+                    }
+
+                    // Employee Info
+                    merchantConfig["employee"]?.let { value ->
+                        HorizontalInfoCard(
+                            value = value,
+                            icon = iconMapping["employee"] ?: R.drawable.ic_person,
+                            iconColor = iconColorMapping["employee"] ?: Color.Gray,
+                            modifier = Modifier.weight(1f),
+                            isP2 = isP2
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // Row 2: Terminal Info in 3 columns
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // TID
+                merchantConfig["tid"]?.let { value ->
+                    CompactInfoCard(
+                        label = fieldMapping["tid"] ?: "TID",
+                        value = value,
+                        icon = iconMapping["tid"] ?: R.drawable.ic_terminal,
+                        iconColor = iconColorMapping["tid"] ?: Color.Gray,
+                        modifier = Modifier.weight(1f),
+                        isP2 = isP2
+                    )
+                }
+
+                // MID
+                merchantConfig["mid"]?.let { value ->
+                    CompactInfoCard(
+                        label = fieldMapping["mid"] ?: "MID",
+                        value = value,
+                        icon = iconMapping["mid"] ?: R.drawable.ic_merchant,
+                        iconColor = iconColorMapping["mid"] ?: Color.Gray,
+                        modifier = Modifier.weight(1f),
+                        isP2 = isP2
+                    )
+                }
+
+                // Provider (Bank)
+                merchantConfig["provider"]?.let { value ->
+                    CompactInfoCard(
+                        label = fieldMapping["provider"] ?: "Ngân hàng",
+                        value = value,
+                        icon = iconMapping["provider"] ?: R.drawable.ic_bank,
+                        iconColor = iconColorMapping["provider"] ?: Color.Gray,
+                        modifier = Modifier.weight(1f),
+                        isP2 = isP2
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Horizontal card for driver & employee
+@Composable
+fun HorizontalInfoCard(
+    value: String,
+    icon: Int,
+    iconColor: Color,
+    modifier: Modifier = Modifier,
+    isP2: Boolean = false
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        color = Color(0xFFF9FAFB),
+        border = androidx.compose.foundation.BorderStroke(1.dp, iconColor.copy(alpha = 0.2f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(if (isP2) 6.dp else 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            // Icon with circular background
+            Box(
+                modifier = Modifier
+                    .size(if (isP2) 24.dp else 28.dp)
+                    .background(
+                        color = iconColor.copy(alpha = 0.12f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = icon),
+                    contentDescription = value,
+                    modifier = Modifier.size(if (isP2) 12.dp else 14.dp),
+                    tint = iconColor
+                )
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            // Value
+            Text(
+                text = value,
+                fontSize = if (isP2) 11.sp else 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF111827),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+// Compact card with rounded square icon for terminal info
+@Composable
+fun CompactInfoCard(
+    label: String,
+    value: String,
+    icon: Int,
+    iconColor: Color,
+    modifier: Modifier = Modifier,
+    isP2: Boolean = false
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        color = Color(0xFFF9FAFB),
+        border = androidx.compose.foundation.BorderStroke(1.dp, iconColor.copy(alpha = 0.2f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp, 8.dp, 4.dp, 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Icon with rounded background
+            Box(
+                modifier = Modifier
+                    .size(if (isP2) 24.dp else 24.dp)
+                    .background(
+                        color = iconColor.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(6.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = icon),
+                    contentDescription = label,
+                    modifier = Modifier.size(if (isP2) 12.dp else 14.dp),
+                    tint = iconColor
+                )
+            }
+
+            Spacer(modifier = Modifier.height(if (isP2) 3.dp else 4.dp))
+
+            // Value only
+            Text(
+                text = value,
+                fontSize = if (isP2) 10.sp else 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF111827),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+        }
     }
 }
 

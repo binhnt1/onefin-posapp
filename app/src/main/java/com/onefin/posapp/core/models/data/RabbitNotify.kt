@@ -31,6 +31,7 @@ enum class RabbitNotifyType(val value: Int) {
     PUSH_IMAGE(13),
     PUSH_VIDEO(14),
     SETTLEMENT(15),
+    CHANGE_TID_MID(16),
     LOCK_USER(20),
     UNKNOWN(-1);
 

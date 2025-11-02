@@ -14,6 +14,7 @@ import timber.log.Timber
 import java.net.URL
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
+import com.onefin.posapp.core.models.data.SettleResultData
 
 class ReceiptPrinter(
     private val context: Context,
@@ -49,7 +50,7 @@ class ReceiptPrinter(
                 printNotesSection(transaction.remark)
             }
 
-            printFooter(terminal)
+            printFooter()
             printerHelper.feedPaper(4)
             printerHelper.exitPrinterBuffer(true)
             Result.success(Unit)
@@ -87,7 +88,7 @@ class ReceiptPrinter(
             if (transaction.remark.isNotEmpty()) {
                 printNotesSection(transaction.remark)
             }
-            printFooter(terminal)
+            printFooter()
             printerHelper.feedPaper(4)
             printerHelper.exitPrinterBuffer(true)
             Result.success(Unit)
@@ -95,6 +96,339 @@ class ReceiptPrinter(
             Timber.tag(TAG).e(e, "Error printing receipt")
             Result.failure(e)
         }
+    }
+
+    suspend fun printSettlementReceipt(
+        settleData: SettleResultData
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            if (!printerHelper.isReady()) {
+                return@withContext Result.failure(Exception("Máy in chưa sẵn sàng"))
+            }
+
+            printerHelper.enterPrinterBuffer(true)
+            printerHelper.initPrinter()
+            printerHelper.setPrintDensity(15)
+
+            printSettlementHeader(settleData)
+            printSettlementInfo(settleData)
+            printSettlementStatistics(settleData)
+            printSettlementSummary(settleData)
+            printSettlementConfirmation(settleData)
+            printSettlementStatus(settleData)
+            printFooter()
+
+            printerHelper.feedPaper(4)
+            printerHelper.exitPrinterBuffer(true)
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Error printing settlement receipt")
+            Result.failure(e)
+        }
+    }
+
+    private fun printSettlementHeader(settleData: SettleResultData) {
+        printerHelper.printDoubleDivider(PAPER_WIDTH)
+
+        // Logo công ty bên trái + Tên ngân hàng bên phải
+        val companyLogoBitmap = loadDrawableBitmap(R.drawable.logo)
+        val provider = settleData.header?.provider ?: ""
+        val bankTextBitmap = if (provider.isNotEmpty()) {
+            createTextBitmap(provider)
+        } else null
+
+        if (companyLogoBitmap != null || bankTextBitmap != null) {
+            val combinedBitmap = combineTwoLogos(companyLogoBitmap, bankTextBitmap)
+            if (combinedBitmap != null) {
+                printerHelper.printBitmap(combinedBitmap)
+            }
+        }
+
+        printerHelper.printDivider("-", PAPER_WIDTH)
+
+        // Tiêu đề hóa đơn kết toán
+        printerHelper.printTextWithFormat(
+            text = "HÓA ĐƠN KẾT TOÁN",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_LARGE,
+            isBold = true
+        )
+
+        printerHelper.printTextWithFormat(
+            text = "SETTLEMENT RECEIPT",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+        )
+
+        printerHelper.printDoubleDivider(PAPER_WIDTH)
+    }
+
+    // Hàm helper tạo bitmap từ text
+    private fun createTextBitmap(text: String): Bitmap {
+        val paint = android.graphics.Paint().apply {
+            color = android.graphics.Color.BLACK
+            textSize = 24f
+            textAlign = android.graphics.Paint.Align.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            isAntiAlias = true
+        }
+
+        // Đo kích thước text
+        val bounds = android.graphics.Rect()
+        paint.getTextBounds(text, 0, text.length, bounds)
+
+        val textWidth = bounds.width() + 20 // padding
+        val textHeight = bounds.height() + 20
+
+        // Tạo bitmap với kích thước phù hợp
+        val bitmap = createBitmap(
+            minOf(textWidth, 150),
+            minOf(textHeight, 80)
+        )
+
+        val canvas = android.graphics.Canvas(bitmap)
+        canvas.drawColor(android.graphics.Color.WHITE)
+
+        // Vẽ text vào giữa bitmap
+        val x = bitmap.width / 2f
+        val y = (bitmap.height / 2f) - ((paint.descent() + paint.ascent()) / 2f)
+
+        canvas.drawText(text, x, y, paint)
+
+        return bitmap
+    }
+    private fun printSettlementInfo(settleData: SettleResultData) {
+        // Thông tin merchant & thiết bị
+        settleData.header?.let { header ->
+            if (header.merchantId?.isNotEmpty() == true) {
+                printerHelper.printTwoColumns("Mã merchant:", header.merchantId)
+            }
+            if (header.terminalId?.isNotEmpty() == true) {
+                printerHelper.printTwoColumns("Mã thiết bị:", header.terminalId)
+            }
+            if (header.transType?.isNotEmpty() == true) {
+                printerHelper.printTwoColumns("Loại GD:", header.transType)
+            }
+        }
+
+        printerHelper.printDoubleDivider(PAPER_WIDTH)
+
+        // Thông tin batch
+        settleData.data?.let { data ->
+            if (data.batchNo?.isNotEmpty() == true) {
+                printerHelper.printTwoColumns("Số batch:", data.batchNo)
+            }
+        }
+
+        val dateTime = settleData.getFormattedDateTime()
+        if (dateTime != null) {
+            printerHelper.printTwoColumns("Thời gian:", dateTime)
+        }
+
+        settleData.header?.let { header ->
+            if (header.transId?.isNotEmpty() == true) {
+                printerHelper.printTwoColumns("Mã GD:", header.transId)
+            }
+            if (header.merchantTransId?.isNotEmpty() == true) {
+                printerHelper.printTwoColumns("Mã tham chiếu:", header.merchantTransId)
+            }
+        }
+
+        printerHelper.printDoubleDivider(PAPER_WIDTH)
+    }
+
+    private fun printSettlementStatistics(settleData: SettleResultData) {
+        printerHelper.printTextWithFormat(
+            text = "THỐNG KÊ GIAO DỊCH",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
+            isBold = true
+        )
+
+        printerHelper.printDivider("-", PAPER_WIDTH)
+
+        settleData.data?.let { data ->
+            // Giao dịch mua hàng (SALE)
+            val saleQty = data.saleQuantity ?: "0"
+            val saleAmt = data.saleAmount ?: "0"
+
+            if (saleQty != "0") {
+                printerHelper.printTextWithFormat(
+                    text = "GIAO DỊCH MUA HÀNG (SALE):",
+                    alignment = PrinterHelper.ALIGN_LEFT,
+                    fontSize = PrinterHelper.TEXT_SIZE_NORMAL,
+                    isBold = true
+                )
+
+                printerHelper.printTwoColumns(
+                    "  Số lượng:",
+                    "$saleQty giao dịch"
+                )
+
+                val saleAmountFormatted = printerHelper.formatCurrencyWithPadding(
+                    saleAmt.toLongOrNull() ?: 0L,
+                    15
+                )
+                printerHelper.printTwoColumns("  Tổng tiền:", saleAmountFormatted)
+
+                printerHelper.printNewLine(1)
+            }
+
+            // Giao dịch hủy (VOID)
+            val voidQty = data.voidQuantity ?: "0"
+            val voidAmt = data.voidAmount ?: "0"
+
+            if (voidQty != "0") {
+                printerHelper.printTextWithFormat(
+                    text = "GIAO DỊCH HỦY (VOID):",
+                    alignment = PrinterHelper.ALIGN_LEFT,
+                    fontSize = PrinterHelper.TEXT_SIZE_NORMAL,
+                    isBold = true
+                )
+
+                printerHelper.printTwoColumns(
+                    "  Số lượng:",
+                    "$voidQty giao dịch"
+                )
+
+                val voidAmountFormatted = printerHelper.formatCurrencyWithPadding(
+                    voidAmt.toLongOrNull() ?: 0L,
+                    15
+                )
+                printerHelper.printTwoColumns("  Tổng tiền:", voidAmountFormatted)
+            }
+        }
+
+        printerHelper.printDoubleDivider(PAPER_WIDTH)
+    }
+
+    private fun printSettlementSummary(settleData: SettleResultData) {
+        printerHelper.printTextWithFormat(
+            text = "TỔNG KẾT",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
+            isBold = true
+        )
+
+        printerHelper.printDivider("-", PAPER_WIDTH)
+
+        settleData.data?.let { data ->
+            // Tổng số giao dịch
+            val totalQty = data.totalQuantity ?: "0"
+            printerHelper.printTwoColumns("TỔNG SỐ GD:", "$totalQty GD")
+
+            // Tổng tiền bán
+            val saleAmount = data.saleAmount?.toLongOrNull() ?: 0L
+            val saleFormatted = printerHelper.formatCurrencyWithPadding(saleAmount, 15)
+            printerHelper.printTwoColumns("Tổng tiền bán:", saleFormatted)
+
+            // Tổng tiền hoàn
+            val voidAmount = data.voidAmount?.toLongOrNull() ?: 0L
+            if (voidAmount > 0) {
+                val voidFormatted = printerHelper.formatCurrencyWithPadding(-voidAmount, 15)
+                printerHelper.printTwoColumns("Tổng tiền hoàn:", voidFormatted)
+            }
+
+            printerHelper.printDivider("-", PAPER_WIDTH)
+
+            // Net amount
+            val netAmount = settleData.getNetAmount()
+            val netFormatted = printerHelper.formatCurrencyWithPadding(netAmount, 15)
+
+            printerHelper.printTextWithFormat(
+                text = "TỔNG THANH TOÁN:",
+                alignment = PrinterHelper.ALIGN_LEFT,
+                fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
+                isBold = true
+            )
+            printerHelper.printTextWithFormat(
+                text = netFormatted,
+                alignment = PrinterHelper.ALIGN_RIGHT,
+                fontSize = PrinterHelper.TEXT_SIZE_LARGE,
+                isBold = true
+            )
+        }
+
+        printerHelper.printDoubleDivider(PAPER_WIDTH)
+    }
+
+    private fun printSettlementConfirmation(settleData: SettleResultData) {
+        printerHelper.printTextWithFormat(
+            text = "THÔNG TIN XÁC NHẬN",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
+            isBold = true
+        )
+
+        printerHelper.printDivider("-", PAPER_WIDTH)
+
+        settleData.data?.let { data ->
+            if (data.approveCode?.isNotEmpty() == true) {
+                printerHelper.printTwoColumns("Mã phê duyệt:", data.approveCode)
+            }
+            if (data.refNo?.isNotEmpty() == true) {
+                printerHelper.printTwoColumns("Mã tham chiếu:", data.refNo)
+            }
+            if (data.traceNo?.isNotEmpty() == true) {
+                printerHelper.printTwoColumns("Mã trace:", data.traceNo)
+            }
+            if (data.isoResponseCode?.isNotEmpty() == true) {
+                val isoText = when (data.isoResponseCode) {
+                    "00" -> "${data.isoResponseCode} - Thành công"
+                    else -> data.isoResponseCode
+                }
+                printerHelper.printTwoColumns("Mã ISO:", isoText)
+            }
+            if (data.currency?.isNotEmpty() == true) {
+                printerHelper.printTwoColumns("Loại tiền:", data.currency)
+            }
+        }
+
+        printerHelper.printDivider("-", PAPER_WIDTH)
+    }
+
+    private fun printSettlementStatus(settleData: SettleResultData) {
+        val isSuccess = settleData.isSuccess()
+        val statusText = if (isSuccess) "✓ KẾT TOÁN THÀNH CÔNG" else "✗ KẾT TOÁN THẤT BẠI"
+
+        printerHelper.printTextWithFormat(
+            text = statusText,
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
+            isBold = true
+        )
+
+        settleData.status?.let { status ->
+            if (!status.message.isNullOrEmpty() && status.message != "Success") {
+                printerHelper.printTextWithFormat(
+                    text = "(${status.message})",
+                    alignment = PrinterHelper.ALIGN_CENTER,
+                    fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+                )
+            }
+        }
+
+        printerHelper.printDoubleDivider(PAPER_WIDTH)
+
+        // Ngày in
+        val currentDate = settleData.getFormattedDateTime() ?:
+        java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
+            .format(java.util.Date())
+
+        printerHelper.printTextWithFormat(
+            text = "Ngày in: $currentDate",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+        )
+
+        printerHelper.printDoubleDivider(PAPER_WIDTH)
+
+        printerHelper.printTextWithFormat(
+            text = "Vui lòng giữ phiếu để đối chiếu",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+        )
     }
 
     private fun printSignatureSection(signatureBytes: ByteArray) {
@@ -277,7 +611,7 @@ class ReceiptPrinter(
         )
     }
 
-    private fun printFooter(terminal: Terminal) {
+    private fun printFooter() {
         printerHelper.printDivider("-", PAPER_WIDTH)
 
         printerHelper.printTextWithFormat(
@@ -294,15 +628,11 @@ class ReceiptPrinter(
         )
 
         printerHelper.printNewLine(1)
-
-        if (terminal.phone.isNotEmpty()) {
-            printerHelper.printTextWithFormat(
-                text = "Hotline: ${terminal.phone}",
-                alignment = PrinterHelper.ALIGN_CENTER,
-                fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-            )
-        }
-
+        printerHelper.printTextWithFormat(
+            text = "Hotline: 1900996688",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+        )
         printerHelper.printDivider("-", PAPER_WIDTH)
 
         printerHelper.printTextWithFormat(

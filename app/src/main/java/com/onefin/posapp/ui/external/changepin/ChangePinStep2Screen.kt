@@ -843,7 +843,7 @@ private fun KeyboardButton(
                 color = if (enabled) {
                     if (isSpecialKey) Color(0xFF667085) else Color(0xFF101828)
                 } else {
-                    Color(0xFF9CA3AF)
+                    Color(0xFF3B82F6)
                 }
             )
         }

@@ -80,6 +80,7 @@
     <string name="label_transaction_id">Mã giao dịch</string>
     <string name="label_time">Thời gian</string>
     <string name="label_enter_notes">Nhập ghi chú</string>
+    <string name="label_invoice_number">Số hóa đơn</string>
 
     <!-- Validation Messages -->
     <string name="error_email_empty">Vui lòng nhập email.</string>
@@ -297,4 +298,25 @@
     <!-- Payment Amount Card -->
     <string name="payment_amount_label">Số tiền thanh toán</string>
     <string name="card_type_bank">Ngân Hàng</string>
+
+    <!-- Settlement Dialog -->
+    <string name="dialog_settlement_title">Xác nhận kết toán</string>
+    <string name="dialog_settlement_message">Bạn có chắc chắn muốn kết toán tất cả các giao dịch này không?</string>
+
+    <!-- Settlement Messages -->
+    <string name="success_settlement">Kết toán thành công</string>
+    <string name="error_settlement_failed">Kết toán thất bại: %s</string>
+
+    <string name="transaction_type_card">Giao dịch thẻ</string>
+    <string name="transaction_type_qr">VietQR</string>
+    <string name="transaction_type_member">Thành viên</string>
+    <string name="transaction_type_cancelled">Đã hủy</string>
+
+    <string name="label_payment_info">Thông tin thanh toán</string>
+    <string name="label_card_number">Số thẻ</string>
+    <string name="label_transaction_details">Chi tiết giao dịch</string>
+    <string name="label_bank">Ngân hàng</string>
+    <string name="label_card_type">Loại thẻ</string>
+    <string name="label_transaction_type">Loại giao dịch</string>
+    <string name="label_account_name">Tên chủ thẻ</string>
 </resources>

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -79,19 +78,11 @@ fun SettlementBottomBar(
                     disabledContentColor = Color(0xFF6B7280)
                 )
             ) {
-                if (isSettling) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text(
-                        text = context.getString(R.string.menu_settlement),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                Text(
+                    text = context.getString(R.string.menu_settlement),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }

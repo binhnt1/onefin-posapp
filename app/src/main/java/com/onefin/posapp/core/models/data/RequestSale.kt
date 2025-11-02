@@ -27,6 +27,12 @@ data  class RequestSale(
         val payment: PaymentData
     ) : Serializable {
         data class Card(
+            @SerializedName("tc")
+            val tc: String? = null,
+
+            @SerializedName("aid")
+            val aid: String? = null,
+
             @SerializedName("ksn")
             val ksn: String? = null,
 

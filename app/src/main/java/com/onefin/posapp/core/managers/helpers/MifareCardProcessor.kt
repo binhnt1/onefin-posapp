@@ -171,11 +171,7 @@ class MifareCardProcessor(
 
     private fun completeTransaction(pinBlock: String?) {
         try {
-            Timber.d("🎯 === COMPLETE TRANSACTION START ===")
-            Timber.d("   📌 PIN received: ${if (pinBlock.isNullOrEmpty()) "❌ NULL/EMPTY" else "✅ $pinBlock"}")
-
             val request = currentPaymentAppRequest ?: run {
-                Timber.e("❌ currentPaymentAppRequest is NULL")
                 processingComplete(
                     PaymentResult.Error.from(
                         errorType = PaymentErrorHandler.ErrorType.PAYMENT_REQUEST_NOT_INITIALIZED
@@ -185,7 +181,6 @@ class MifareCardProcessor(
             }
 
             val data = mifareData ?: run {
-                Timber.e("❌ mifareData is NULL")
                 handleError(
                     PaymentResult.Error.from(
                         PaymentErrorHandler.ErrorType.CARD_READ_FAILED,
@@ -200,32 +195,25 @@ class MifareCardProcessor(
             val pan = data.getPanFromTrack2() ?: ""
             val expiry = data.getExpiryFromTrack2()
             val holderName = data.getCardHolderName(icData) ?: ""
-
-            Timber.d("   📊 Card Data:")
-            Timber.d("      - PAN: ${pan.take(6)}...${pan.takeLast(4)}")
-            Timber.d("      - Expiry: $expiry")
-            Timber.d("      - Track2: ${track2.take(10)}...")
-            Timber.d("      - Holder: $holderName")
-            Timber.d("      - PIN: $pinBlock") // ✅ Log PIN ở đây
-
-            val cardData = RequestSale.Data.Card(
-                ksn = "",
-                track1 = "",
-                clearPan = pan,
-                pin = pinBlock, // ✅ Gán PIN thô
-                track2 = track2,
-                emvData = icData,
-                expiryDate = expiry,
-                holderName = holderName,
-                mode = CardType.MIFARE.displayName,
-                type = CardHelper.detectBrand(pan),
-                issuerName = storageService.getAccount()?.name,
+            val requestSale = CardHelper.buildRequestSale(
+                request,
+                RequestSale.Data.Card(
+                    ksn = "",
+                    track1 = "",
+                    clearPan = pan,
+                    pin = pinBlock,
+                    track2 = track2,
+                    emvData = icData,
+                    expiryDate = expiry,
+                    holderName = holderName,
+                    mode = CardType.MIFARE.displayName,
+                    type = CardHelper.detectBrand(pan),
+                    issuerName = storageService.getAccount()?.name,
+                )
             )
-            val requestSale = CardHelper.buildRequestSale(request, cardData)
             processingComplete(PaymentResult.Success(requestSale))
 
         } catch (e: Exception) {
-            Timber.e(e, "❌ Exception completing transaction")
             handleError(
                 PaymentResult.Error.from(
                     PaymentErrorHandler.ErrorType.CARD_READ_FAILED,

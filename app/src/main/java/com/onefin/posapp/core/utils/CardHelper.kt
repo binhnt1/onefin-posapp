@@ -8,6 +8,7 @@ import com.onefin.posapp.core.models.data.PaymentAppResponse
 import com.onefin.posapp.core.models.data.PaymentResponseData
 import com.onefin.posapp.core.models.data.RequestSale
 import com.onefin.posapp.core.models.data.SaleResultData
+import com.onefin.posapp.core.models.data.VoidResultData
 import com.onefin.posapp.core.models.enums.CardBrand
 import com.onefin.posapp.core.models.enums.CardType
 import java.text.SimpleDateFormat
@@ -325,7 +326,7 @@ object CardHelper {
             else -> "00"
         }
 
-        val requestId = UUID.randomUUID().toString().replace("-", "")
+        val requestId = UtilHelper.generateRequestId()
         return RequestSale(
             requestData = request,
             requestId = requestId,
@@ -369,10 +370,33 @@ object CardHelper {
             transactionTime = saleResult.header?.transmitsDateTime,
             amount = saleResult.data?.totalAmount?.toLongOrNull() ?: 0,
             billNumber = originalRequest.merchantRequestData?.billNumber,
-
             referenceId = originalRequest.merchantRequestData?.referenceId,
-            ccy = saleResult.data?.currency ?: saleResult.requestData?.currency,
             additionalData = originalRequest.merchantRequestData?.additionalData,
+            ccy = saleResult.data?.currency ?: saleResult.data?.currency ?: "704",
+        )
+
+        val response = PaymentAppResponse(
+            type = originalRequest.type,
+            action = originalRequest.action,
+            paymentResponseData = paymentResponseData
+        )
+        return response
+    }
+    fun returnVoidResponse(voidResult: VoidResultData, originalRequest: PaymentAppRequest): PaymentAppResponse {
+        val paymentResponseData = PaymentResponseData(
+            refNo = voidResult.data?.refNo,
+            description = voidResult.status?.message,
+            status = voidResult.status?.code ?: "99",
+            transactionId = voidResult.header?.transId,
+            tip = originalRequest.merchantRequestData?.tip,
+            tid = originalRequest.merchantRequestData?.tid,
+            mid = originalRequest.merchantRequestData?.mid,
+            transactionTime = voidResult.header?.transmitsDateTime,
+            amount = voidResult.data?.totalAmount?.toLongOrNull() ?: 0,
+            billNumber = originalRequest.merchantRequestData?.billNumber,
+            referenceId = originalRequest.merchantRequestData?.referenceId,
+            additionalData = originalRequest.merchantRequestData?.additionalData,
+            ccy = voidResult.data?.currency ?: voidResult.data?.currency ?: "704",
         )
 
         val response = PaymentAppResponse(

@@ -180,7 +180,9 @@ class NfcPhoneProcessor(
             val requestSale = CardHelper.buildRequestSale(
                 request,
                 RequestSale.Data.Card(
-                    ksn = "",
+                    tc = null,
+                    aid = null,
+                    ksn = null,
                     pin = null,
                     track1 = track1,
                     track2 = track2,

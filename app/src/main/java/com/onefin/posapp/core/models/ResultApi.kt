@@ -22,10 +22,10 @@ data class ResultApi<T>(
     val typeValue: Int = 3,
 
     @SerializedName("Total")
-    val total: Object? = null,
+    val total: Long? = null,
 
     @SerializedName("ObjectExtra")
-    val objectExtra: Object? = null,
+    val objectExtra: Any? = null,
 
     @SerializedName("Description")
     val description: String = "Unknown error occurred."

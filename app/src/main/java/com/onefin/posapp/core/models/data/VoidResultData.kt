@@ -1,11 +1,9 @@
 package com.onefin.posapp.core.models.data
 
 import com.google.gson.annotations.SerializedName
-import com.onefin.posapp.core.models.Transaction
-import com.onefin.posapp.core.utils.UtilHelper
 import java.io.Serializable
 
-data class SaleResultData(
+data class VoidResultData(
 
     @SerializedName("data")
     val data: Data? = null,
@@ -25,9 +23,6 @@ data class SaleResultData(
 ) : Serializable {
 
     data class Data(
-        @SerializedName("emv")
-        val emv: String? = null,
-
         @SerializedName("refNo")
         val refNo: String? = null,
 
@@ -89,38 +84,4 @@ data class SaleResultData(
         @SerializedName("message")
         val message: String? = null
     ) : Serializable
-
-    fun toTransaction(): Transaction {
-        val requestData = UtilHelper.toMapOrNull(this.requestData)
-
-        val merchant_request_data = UtilHelper.toMapOrNull(requestData?.get("merchant_request_data"))
-        val billNumber = merchant_request_data?.get("bill_number")?.toString() ?: ""
-        val type = requestData?.get("type")?.toString() ?: ""
-        val formType = when (type) {
-            "card" -> 1
-            "qr" -> 2
-            "member" -> 3
-            else -> 1
-        }
-        return Transaction(
-            feeTransAmt = 0L,
-            settledDate = null,
-            formType = formType,
-            invoiceNumber = billNumber,
-            refno = this.data?.refNo ?: "",
-            remark = this.status?.message ?: "",
-            source = this.data?.cardBrand ?: "",
-            batchNumber = this.data?.batchNo ?: "",
-            accountName = this.data?.cardHolder ?: "",
-            transactionId = this.header?.transId ?: "",
-            accountNumber = this.data?.cardNumber ?: "",
-            approvedCode = this.data?.approveCode ?: "",
-            transactionDate = this.header?.transmitsDateTime ?: "",
-            totalTransAmt = this.data?.totalAmount?.toLongOrNull() ?: 0L,
-            processStatus = when (this.status?.code) {
-                "00", "0000" -> 0
-                else -> -1
-            },
-        )
-    }
 }

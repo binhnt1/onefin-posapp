@@ -28,10 +28,13 @@ import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentAppResponse
 import com.onefin.posapp.core.models.data.PaymentResponseData
 import com.onefin.posapp.core.models.data.PaymentStatusCode
+import com.onefin.posapp.core.models.data.SaleResultData
 import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.services.StorageService
+import com.onefin.posapp.core.utils.CardHelper
 import com.onefin.posapp.core.utils.PaymentHelper
 import com.onefin.posapp.core.utils.ReceiptPrinter
+import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.ui.base.BaseActivity
 import com.onefin.posapp.ui.home.QRCodeDisplayActivity
 import com.onefin.posapp.ui.login.LoginActivity
@@ -338,14 +341,13 @@ fun ExternalPaymentScreen(
                                 }
 
                                 PaymentAction.REPRINT_INVOICE.value -> {
-                                    var billNumber = paymentRequest.merchantRequestData?.billNumber
+                                    val billNumber = paymentRequest.merchantRequestData?.billNumber
                                     if (billNumber.isNullOrEmpty()) {
                                         errorMessage = "Thiếu số hóa đơn"
                                         onFinish(null, errorMessage)
                                         return@launch
                                     }
 
-                                    billNumber = "0444784174"
                                     isProcessing = false
                                     delay(100)
                                     scope.launch {
@@ -357,31 +359,27 @@ fun ExternalPaymentScreen(
                                                 return@launch
                                             }
 
-                                            val endpoint = "/api/transaction/$billNumber"
+                                            val endpoint = "/api/card/transaction/$billNumber"
                                             val resultApi = apiService.get(endpoint, emptyMap()) as ResultApi<*>
-                                            val transactionJson = gson.toJson(resultApi.data)
-                                            val transaction = gson.fromJson(transactionJson, Transaction::class.java)
-                                            if (transaction == null) {
+                                            if (!resultApi.isSuccess()) {
+                                                val errorMessage = resultApi.description
+                                                onFinish(null, errorMessage)
+                                                return@launch
+                                            }
+
+                                            val saleResult = gson.fromJson(gson.toJson(resultApi.data), SaleResultData::class.java)
+                                            if (saleResult == null) {
                                                 val errorMessage = "Không tìm thấy giao dịch"
                                                 onFinish(null, errorMessage)
                                                 return@launch
                                             }
 
                                             val printResult = receiptPrinter.printReceipt(
-                                                transaction = transaction,
+                                                transaction = saleResult.toTransaction(),
                                                 terminal = account.terminal
                                             )
                                             if (printResult.isSuccess) {
-                                                val response = PaymentAppResponse(
-                                                    type = paymentRequest.type,
-                                                    action = PaymentAction.REPRINT_INVOICE.value,
-                                                    paymentResponseData = PaymentResponseData(
-                                                        billNumber = billNumber,
-                                                        status = PaymentStatusCode.SUCCESS,
-                                                        description = "In lại hóa đơn thành công",
-                                                        transactionId = transaction.transactionId
-                                                    )
-                                                )
+                                                val response = CardHelper.returnSaleResponse(saleResult, paymentRequest)
                                                 onFinish(response, null)
                                             } else {
                                                 val errorMessage = printResult.exceptionOrNull()?.message ?: "Lỗi in hóa đơn"
@@ -476,7 +474,7 @@ fun parsePaymentRequest(intent: Intent, gson: Gson, account: Account?): PaymentA
             merchantRequestData.tid = account?.terminal?.tid
         if (merchantRequestData.mid == null || merchantRequestData.mid == "")
             merchantRequestData.mid = account?.terminal?.mid
-        merchantRequestData.additionalData = toMapOrNull(merchantRequestData.additionalData)
+        merchantRequestData.additionalData = UtilHelper.toMapOrNull(merchantRequestData.additionalData)
         PaymentAppRequest(
             type = type,
             action = action,
@@ -484,31 +482,5 @@ fun parsePaymentRequest(intent: Intent, gson: Gson, account: Account?): PaymentA
         )
     } catch (e: Exception) {
         null
-    }
-}
-
-fun toMapOrNull(obj: Any?): Map<String, Any>? {
-    return when (obj) {
-        null -> null
-        is String -> {
-            try {
-                Gson().fromJson(
-                    obj,
-                    object : TypeToken<Map<String, Any>>() {}.type
-                )
-            } catch (e: Exception) {
-                null
-            }
-        }
-        is Map<*, *> -> {
-            try {
-                obj.entries.associate { (key, value) ->
-                    (key as? String ?: return null) to (value ?: return null)
-                }
-            } catch (e: Exception) {
-                null
-            }
-        }
-        else -> null
     }
 }

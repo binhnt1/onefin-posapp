@@ -31,6 +31,9 @@ data class Transaction(
     @SerializedName("InvoiceNumber")
     val invoiceNumber: String = "",
 
+    @SerializedName("Refno")
+    val refno: String = "",
+
     @SerializedName("BatchNumber")
     val batchNumber: String = "",
 
@@ -164,10 +167,15 @@ data class Transaction(
                 textColor = Color(0xFFB42318),
                 backgroundColor = Color(0xFFFEF3F2)
             )
-            -3, -2, 0, 1, 2, 3, 4, 5, 6, 7 -> StatusInfo(
+            0, 1 -> StatusInfo(
                 text = context.getString(R.string.status_success),
                 textColor = Color(0xFF067647),
                 backgroundColor = Color(0xFFECFDF3)
+            )
+            -3, -2, 2, 3, 4, 5, 6, 7 -> StatusInfo(
+                text = context.getString(R.string.status_settled),
+                textColor = Color(0xFF175CD3),
+                backgroundColor = Color(0xFFEFF8FF)
             )
             else -> StatusInfo(
                 text = context.getString(R.string.status_unknown),

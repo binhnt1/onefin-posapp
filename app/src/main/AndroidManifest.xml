@@ -41,6 +41,8 @@
             android:exported="false" />
         <activity android:name=".ui.transaction.TransactionActivity"
             android:exported="false" />
+        <activity android:name=".ui.transaction.TransactionTypeDetailActivity"
+            android:exported="false" />
         <activity android:name=".ui.transaction.TransactionDetailActivity"
             android:exported="false" />
         <activity android:name=".ui.settlement.SettlementActivity"
@@ -80,6 +82,14 @@
             android:name=".ui.modals.LogoutDialogActivity"
             android:exported="false"
             android:theme="@style/Theme.OnefinPosApp.LogoutDialogActivity" />
+        <activity
+            android:name=".ui.modals.ProcessingActivity"
+            android:theme="@style/Theme.Translucent"
+            android:launchMode="singleTask" />
+        <activity
+            android:name=".ui.modals.ResultDialogActivity"
+            android:theme="@style/Theme.Translucent"
+            android:launchMode="singleTask" />
 
         <activity
             android:name=".ui.transaction.TransparentPaymentActivity"

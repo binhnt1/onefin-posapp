@@ -176,7 +176,10 @@ class PrinterHelper(private val context: Context) {
                     printNewLine()
                 }
 
-                val spaces = " ".repeat(totalWidth - rightLength)
+                var repeatValue = totalWidth - rightLength
+                if (repeatValue < 0)
+                    repeatValue = 0
+                val spaces = " ".repeat(repeatValue)
                 setAlignment(ALIGN_LEFT)
                 printText(spaces + right)
                 printNewLine()

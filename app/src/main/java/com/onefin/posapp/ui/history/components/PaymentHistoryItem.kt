@@ -76,7 +76,7 @@ fun PaymentHistoryItem(
                     modifier = Modifier
                         .size(32.dp)
                         .background(
-                            color = Color(0xFF9CA3AF),
+                            color = Color(0xFF3B82F6),
                             shape = CircleShape
                         ),
                     contentAlignment = Alignment.Center

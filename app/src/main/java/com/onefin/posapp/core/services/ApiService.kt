@@ -214,8 +214,8 @@ class ApiService @Inject constructor(
         // 5. Handle result type
         return when (resultApi.type) {
             ResultType.SUCCESS -> resultApi
-            ResultType.ERROR -> throw BusinessException(resultApi.description)
             ResultType.EXCEPTION -> throw ApiException(resultApi.description)
+            ResultType.ERROR -> throw BusinessException(resultApi.description)
         }
     }
 }

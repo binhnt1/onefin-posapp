@@ -44,7 +44,7 @@ fun DrawerMenuItem(
             Text(
                 text = title,
                 fontSize = 16.sp,
-                color = if (enabled) Color(0xFF374151) else Color(0xFF9CA3AF)
+                color = if (enabled) Color(0xFF374151) else Color(0xFF3B82F6)
             )
         }
     }

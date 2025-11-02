@@ -4,6 +4,8 @@ import android.app.Activity.RESULT_OK
 import android.content.Context
 import android.content.Intent
 import com.google.gson.Gson
+import com.onefin.posapp.core.models.ResultApi
+import com.onefin.posapp.core.models.Transaction
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentAppResponse
 import com.onefin.posapp.core.models.data.PaymentResponseData
@@ -11,16 +13,29 @@ import com.onefin.posapp.core.models.data.PaymentStatusCode
 import com.onefin.posapp.core.models.data.PaymentSuccessData
 import com.onefin.posapp.core.models.data.RabbitNotify
 import com.onefin.posapp.core.models.data.RabbitNotifyType
+import com.onefin.posapp.core.models.data.SettleResultData
+import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.services.RabbitMQService
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.PaymentHelper
+import com.onefin.posapp.core.utils.PrinterHelper
+import com.onefin.posapp.core.utils.ReceiptPrinter
+import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.ui.home.QRCodeDisplayActivity
 import com.onefin.posapp.ui.login.LoginActivity
 import com.onefin.posapp.ui.modals.LogoutDialogActivity
+import com.onefin.posapp.ui.modals.ProcessingActivity
+import com.onefin.posapp.ui.modals.ResultDialogActivity
 import com.onefin.posapp.ui.payment.PaymentCardActivity
 import com.onefin.posapp.ui.payment.PaymentSuccessActivity
 import com.onefin.posapp.ui.transaction.TransparentPaymentActivity
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import timber.log.Timber
 import javax.inject.Inject
@@ -31,7 +46,10 @@ class RabbitMQManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val gson: Gson,
     private val ttsManager: TTSManager,
+    private val apiService: ApiService,
     private val paymentHelper: PaymentHelper,
+    private val printerHelper: PrinterHelper,
+    private val receiptPrinter: ReceiptPrinter,
     private val storageService: StorageService,
     private val snackbarManager: SnackbarManager,
     private val rabbitMQService: RabbitMQService,
@@ -43,6 +61,7 @@ class RabbitMQManager @Inject constructor(
     }
 
     private var isInitialized = false
+    private val rabbitScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     fun startAfterLogin() {
         if (isInitialized) {
@@ -78,19 +97,20 @@ class RabbitMQManager @Inject constructor(
 
     private fun handleLogout(notify: RabbitNotify) {
         LogoutDialogActivity.start(context, notify.title, notify.content)
-        try {
-            // Delay 5s để user xem dialog
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+
+        // Delay 5s để user xem dialog
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            try {
                 stop()
                 storageService.clearAll()
 
                 val intent = Intent(context, LoginActivity::class.java)
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 context.startActivity(intent)
-            }, 5000)
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error during logout")
-        }
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Error during logout")
+            }
+        }, 5000)
     }
 
     private fun handleRabbitMessage(messageJson: String) {
@@ -101,7 +121,8 @@ class RabbitMQManager @Inject constructor(
                 when (notifyType) {
                     RabbitNotifyType.LOGOUT,
                     RabbitNotifyType.LOCKED,
-                    RabbitNotifyType.LOCK_USER -> {
+                    RabbitNotifyType.LOCK_USER,
+                    RabbitNotifyType.CHANGE_TID_MID -> {
                         handleLogout(notify)
                     }
                     RabbitNotifyType.QR_SUCCESS -> {
@@ -110,6 +131,16 @@ class RabbitMQManager @Inject constructor(
                     RabbitNotifyType.REQUEST_PAYMENT -> {
                         handlePaymentRequest(notify)
                         snackbarManager.showFromRabbitNotify(notify)
+                    }
+                    RabbitNotifyType.SETTLEMENT -> {
+                        rabbitScope.launch {
+                            handleSettlement(notify)
+                        }
+                    }
+                    RabbitNotifyType.PRINT_INVOICE -> {
+                        rabbitScope.launch {
+                            handlePrintInvoice(notify)
+                        }
                     }
                     else -> {
                         snackbarManager.showFromRabbitNotify(notify)
@@ -199,6 +230,7 @@ class RabbitMQManager @Inject constructor(
             Timber.tag(TAG).e(e, "Error parsing QR success data")
         }
     }
+
     private fun handlePaymentRequest(notify: RabbitNotify) {
         val paymentJson = notify.jsonObject
         if (paymentJson.isNullOrEmpty())
@@ -222,6 +254,124 @@ class RabbitMQManager @Inject constructor(
         }
     }
 
+    private suspend fun handleSettlement(notify: RabbitNotify) {
+        // Hiển thị ProcessingDialog
+        withContext(Dispatchers.Main) {
+            ProcessingActivity.show(context)
+        }
+
+        try {
+            val requestId = UtilHelper.generateRequestId()
+            val endpoint = "/api/card/settle"
+            val body = mapOf(
+                "requestId" to requestId,
+                "data" to mapOf("autoBatchUpload" to true)
+            )
+
+            val resultApi = apiService.post(endpoint, body) as ResultApi<*>
+
+            // Đóng ProcessingDialog
+            delay(2000)
+            withContext(Dispatchers.Main) {
+                ProcessingActivity.dismiss()
+            }
+
+            if (resultApi.isSuccess()) {
+                val gson = Gson()
+                val jsonString = gson.toJson(resultApi.data)
+                val settleData = gson.fromJson(jsonString, SettleResultData::class.java)
+
+                if (settleData?.isSuccess() == true) {
+                    withContext(Dispatchers.Main) {
+                        ResultDialogActivity.showSuccess(context, "Kết toán giao dịch thành công")
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        ResultDialogActivity.showError(
+                            context,
+                            settleData?.status?.message ?: "Kết toán giao dịch thất bại"
+                        )
+                    }
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    ResultDialogActivity.showError(context, resultApi.description)
+                }
+            }
+        } catch (e: Exception) {
+            // Đóng ProcessingDialog nếu có lỗi
+            withContext(Dispatchers.Main) {
+                ProcessingActivity.dismiss()
+                ResultDialogActivity.showError(context, e.message ?: "Có lỗi xảy ra")
+            }
+        }
+    }
+
+    private suspend fun handlePrintInvoice(notify: RabbitNotify) {
+        // Hiển thị ProcessingDialog
+        withContext(Dispatchers.Main) {
+            ProcessingActivity.show(context)
+        }
+
+        try {
+            val transactionJson = notify.jsonObject
+            if (transactionJson.isNullOrEmpty()) {
+                withContext(Dispatchers.Main) {
+                    ProcessingActivity.dismiss()
+                    ResultDialogActivity.showError(context, "Giao dịch không tồn tại. Vui lòng thử lại")
+                }
+                return
+            }
+
+            if (!printerHelper.waitForReady(timeoutMs = 3000)) {
+                withContext(Dispatchers.Main) {
+                    ProcessingActivity.dismiss()
+                    ResultDialogActivity.showError(context, "Máy in chưa sẵn sàng. Vui lòng thử lại")
+                }
+                return
+            }
+
+            val account = storageService.getAccount()
+            if (account == null) {
+                withContext(Dispatchers.Main) {
+                    ProcessingActivity.dismiss()
+                    ResultDialogActivity.showError(context, "Không tìm thấy thông tin tài khoản")
+                }
+                return
+            }
+
+            val transaction = gson.fromJson(transactionJson, Transaction::class.java)
+            val result = receiptPrinter.printReceipt(
+                transaction = transaction,
+                terminal = account.terminal
+            )
+
+            // Đóng ProcessingDialog
+            withContext(Dispatchers.Main) {
+                ProcessingActivity.dismiss()
+            }
+
+            if (result.isSuccess) {
+                withContext(Dispatchers.Main) {
+                    ResultDialogActivity.showSuccess(context, "In hóa đơn thành công")
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    ResultDialogActivity.showError(
+                        context,
+                        result.exceptionOrNull()?.message ?: "In hóa đơn thất bại"
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            // Đóng ProcessingDialog nếu có lỗi
+            withContext(Dispatchers.Main) {
+                ProcessingActivity.dismiss()
+                ResultDialogActivity.showError(context, e.message ?: "Có lỗi xảy ra")
+            }
+        }
+    }
+
     private fun handleQrPayment(paymentRequest: PaymentAppRequest) {
         try {
             val account = storageService.getAccount()
@@ -235,7 +385,7 @@ class RabbitMQManager @Inject constructor(
             }
             context.startActivity(intent)
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error handling card payment")
+            Timber.tag(TAG).e(e, "Error handling QR payment")
         }
     }
 
@@ -269,7 +419,7 @@ class RabbitMQManager @Inject constructor(
             }
             context.startActivity(intent)
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error handling card payment")
+            Timber.tag(TAG).e(e, "Error handling card member payment")
         }
     }
 }

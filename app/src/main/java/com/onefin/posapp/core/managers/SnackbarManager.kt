@@ -92,5 +92,9 @@ class SnackbarManager @Inject constructor() {
         showSnackbar(title, content, type = SnackbarType.ERROR)
     }
 
+    fun showException(e: Exception) {
+        showSnackbar("Lỗi nghiêm trọng", e.message ?: "Xảy ra lỗi nghiêm trọng", type = SnackbarType.ERROR)
+    }
+
     // XÓA HÀM PRIVATE formatDateTime() CŨ Ở ĐÂY
 }
