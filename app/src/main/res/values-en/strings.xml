@@ -29,6 +29,7 @@
     <string name="qr_display_amount_label">AMOUNT</string>
     <string name="qr_display_cancel_transaction">Cancel Transaction</string>
     <string name="qr_payment_description">Invoice payment</string>
+    <string name="device_info_title">Device information</string>
 
     <!-- QR Screen -->
     <string name="payment_success_title">Transaction Successful</string>
@@ -318,4 +319,8 @@
     <string name="label_card_type">Card Type</string>
     <string name="label_transaction_type">Transaction Type</string>
     <string name="label_account_name">Holder Name</string>
+
+    <string name="balance_title">Balance</string>
+    <string name="balance_pending">Balance Pending</string>
+    <string name="balance_settled">Balance Settled</string>
 </resources>

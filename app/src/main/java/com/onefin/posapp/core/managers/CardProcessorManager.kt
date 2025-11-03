@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 import sunmi.paylib.SunmiPayKernel
 import timber.log.Timber
 import com.onefin.posapp.core.managers.helpers.PinInputCallback
+import com.onefin.posapp.core.utils.CardHelper
 
 @Singleton
 class CardProcessorManager(
@@ -302,15 +303,18 @@ class CardProcessorManager(
             // Step 1: Try get from cache
             val cachedConfig = storageService.getNfcConfig()
             if (cachedConfig != null) {
-                Timber.d("✅ Using cached NFC config (valid)")
                 return cachedConfig
             }
 
             // Step 2: Cache miss or expired, fetch from API
             val endpoint = "/api/card/nfcConfig"
-            val body = emptyMap<String, Any>()
-
-            val resultApi = apiService.post(endpoint, body) as ResultApi<*>
+            val driver = pendingRequest?.merchantRequestData?.mid ?: ""
+            val employee = pendingRequest?.merchantRequestData?.tid ?: ""
+            val requestBody = mapOf(
+                "mid" to driver,
+                "tid" to employee,
+            )
+            val resultApi = apiService.post(endpoint, requestBody) as ResultApi<*>
             val gson = com.google.gson.Gson()
             val jsonString = gson.toJson(resultApi.data)
             val config = gson.fromJson(jsonString, NfcConfigResponse::class.java)
@@ -334,9 +338,14 @@ class CardProcessorManager(
 
             // Step 2: Cache miss or expired, fetch from API
             val endpoint = "/api/card/pkeyConfig"
-            val body = emptyMap<String, Any>()
+            val driver = pendingRequest?.merchantRequestData?.mid ?: ""
+            val employee = pendingRequest?.merchantRequestData?.tid ?: ""
+            val requestBody = mapOf(
+                "mid" to driver,
+                "tid" to employee,
+            )
 
-            val resultApi = apiService.post(endpoint, body) as ResultApi<*>
+            val resultApi = apiService.post(endpoint, requestBody) as ResultApi<*>
             val gson = com.google.gson.Gson()
             val jsonString = gson.toJson(resultApi.data)
             val config = gson.fromJson(jsonString, PkeyConfigResponse::class.java)

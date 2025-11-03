@@ -25,9 +25,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.google.gson.Gson
 import com.onefin.posapp.core.models.Account
 import com.onefin.posapp.R
 import com.onefin.posapp.core.config.LanguageConstants
+import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.LocaleHelper
 import com.onefin.posapp.core.utils.NavigationHelper
@@ -35,6 +37,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun AppDrawer(
+    apiService: ApiService,
     onCloseDrawer: () -> Unit,
     localeHelper: LocaleHelper,
     storageService: StorageService,
@@ -69,6 +72,9 @@ fun AppDrawer(
                     account = account!!,
                     onLogoutClick = { showLogoutDialog = true }
                 )
+                BalanceDisplay(
+                    apiService = apiService
+                )
             } else {
                 Box(
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -91,7 +97,7 @@ fun AppDrawer(
             )
 
             HorizontalDivider(thickness = 1.dp, color = Color(0xFFE5E7EB))
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Menu Items
             DrawerMenuItem(

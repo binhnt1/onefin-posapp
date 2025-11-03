@@ -107,6 +107,13 @@ class StorageService @Inject constructor(
     }
 
     // ==================== NfcConfig ====================
+    fun clearNfcConfig() {
+        sharedPreferences.edit().apply {
+            remove(MifareConstants.NFC_CONFIG)
+            remove(MifareConstants.NFC_CONFIG_TIMESTAMP)
+            apply()
+        }
+    }
     fun getNfcConfig(): NfcConfigResponse? {
         val configJson = sharedPreferences.getString(MifareConstants.NFC_CONFIG, null)
         val timestamp = sharedPreferences.getLong(MifareConstants.NFC_CONFIG_TIMESTAMP, 0L)
@@ -149,6 +156,13 @@ class StorageService @Inject constructor(
     }
 
     // ==================== PkeyConfig ====================
+    fun clearPkeyConfig() {
+        sharedPreferences.edit().apply {
+            remove(MifareConstants.PKEY_CONFIG)
+            remove(MifareConstants.PKEY_CONFIG_TIMESTAMP)
+            apply()
+        }
+    }
     fun getPkeyConfig(): PkeyConfigResponse? {
         val configJson = sharedPreferences.getString(MifareConstants.PKEY_CONFIG, null)
         val timestamp = sharedPreferences.getLong(MifareConstants.PKEY_CONFIG_TIMESTAMP, 0L)

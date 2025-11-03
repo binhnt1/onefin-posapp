@@ -29,6 +29,7 @@
     <string name="qr_display_amount_label">SỐ TIỀN</string>
     <string name="qr_display_cancel_transaction">Hủy giao dịch</string>
     <string name="qr_payment_description">Thanh toan hoa don</string>
+    <string name="device_info_title">Thông tin thiết bị</string>
 
 
     <!-- QR Screen -->
@@ -319,4 +320,8 @@
     <string name="label_card_type">Loại thẻ</string>
     <string name="label_transaction_type">Loại giao dịch</string>
     <string name="label_account_name">Tên chủ thẻ</string>
+
+    <string name="balance_title">Số dư tài khoản</string>
+    <string name="balance_pending">Số dư tạm có</string>
+    <string name="balance_settled">Số dư báo có</string>
 </resources>

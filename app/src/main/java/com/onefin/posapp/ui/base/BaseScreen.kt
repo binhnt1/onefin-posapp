@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.onefin.posapp.core.models.Account
+import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.LocaleHelper
 import com.onefin.posapp.ui.components.AppDrawer
@@ -14,12 +15,14 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun BaseScreen(
+    apiService: ApiService,
     localeHelper: LocaleHelper,
     storageService: StorageService,
     content: @Composable (PaddingValues, Account?) -> Unit
 ) {
     var account by remember { mutableStateOf<Account?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var drawerOpenCount by remember { mutableIntStateOf(0) }  // ← Thêm counter
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
@@ -31,13 +34,16 @@ fun BaseScreen(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            AppDrawer(
-                onCloseDrawer = {
-                    scope.launch { drawerState.close() }
-                },
-                localeHelper = localeHelper,
-                storageService = storageService,
-            )
+            key(drawerOpenCount) {  // ← Force recompose với key
+                AppDrawer(
+                    apiService = apiService,
+                    onCloseDrawer = {
+                        scope.launch { drawerState.close() }
+                    },
+                    localeHelper = localeHelper,
+                    storageService = storageService,
+                )
+            }
         },
         modifier = Modifier.fillMaxSize()
     ) {
@@ -46,6 +52,7 @@ fun BaseScreen(
                 AppTopBar(
                     title = account?.terminal?.name ?: "",
                     onMenuClick = {
+                        drawerOpenCount++  // ← Tăng counter
                         scope.launch { drawerState.open() }
                     }
                 )

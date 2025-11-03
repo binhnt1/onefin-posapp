@@ -552,8 +552,6 @@ fun TransactionDashboardScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-
                     // Recent Transactions
                     Column(
                         modifier = Modifier

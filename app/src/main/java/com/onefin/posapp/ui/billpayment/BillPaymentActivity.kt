@@ -11,15 +11,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
+import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.LocaleHelper
 import com.onefin.posapp.ui.base.BaseActivity
 import com.onefin.posapp.ui.base.BaseScreen
 import com.onefin.posapp.ui.theme.PosAppTheme
 import dagger.hilt.android.AndroidEntryPoint
+import jakarta.inject.Inject
 
 @AndroidEntryPoint
 class BillPaymentActivity : BaseActivity() {
+
+    @Inject
+    lateinit var apiService: ApiService
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,6 +32,7 @@ class BillPaymentActivity : BaseActivity() {
         setContent {
             PosAppTheme {
                 BillPaymentScreen(
+                    apiService = apiService,
                     localeHelper = localeHelper,
                     storageService = storageService
                 )
@@ -37,10 +43,12 @@ class BillPaymentActivity : BaseActivity() {
 
 @Composable
 fun BillPaymentScreen(
+    apiService: ApiService,
     localeHelper: LocaleHelper,
     storageService: StorageService
 ) {
     BaseScreen(
+        apiService = apiService,
         localeHelper = localeHelper,
         storageService = storageService
     ) { paddingValues, account ->

@@ -206,8 +206,11 @@ fun ExternalPaymentScreen(
         if (!resultApi.isSuccess()) {
             onFinish(null, resultApi.description)
             return false
+        } else {
+            storageService.clearPkeyConfig()
+            storageService.clearNfcConfig()
+            return true
         }
-        return true
     }
 
     DisposableEffect(Unit) {
