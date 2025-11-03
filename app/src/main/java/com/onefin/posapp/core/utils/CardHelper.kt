@@ -8,13 +8,13 @@ import com.onefin.posapp.core.models.data.PaymentAppResponse
 import com.onefin.posapp.core.models.data.PaymentResponseData
 import com.onefin.posapp.core.models.data.RequestSale
 import com.onefin.posapp.core.models.data.SaleResultData
+import com.onefin.posapp.core.models.data.MemberResultData
 import com.onefin.posapp.core.models.data.VoidResultData
 import com.onefin.posapp.core.models.enums.CardBrand
 import com.onefin.posapp.core.models.enums.CardType
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import java.util.UUID
 
 object CardHelper {
     fun detectBrand(pan: String): String {
@@ -397,6 +397,26 @@ object CardHelper {
             referenceId = originalRequest.merchantRequestData?.referenceId,
             additionalData = originalRequest.merchantRequestData?.additionalData,
             ccy = voidResult.data?.currency ?: voidResult.data?.currency ?: "704",
+        )
+
+        val response = PaymentAppResponse(
+            type = originalRequest.type,
+            action = originalRequest.action,
+            paymentResponseData = paymentResponseData
+        )
+        return response
+    }
+    fun returnMemberResponse(result: MemberResultData, originalRequest: PaymentAppRequest): PaymentAppResponse {
+        val paymentResponseData = PaymentResponseData(
+            refNo = result.refno,
+            description = result.errorDesc,
+            status = result.respcode ?: "99",
+            tip = result.tip?.toLongOrNull() ?: 0,
+            amount = result.amount?.toLongOrNull() ?: 0,
+            balance = result.balance?.toLongOrNull() ?: 0,
+            tid = result.tid ?: originalRequest.merchantRequestData?.tid,
+            mid = result.mid ?: originalRequest.merchantRequestData?.mid,
+            additionalData = originalRequest.merchantRequestData?.additionalData,
         )
 
         val response = PaymentAppResponse(

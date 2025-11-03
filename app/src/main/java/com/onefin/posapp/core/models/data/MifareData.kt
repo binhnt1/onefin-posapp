@@ -222,11 +222,3 @@ data class NfcConfigResponse(
         return amount > nfclimit
     }
 }
-
-data class PkeyConfigResponse(
-    @SerializedName("pkey")
-    val pkey: String,
-
-    @SerializedName("keyexpdate")
-    val keyexpdate: String
-) : Serializable

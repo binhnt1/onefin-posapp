@@ -2,10 +2,8 @@ package com.onefin.posapp
 
 import android.app.Application
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.nfc.NfcAdapter
 import android.os.IBinder
 import com.onefin.posapp.core.managers.ActivityTracker
 import com.onefin.posapp.core.managers.RabbitMQManager
@@ -18,7 +16,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking

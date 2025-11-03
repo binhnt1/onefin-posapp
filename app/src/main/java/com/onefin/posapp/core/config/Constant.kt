@@ -84,3 +84,8 @@ object MifareConstants {
     const val NFC_CONFIG_CACHE_DURATION = 24 * 60 * 60 * 1000L
     const val PKEY_CONFIG_CACHE_DURATION = 12 * 60 * 60 * 1000L
 }
+
+object  DriverConstants {
+    const val DRIVER_INFO = "driver_info"
+
+}

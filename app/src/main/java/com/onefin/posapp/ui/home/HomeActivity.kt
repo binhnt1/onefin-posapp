@@ -60,8 +60,8 @@ import com.onefin.posapp.ui.modals.AutoLoginDialog
 import com.onefin.posapp.ui.modals.NoNetworkDialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import com.onefin.posapp.core.services.DriverInfoService
-import com.onefin.posapp.core.database.entity.DriverInfoEntity
+import com.onefin.posapp.core.models.entity.DriverInfoEntity
+import com.onefin.posapp.core.utils.DeviceHelper
 import com.onefin.posapp.ui.home.components.CollapsibleMerchantInfoCard
 
 @AndroidEntryPoint
@@ -74,13 +74,13 @@ class HomeActivity : BaseActivity() {
     lateinit var ttsManager: TTSManager
 
     @Inject
+    lateinit var deviceHelper: DeviceHelper
+
+    @Inject
     lateinit var paymentHelper: PaymentHelper
 
     @Inject
     lateinit var snackbarManager: SnackbarManager
-
-    @Inject
-    lateinit var driverInfoService: DriverInfoService
 
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
@@ -94,10 +94,10 @@ class HomeActivity : BaseActivity() {
                     apiService = apiService,
                     ttsManager = ttsManager,
                     localeHelper = localeHelper,
+                    deviceHelper = deviceHelper,
                     paymentHelper = paymentHelper,
                     storageService = storageService,
-                    snackbarManager = snackbarManager,
-                    driverInfoService = driverInfoService,
+                    snackbarManager = snackbarManager
                 )
 
                 GlobalSnackbarHost(
@@ -121,10 +121,10 @@ fun HomeScreen(
     apiService: ApiService,
     ttsManager: TTSManager,
     localeHelper: LocaleHelper,
+    deviceHelper: DeviceHelper,
     paymentHelper: PaymentHelper,
     storageService: StorageService,
-    snackbarManager: SnackbarManager,
-    driverInfoService: DriverInfoService
+    snackbarManager: SnackbarManager
 ) {
     val context = LocalContext.current
 
@@ -200,8 +200,7 @@ fun HomeScreen(
                     cachedAccount = storageService.getAccount()
                     cachedAccount?.let { account ->
                         try {
-                            val serial = storageService.getSerial() ?: ""
-                            driverInfo = driverInfoService.getLatestBySerial(serial)
+                            driverInfo = storageService.getDriverInfo()
                         } catch (e: Exception) {
                         }
                     }
@@ -246,6 +245,7 @@ fun HomeScreen(
                     HomeContent(
                         driverInfo = driverInfo,
                         account = cachedAccount!!,
+                        deviceHelper = deviceHelper,
                         paymentHelper = paymentHelper,
                         storageService = storageService,
                         isNetworkAvailable = isNetworkAvailable,
@@ -308,6 +308,7 @@ suspend fun performAppKeyLogin(
 @Composable
 fun HomeContent(
     account: Account,
+    deviceHelper: DeviceHelper,
     isNetworkAvailable: Boolean,
     paymentHelper: PaymentHelper,
     modifier: Modifier = Modifier,
@@ -338,7 +339,6 @@ fun HomeContent(
             "provider" to "Ngân hàng"
         )
     }
-
     val merchantConfig = remember(driverInfo, account) {
         buildMap {
             // Driver info
@@ -364,6 +364,18 @@ fun HomeContent(
             put("provider", account.terminal.provider)
         }
     }
+
+    // save driverInfo
+    if (driverInfo == null) {
+        storageService.clearDriverInfo()
+        storageService.saveDriverInfo(DriverInfoEntity(
+            tid = merchantConfig["tid"]!!,
+            mid = merchantConfig["mid"]!!,
+            serial = storageService.getSerial()!!,
+            driverNumber = merchantConfig["driver"]!!,
+            employeeCode = merchantConfig["employee"]!!,
+        ))
+    } else {}
 
     var showAmountSheet by remember { mutableStateOf(false) }
     Box(
@@ -533,7 +545,9 @@ fun HomeContent(
                         account.terminal.accountName else null,
                     accountNumber = if (account.terminal.image.isEmpty())
                         account.terminal.accountNumber else null,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    storageService = storageService,
+                    deviceHelper = deviceHelper,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }

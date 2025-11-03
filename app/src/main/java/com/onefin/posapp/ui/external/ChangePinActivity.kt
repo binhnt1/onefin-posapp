@@ -12,12 +12,16 @@ import com.onefin.posapp.core.config.ResultConstants
 import com.onefin.posapp.core.managers.CardProcessorManager
 import com.onefin.posapp.core.managers.NfcPhoneReaderManager
 import com.onefin.posapp.core.models.data.DeviceType
+import com.onefin.posapp.core.models.data.MemberResultData
 import com.onefin.posapp.core.models.data.PaymentAction
+import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentAppResponse
 import com.onefin.posapp.core.models.data.PaymentResponseData
 import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.models.data.PaymentStatusCode
+import com.onefin.posapp.core.models.data.VoidResultData
 import com.onefin.posapp.core.services.ApiService
+import com.onefin.posapp.core.utils.CardHelper
 import com.onefin.posapp.core.utils.PaymentHelper
 import com.onefin.posapp.ui.base.BaseActivity
 import com.onefin.posapp.ui.external.changepin.ChangePinStep1Screen
@@ -54,19 +58,20 @@ class ChangePinActivity : BaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         deviceType = detectDeviceType()
-
-        setContent {
-            ChangePinFlow(
-                deviceType = deviceType,
-                apiService = apiService,
-                storageService = storageService,
-                cardProcessorManager = cardProcessorManager,
-                nfcPhoneReaderManager = nfcPhoneReaderManager,
-                onSuccess = { response -> returnSuccess(response) },
-                onCancel = { errorMessage -> cancelAction(errorMessage) },
-            )
+        val requestData = getPaymentAppRequest()
+        if (requestData != null) {
+            setContent {
+                ChangePinFlow(
+                    deviceType = deviceType,
+                    apiService = apiService,
+                    storageService = storageService,
+                    cardProcessorManager = cardProcessorManager,
+                    nfcPhoneReaderManager = nfcPhoneReaderManager,
+                    onCancel = { errorMessage -> cancelAction(errorMessage) },
+                    onSuccess = { memberResult -> returnSuccess(memberResult, requestData) },
+                )
+            }
         }
     }
 
@@ -148,19 +153,13 @@ class ChangePinActivity : BaseActivity() {
         finish()
     }
 
-    private fun returnSuccess(response: PaymentAppResponse) {
-        val isExternalFlow = storageService.isExternalPaymentFlow()
-        if (isExternalFlow) {
-            storageService.clearExternalPaymentContext()
-            val resultIntent = Intent().apply {
-                putExtra(
-                    ResultConstants.RESULT_PAYMENT_RESPONSE_DATA,
-                    gson.toJson(response)
-                )
-            }
-            setResult(RESULT_OK, resultIntent)
-            finish()
-        }
+    private fun returnSuccess(memberResult: MemberResultData, originalRequest: PaymentAppRequest) {
+        val pendingRequest = storageService.getPendingPaymentRequest() ?: originalRequest
+        val response = CardHelper.returnMemberResponse(memberResult, pendingRequest)
+        val resultIntent = paymentHelper.buildResultIntentSuccess(response)
+        setResult(RESULT_OK, resultIntent)
+        storageService.clearExternalPaymentContext()
+        finish()
     }
 }
 
@@ -169,13 +168,14 @@ fun ChangePinFlow(
     deviceType: DeviceType,
     apiService: ApiService,
     onCancel: (String?) -> Unit,
-    onSuccess: (PaymentAppResponse) -> Unit,
+    onSuccess: (MemberResultData) -> Unit,
     cardProcessorManager: CardProcessorManager,
     nfcPhoneReaderManager: NfcPhoneReaderManager,
     storageService: com.onefin.posapp.core.services.StorageService,
 ) {
-    var currentStep by remember { mutableStateOf(ChangePinStep.STEP1_TAP_CARD_AND_OLD_PIN) }
+    var memberResult by remember { mutableStateOf(MemberResultData()) }
     var cardData by remember { mutableStateOf<PaymentResult.Success?>(null) }
+    var currentStep by remember { mutableStateOf(ChangePinStep.STEP1_TAP_CARD_AND_OLD_PIN) }
 
     when (currentStep) {
         ChangePinStep.STEP1_TAP_CARD_AND_OLD_PIN -> {
@@ -200,7 +200,8 @@ fun ChangePinFlow(
                     apiService = apiService,
                     onCancel = { onCancel(null) },
                     onTimeout = { onCancel("Hết thời gian") },
-                    onSuccess = {
+                    onSuccess = { resultData ->
+                        memberResult = resultData
                         currentStep = ChangePinStep.STEP3_CONFIRM_NEW_PIN
                     }
                 )
@@ -210,17 +211,7 @@ fun ChangePinFlow(
         ChangePinStep.STEP3_CONFIRM_NEW_PIN -> {
             ChangePinStep3Screen(
                 onComplete = {
-                    val paymentRequest = storageService.getPendingPaymentRequest()
-                    val response = PaymentAppResponse(
-                        type = "member",
-                        action = PaymentAction.CHANGE_PIN.value,
-                        paymentResponseData = PaymentResponseData(
-                            status = PaymentStatusCode.SUCCESS,
-                            description = "Thay đổi mã PIN thành công",
-                            additionalData = paymentRequest?.merchantRequestData?.additionalData
-                        )
-                    )
-                    onSuccess(response)
+                    onSuccess(memberResult)
                 }
             )
         }

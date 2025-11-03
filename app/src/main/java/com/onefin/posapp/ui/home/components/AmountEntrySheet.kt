@@ -195,25 +195,29 @@ fun AmountEntrySheet(
                                             )
                                         )
                                         val sdkType = BuildConfig.SDK_TYPE
-                                        val paymentRequestData = paymentHelper.createPaymentAppRequest(account, paymentRequest)
-                                        if (sdkType == "onefin") {
-                                            val intent = Intent(
-                                                context,
-                                                TransparentPaymentActivity::class.java
-                                            ).apply {
-                                                putExtra("REQUEST_DATA", paymentRequestData)
-                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        val driverInfo = storageService.getDriverInfo()
+                                        val paymentRequestData = paymentHelper.createPaymentAppRequest(paymentRequest, driverInfo)
+                                        when (sdkType) {
+                                            "onefin" -> {
+                                                val intent = Intent(
+                                                    context,
+                                                    TransparentPaymentActivity::class.java
+                                                ).apply {
+                                                    putExtra("REQUEST_DATA", paymentRequestData)
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                context.startActivity(intent)
                                             }
-                                            context.startActivity(intent)
-                                        } else {
-                                            val intent = Intent(
-                                                context,
-                                                PaymentCardActivity::class.java
-                                            ).apply {
-                                                putExtra("REQUEST_DATA", paymentRequestData)
-                                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            "sunmi" -> {
+                                                val intent = Intent(
+                                                    context,
+                                                    PaymentCardActivity::class.java
+                                                ).apply {
+                                                    putExtra("REQUEST_DATA", paymentRequestData)
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                context.startActivity(intent)
                                             }
-                                            context.startActivity(intent)
                                         }
                                         onDismiss()
                                     } else {
@@ -243,7 +247,8 @@ fun AmountEntrySheet(
                                                 amount = amountValue
                                             )
                                         )
-                                        val paymentRequestData = paymentHelper.createPaymentAppRequest(account, paymentRequest)
+                                        val driverInfo = storageService.getDriverInfo()
+                                        val paymentRequestData = paymentHelper.createPaymentAppRequest(paymentRequest, driverInfo)
                                         val intent = Intent(context, QRCodeDisplayActivity::class.java).apply {
                                             putExtra("REQUEST_DATA", paymentRequestData)
                                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -283,31 +288,31 @@ fun AmountEntrySheet(
                                                 )
                                             )
                                             val sdkType = BuildConfig.SDK_TYPE
-                                            val paymentRequestData =
-                                                paymentHelper.createPaymentAppRequest(
-                                                    account,
-                                                    paymentRequest
-                                                )
-                                            if (sdkType == "onefin") {
-                                                val intent = Intent(
-                                                    context,
-                                                    TransparentPaymentActivity::class.java
-                                                ).apply {
-                                                    putExtra("REQUEST_DATA", paymentRequestData)
-                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            val driverInfo = storageService.getDriverInfo()
+                                            val paymentRequestData = paymentHelper.createPaymentAppRequest(paymentRequest, driverInfo)
+                                            when (sdkType) {
+                                                "onefin" -> {
+                                                    val intent = Intent(
+                                                        context,
+                                                        TransparentPaymentActivity::class.java
+                                                    ).apply {
+                                                        putExtra("REQUEST_DATA", paymentRequestData)
+                                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    }
+                                                    context.startActivity(intent)
+                                                    onDismiss()
                                                 }
-                                                context.startActivity(intent)
-                                                onDismiss()
-                                            } else {
-                                                val intent = Intent(
-                                                    context,
-                                                    PaymentCardActivity::class.java
-                                                ).apply {
-                                                    putExtra("REQUEST_DATA", paymentRequestData)
-                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                "sunmi" -> {
+                                                    val intent = Intent(
+                                                        context,
+                                                        PaymentCardActivity::class.java
+                                                    ).apply {
+                                                        putExtra("REQUEST_DATA", paymentRequestData)
+                                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                    }
+                                                    context.startActivity(intent)
+                                                    onDismiss()
                                                 }
-                                                context.startActivity(intent)
-                                                onDismiss()
                                             }
                                         } else {
                                             isProcessing = false

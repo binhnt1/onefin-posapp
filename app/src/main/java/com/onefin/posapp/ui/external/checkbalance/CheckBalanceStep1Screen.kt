@@ -1,4 +1,4 @@
-package com.onefin.posapp.ui.external.changepin
+package com.onefin.posapp.ui.external.checkbalance
 
 import android.content.Context
 import androidx.compose.animation.core.*
@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -28,15 +27,20 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.google.gson.Gson
 import com.onefin.posapp.core.managers.CardProcessorManager
 import com.onefin.posapp.core.managers.NfcPhoneReaderManager
 import com.onefin.posapp.core.managers.helpers.PinInputCallback
+import com.onefin.posapp.core.models.ResultApi
 import com.onefin.posapp.core.models.data.DeviceType
+import com.onefin.posapp.core.models.data.MemberResultData
 import com.onefin.posapp.core.models.data.MerchantRequestData
 import com.onefin.posapp.core.models.data.PaymentAction
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentResult
+import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.services.StorageService
+import com.onefin.posapp.core.utils.CardHelper
 import com.onefin.posapp.ui.payment.components.PinInputBottomSheet
 import com.sunmi.pay.hardware.aidl.AidlConstants
 import kotlinx.coroutines.CoroutineScope
@@ -45,25 +49,28 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 enum class Step1State {
-    INITIALIZING,      // Đang khởi tạo thiết bị
-    WAITING_CARD,      // Đang chờ quẹt thẻ
-    CARD_DETECTED,     // Đã detect thẻ
-    WAITING_PIN,       // Đang chờ nhập PIN
-    VERIFYING_PIN,     // Đang verify PIN
-    SUCCESS            // Thành công
+    INITIALIZING,
+    WAITING_CARD,
+    CARD_DETECTED,
+    WAITING_PIN,
+    VERIFYING_PIN,
+    CALLING_API,
+    SUCCESS
 }
 
 @Composable
-fun ChangePinStep1Screen(
+fun CheckBalanceStep1Screen(
     deviceType: DeviceType,
+    apiService: ApiService,
     cardProcessorManager: CardProcessorManager,
     nfcPhoneReaderManager: NfcPhoneReaderManager,
     storageService: StorageService,
     onCancel: () -> Unit,
     onTimeout: () -> Unit,
-    onOldPinVerified: (PaymentResult.Success) -> Unit
+    onBalanceChecked: (MemberResultData) -> Unit
 ) {
     val context = LocalContext.current
+
     var timeRemaining by remember { mutableIntStateOf(60) }
     var step1State by remember { mutableStateOf(Step1State.INITIALIZING) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -71,7 +78,6 @@ fun ChangePinStep1Screen(
     var onPinEnteredCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
     var onPinCancelledCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
 
-    // Countdown timer - chỉ chạy khi đang chờ thẻ hoặc chờ PIN
     LaunchedEffect(step1State, timeRemaining) {
         if ((step1State == Step1State.WAITING_CARD || step1State == Step1State.WAITING_PIN) && timeRemaining > 0) {
             delay(1000)
@@ -81,30 +87,32 @@ fun ChangePinStep1Screen(
         }
     }
 
-    // Initialize and start card reading
     LaunchedEffect(Unit) {
         initializeCardReader(
             context = context,
             deviceType = deviceType,
+            apiService = apiService,
             cardProcessorManager = cardProcessorManager,
             nfcPhoneReaderManager = nfcPhoneReaderManager,
             storageService = storageService,
-            onInitialized = {
+            onInitComplete = {
                 step1State = Step1State.WAITING_CARD
             },
             onCardDetected = {
                 step1State = Step1State.CARD_DETECTED
             },
             onPinRequired = { onPinEntered, onCancelled ->
-                // Card đã được detect, giờ cần nhập PIN
                 step1State = Step1State.WAITING_PIN
                 onPinEnteredCallback = onPinEntered
                 onPinCancelledCallback = onCancelled
                 showPinInputDialog = true
             },
+            onApiCalling = {
+                step1State = Step1State.CALLING_API
+            },
             onSuccess = { result ->
                 step1State = Step1State.SUCCESS
-                onOldPinVerified(result)
+                onBalanceChecked(result)
             },
             onError = { error ->
                 step1State = Step1State.WAITING_CARD
@@ -133,7 +141,6 @@ fun ChangePinStep1Screen(
                 )
             )
     ) {
-        // Header with countdown
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -145,7 +152,7 @@ fun ChangePinStep1Screen(
             Spacer(modifier = Modifier.width(40.dp))
 
             Text(
-                text = "Đổi mã PIN",
+                text = "Kiểm tra số dư",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF101828),
@@ -161,10 +168,8 @@ fun ChangePinStep1Screen(
 
         HorizontalDivider(thickness = 1.dp, color = Color(0xFFEAECF0))
 
-        // Progress Indicator
         StepProgressIndicator()
 
-        // Content
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -175,19 +180,18 @@ fun ChangePinStep1Screen(
         ) {
             Spacer(modifier = Modifier.weight(0.5f))
 
-            // Card 3D with depth
             Card3DWithReader(logoUrl = logoUrl)
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Main text - thay đổi theo state
             Text(
                 text = when (step1State) {
                     Step1State.INITIALIZING -> "Đang khởi tạo..."
                     Step1State.WAITING_CARD -> "Đặt thẻ lên đầu đọc NFC"
                     Step1State.CARD_DETECTED -> "Đã nhận diện thẻ"
-                    Step1State.WAITING_PIN -> "Nhập mã PIN hiện tại"
+                    Step1State.WAITING_PIN -> "Nhập mã PIN"
                     Step1State.VERIFYING_PIN -> "Đang xác thực PIN..."
+                    Step1State.CALLING_API -> "Đang kiểm tra số dư..."
                     Step1State.SUCCESS -> "Thành công!"
                 },
                 fontSize = 18.sp,
@@ -198,21 +202,19 @@ fun ChangePinStep1Screen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Subtitle
             Text(
                 text = when (step1State) {
                     Step1State.INITIALIZING -> "Vui lòng đợi"
                     Step1State.WAITING_CARD -> "Giữ thẻ trong 2 giây"
                     Step1State.CARD_DETECTED -> "Đang xử lý..."
-                    Step1State.WAITING_PIN -> "Để xác thực thẻ của bạn"
-                    Step1State.VERIFYING_PIN -> "Vui lòng đợi"
-                    Step1State.SUCCESS -> "Chuyển sang bước tiếp theo"
+                    Step1State.WAITING_PIN -> "Để kiểm tra tài khoản"
+                    Step1State.VERIFYING_PIN, Step1State.CALLING_API -> "Vui lòng đợi"
+                    Step1State.SUCCESS -> "Đã lấy thông tin số dư"
                 },
                 fontSize = 14.sp,
                 color = when (step1State) {
-                    Step1State.CARD_DETECTED,
-                    Step1State.VERIFYING_PIN,
-                    Step1State.SUCCESS -> Color(0xFF3B82F6)
+                    Step1State.CARD_DETECTED, Step1State.VERIFYING_PIN,
+                    Step1State.CALLING_API, Step1State.SUCCESS -> Color(0xFF3B82F6)
                     else -> Color(0xFF667085)
                 },
                 textAlign = TextAlign.Center
@@ -220,80 +222,41 @@ fun ChangePinStep1Screen(
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // Status box with animation
             AnimatedStatusBox(state = step1State)
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Error or Tip text
             if (errorMessage != null) {
                 Row(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "⚠️",
-                        fontSize = 16.sp
-                    )
+                    Text(text = "⚠️", fontSize = 16.sp)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = errorMessage!!,
-                        fontSize = 12.sp,
-                        color = Color(0xFFEF4444)
-                    )
-                }
-            } else {
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "💡",
-                        fontSize = 16.sp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Đảm bảo thẻ đã được kích hoạt",
-                        fontSize = 12.sp,
-                        color = Color(0xFF667085)
-                    )
+                    Text(text = errorMessage!!, fontSize = 12.sp, color = Color(0xFFEF4444))
                 }
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Cancel button
             OutlinedButton(
                 onClick = onCancel,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFF667085)
-                ),
-                border = BorderStroke(
-                    width = 1.dp,
-                    color = Color(0xFFD0D5DD)
-                )
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF475569)),
+                border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                shape = RoundedCornerShape(8.dp)
             ) {
-                Text(
-                    text = "Hủy",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Text(text = "Hủy", fontSize = 16.sp, fontWeight = FontWeight.Medium)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
 
-    // PIN Input Dialog
     if (showPinInputDialog) {
         PinInputBottomSheet(
             onCancel = {
                 showPinInputDialog = false
-                step1State = Step1State.WAITING_CARD
                 onPinCancelledCallback?.invoke()
                 onPinEnteredCallback = null
                 onPinCancelledCallback = null
@@ -304,7 +267,7 @@ fun ChangePinStep1Screen(
                 onPinEnteredCallback?.invoke(pin)
                 onPinEnteredCallback = null
                 onPinCancelledCallback = null
-            }
+            },
         )
     }
 }
@@ -333,7 +296,7 @@ private fun InitializingScreen(deviceType: DeviceType) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Đổi mã PIN",
+                text = "Kiểm tra số dư",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF101828),
@@ -378,7 +341,6 @@ private fun InitializingScreen(deviceType: DeviceType) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Progress dots
             LoadingDots()
         }
     }
@@ -418,31 +380,29 @@ private fun LoadingDots() {
     val infiniteTransition = rememberInfiniteTransition(label = "dots")
 
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
         repeat(3) { index ->
-            val scale by infiniteTransition.animateFloat(
-                initialValue = 0.5f,
+            val alpha by infiniteTransition.animateFloat(
+                initialValue = 0.3f,
                 targetValue = 1f,
                 animationSpec = infiniteRepeatable(
-                    animation = tween(600, easing = EaseInOut, delayMillis = index * 200),
+                    animation = tween(
+                        durationMillis = 600,
+                        easing = LinearEasing,
+                        delayMillis = index * 200
+                    ),
                     repeatMode = RepeatMode.Reverse
                 ),
                 label = "dot_$index"
             )
 
-            Box(
-                modifier = Modifier
-                    .size(12.dp)
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                    }
-                    .background(
-                        color = Color(0xFF3B82F6),
-                        shape = CircleShape
-                    )
+            Text(
+                text = "●",
+                fontSize = 16.sp,
+                color = Color(0xFF3B82F6).copy(alpha = alpha),
+                modifier = Modifier.padding(horizontal = 4.dp)
             )
         }
     }
@@ -451,28 +411,35 @@ private fun LoadingDots() {
 private fun initializeCardReader(
     context: Context,
     deviceType: DeviceType,
+    apiService: ApiService,
     cardProcessorManager: CardProcessorManager,
     nfcPhoneReaderManager: NfcPhoneReaderManager,
     storageService: StorageService,
-    onInitialized: () -> Unit,
+    onInitComplete: () -> Unit,
     onCardDetected: () -> Unit,
     onPinRequired: (onPinEntered: (String) -> Unit, onCancelled: () -> Unit) -> Unit,
-    onSuccess: (PaymentResult.Success) -> Unit,
+    onApiCalling: () -> Unit,
+    onSuccess: (MemberResultData) -> Unit,
     onError: (String) -> Unit
 ) {
     val scope = CoroutineScope(Dispatchers.Main)
     val pendingRequest = storageService.getPendingPaymentRequest() ?: PaymentAppRequest(
         type = "member",
-        action = PaymentAction.CHANGE_PIN.value,
-        merchantRequestData = MerchantRequestData(
-            amount = 1
-        )
+        action = PaymentAction.CHECK_BALANCE.value,
+        merchantRequestData = MerchantRequestData(amount = 1)
     )
 
     val handleResult: (PaymentResult) -> Unit = { result ->
         when (result) {
             is PaymentResult.Success -> {
-                onSuccess(result)
+                scope.launch {
+                    onApiCalling()
+                    val balanceResult = processCheckBalance(apiService, result)
+                    balanceResult.fold(
+                        onSuccess = { data -> onSuccess(data) },
+                        onFailure = { e -> onError(e.message ?: "Lỗi kiểm tra số dư") }
+                    )
+                }
             }
             is PaymentResult.Error -> {
                 onError(result.vietnameseMessage)
@@ -480,28 +447,24 @@ private fun initializeCardReader(
         }
     }
 
-    // Setup PIN callback giống PaymentCardActivity
     val pinCallback = object : PinInputCallback {
         override fun requestPinInput(
             onPinEntered: (String) -> Unit,
             onCancelled: () -> Unit
         ) {
             scope.launch(Dispatchers.Main) {
-                onCardDetected() // Thông báo đã detect card
+                onCardDetected()
                 onPinRequired(onPinEntered, onCancelled)
             }
         }
     }
 
     when (deviceType) {
-        DeviceType.SUNMI_P2,
-        DeviceType.SUNMI_P3 -> {
+        DeviceType.SUNMI_P2, DeviceType.SUNMI_P3 -> {
             cardProcessorManager.setPinInputCallback(pinCallback)
             cardProcessorManager.initialize { success, error ->
                 if (success) {
-                    // Notify initialization complete
-                    onInitialized()
-                    // Only allow MIFARE cards for PIN change
+                    onInitComplete()
                     cardProcessorManager.startPayment(
                         paymentRequest = pendingRequest,
                         onProcessingComplete = handleResult,
@@ -513,85 +476,83 @@ private fun initializeCardReader(
             }
         }
         DeviceType.ANDROID_PHONE -> {
-            nfcPhoneReaderManager.initialize { success, error ->
-                if (success) {
-                    // Notify initialization complete
-                    onInitialized()
-                    nfcPhoneReaderManager.startPayment(
-                        paymentRequest = pendingRequest,
-                        onProcessingComplete = handleResult
-                    )
-                } else {
-                    onError(error ?: "Không thể khởi tạo NFC")
-                }
+            scope.launch {
+                delay(500)
+                onInitComplete()
+                nfcPhoneReaderManager.startPayment(
+                    paymentRequest = pendingRequest,
+                    onProcessingComplete = handleResult
+                )
             }
         }
     }
 }
 
-@Composable
-private fun CircularCountdownTimer(
-    timeRemaining: Int,
-    modifier: Modifier = Modifier
-) {
-    val progress by animateFloatAsState(
-        targetValue = timeRemaining.toFloat() / 180,
-        animationSpec = tween(
-            durationMillis = 1000,
-            easing = LinearEasing
-        ),
-        label = "progress"
-    )
-
-    val progressColor = when {
-        timeRemaining <= 10 -> Color(0xFFEF4444)
-        timeRemaining <= 30 -> Color(0xFFF59E0B)
-        else -> Color(0xFF3B82F6)
-    }
-
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val strokeWidth = 3.dp.toPx()
-            val diameter = size.minDimension
-            val radius = diameter / 2f
-
-            drawCircle(
-                color = Color(0xFFE5E7EB),
-                radius = radius - strokeWidth / 2,
-                style = Stroke(width = strokeWidth)
-            )
-
-            val sweepAngle = -360f * progress
-            drawArc(
-                color = progressColor,
-                startAngle = -90f,
-                sweepAngle = sweepAngle,
-                useCenter = false,
-                style = Stroke(
-                    width = strokeWidth,
-                    cap = StrokeCap.Round
+suspend fun processCheckBalance(
+    apiService: ApiService,
+    data: PaymentResult.Success
+): Result<MemberResultData> {
+    val gson = Gson()
+    return try {
+        val requestSale = data.requestSale
+        val requestBody = mapOf(
+            "data" to mapOf(
+                "card" to mapOf(
+                    "ksn" to requestSale.data.card.ksn,
+                    "pin" to requestSale.data.card.pin,
+                    "type" to requestSale.data.card.type,
+                    "newPin" to requestSale.data.card.newPin,
+                    "track1" to requestSale.data.card.track1,
+                    "track2" to requestSale.data.card.track2,
+                    "track3" to requestSale.data.card.track3,
+                    "emvData" to requestSale.data.card.emvData,
+                    "clearPan" to requestSale.data.card.clearPan,
+                    "expiryDate" to requestSale.data.card.expiryDate,
+                    "holderName" to requestSale.data.card.holderName,
+                    "issuerName" to requestSale.data.card.issuerName,
+                    "mode" to CardHelper.getCardMode(requestSale.data.card.mode),
                 ),
-                topLeft = Offset(strokeWidth / 2, strokeWidth / 2),
-                size = Size(diameter - strokeWidth, diameter - strokeWidth)
-            )
-        }
-
-        Text(
-            text = "$timeRemaining",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            color = progressColor
+                "device" to mapOf(
+                    "posEntryMode" to requestSale.data.device.posEntryMode,
+                    "posConditionCode" to requestSale.data.device.posConditionCode
+                ),
+                "payment" to mapOf(
+                    "currency" to requestSale.data.payment.currency,
+                    "transAmount" to requestSale.data.payment.transAmount
+                ),
+                "bank" to requestSale.data.bank,
+            ),
+            "requestData" to mapOf(
+                "type" to requestSale.requestData.type,
+                "action" to requestSale.requestData.action,
+                "merchant_request_data" to gson.toJson(requestSale.requestData.merchantRequestData)
+            ),
+            "requestId" to requestSale.requestId,
         )
+
+        val resultApi = apiService.post("/api/card/checkBalance", requestBody) as ResultApi<*>
+        if (resultApi.isSuccess()) {
+            val responseData = gson.fromJson(
+                gson.toJson(resultApi.data),
+                MemberResultData::class.java
+            )
+            if (responseData.respcode == "00") {
+                Result.success(responseData)
+            } else {
+                Result.failure(Exception(responseData.errorDesc))
+            }
+        } else {
+            Result.failure(Exception(resultApi.description))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 }
 
 @Composable
 private fun StepProgressIndicator() {
     val currentStep = 1
-    val steps = listOf("Xác thực", "PIN mới", "Hoàn tất")
+    val steps = listOf("Xác thực", "Hoàn tất")
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -683,48 +644,26 @@ private fun StepProgressIndicator() {
 
 @Composable
 private fun Card3DWithReader(logoUrl: String?) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier.offset(y = 8.dp)
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Card(
+            modifier = Modifier
+                .width(300.dp)
+                .height(180.dp)
+                .graphicsLayer {
+                    rotationX = -10f
+                    cameraDistance = 12f * density
+                },
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E40AF)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(width = 360.dp, height = 200.dp)
-                    .offset(x = 6.dp, y = 6.dp)
+                    .fillMaxSize()
                     .background(
-                        color = Color(0x20000000),
-                        shape = RoundedCornerShape(16.dp)
-                    )
-            )
-
-            Box(
-                modifier = Modifier
-                    .size(width = 360.dp, height = 200.dp)
-                    .offset(x = 3.dp, y = 3.dp)
-                    .background(
-                        color = Color(0x30000000),
-                        shape = RoundedCornerShape(16.dp)
-                    )
-            )
-
-            Box(
-                modifier = Modifier
-                    .size(width = 360.dp, height = 200.dp)
-                    .background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFF0D7C66),
-                                Color(0xFF16A085)
-                            )
-                        ),
-                        shape = RoundedCornerShape(16.dp)
-                    )
-                    .border(
-                        width = 1.dp,
-                        color = Color(0x40FFFFFF),
-                        shape = RoundedCornerShape(16.dp)
+                        brush = Brush.verticalGradient(
+                            colors = listOf(Color(0xFF3B82F6), Color(0xFF1E40AF))
+                        )
                     )
                     .padding(16.dp)
             ) {
@@ -733,49 +672,32 @@ private fun Card3DWithReader(logoUrl: String?) {
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            if (!logoUrl.isNullOrEmpty()) {
-                                AsyncImage(
-                                    model = logoUrl,
-                                    contentDescription = "Logo",
-                                    modifier = Modifier.size(36.dp),
-                                    contentScale = ContentScale.Fit
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "GreenCard",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-
-                                Text(
-                                    text = "Tập đoàn Mai Linh",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color.White.copy(alpha = 0.95f)
-                                )
-                            }
+                        if (!logoUrl.isNullOrEmpty()) {
+                            AsyncImage(
+                                model = logoUrl,
+                                contentDescription = "Logo",
+                                modifier = Modifier.size(36.dp),
+                                contentScale = ContentScale.Fit
+                            )
                         }
-
-                        BlinkingNFCIcon()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "GreenCard",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            BlinkingNFCIcon()
+                        }
                     }
-
                     Spacer(modifier = Modifier.height(8.dp))
-
                     Box(
                         modifier = Modifier
                             .size(40.dp)
@@ -792,17 +714,9 @@ private fun Card3DWithReader(logoUrl: String?) {
                 }
             }
         }
-
         Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "↓↓↓",
-            fontSize = 24.sp,
-            color = Color(0xFF3B82F6).copy(alpha = 0.6f)
-        )
-
+        Text(text = "↓↓↓", fontSize = 24.sp, color = Color(0xFF3B82F6).copy(alpha = 0.6f))
         Spacer(modifier = Modifier.height(16.dp))
-
         NFCReaderBox()
     }
 }
@@ -819,9 +733,8 @@ private fun BlinkingNFCIcon() {
         ),
         label = "alpha"
     )
-
     Text(
-        text = ")",
+        text = "))",
         fontSize = 20.sp,
         color = Color.White.copy(alpha = alpha),
         fontWeight = FontWeight.Bold
@@ -833,15 +746,8 @@ private fun NFCReaderBox() {
     Box(
         modifier = Modifier
             .size(width = 180.dp, height = 60.dp)
-            .background(
-                color = Color(0xFF1E293B),
-                shape = RoundedCornerShape(8.dp)
-            )
-            .border(
-                width = 2.dp,
-                color = Color(0xFF475569),
-                shape = RoundedCornerShape(8.dp)
-            ),
+            .background(color = Color(0xFF1E293B), shape = RoundedCornerShape(8.dp))
+            .border(width = 2.dp, color = Color(0xFF475569), shape = RoundedCornerShape(8.dp)),
         contentAlignment = Alignment.Center
     ) {
         NFCScannerLine(width = 180.dp)
@@ -860,14 +766,10 @@ private fun NFCScannerLine(width: Dp) {
         ),
         label = "offsetX"
     )
-
-    Canvas(
-        modifier = Modifier.fillMaxSize()
-    ) {
+    Canvas(modifier = Modifier.fillMaxSize()) {
         val barSpacing = 8.dp.toPx()
         val totalBarsWidth = 3 * barSpacing
         val centerX = size.width / 2 + (size.width * offsetX)
-
         for (i in 0..3) {
             val x = centerX - (totalBarsWidth / 2) + (i * barSpacing)
             drawLine(
@@ -886,15 +788,8 @@ private fun AnimatedStatusBox(state: Step1State) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .border(
-                width = 1.dp,
-                color = Color(0xFFD0D5DD),
-                shape = RoundedCornerShape(12.dp)
-            )
-            .background(
-                color = Color(0xFFF9FAFB),
-                shape = RoundedCornerShape(12.dp)
-            )
+            .border(width = 1.dp, color = Color(0xFFD0D5DD), shape = RoundedCornerShape(12.dp))
+            .background(color = Color(0xFFF9FAFB), shape = RoundedCornerShape(12.dp))
             .padding(16.dp)
     ) {
         Row(
@@ -902,10 +797,10 @@ private fun AnimatedStatusBox(state: Step1State) {
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
-            SpinningRefreshIcon()
-
-            Spacer(modifier = Modifier.width(8.dp))
-
+            if (state != Step1State.SUCCESS) {
+                SpinningRefreshIcon()
+                Spacer(modifier = Modifier.width(8.dp))
+            }
             Text(
                 text = when (state) {
                     Step1State.INITIALIZING -> "Đang khởi tạo..."
@@ -913,19 +808,17 @@ private fun AnimatedStatusBox(state: Step1State) {
                     Step1State.CARD_DETECTED -> "Đã nhận diện thẻ"
                     Step1State.WAITING_PIN -> "Vui lòng nhập PIN"
                     Step1State.VERIFYING_PIN -> "Đang xác thực..."
-                    Step1State.SUCCESS -> "Thành công!"
+                    Step1State.CALLING_API -> "Đang truy vấn..."
+                    Step1State.SUCCESS -> "✓ Hoàn thành"
                 },
                 fontSize = 14.sp,
-                color = Color(0xFF667085)
+                color = if (state == Step1State.SUCCESS) Color(0xFF10B981) else Color(0xFF667085),
+                fontWeight = if (state == Step1State.SUCCESS) FontWeight.Bold else FontWeight.Normal
             )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Text(
-                text = ")))",
-                fontSize = 14.sp,
-                color = Color(0xFF3B82F6)
-            )
+            if (state != Step1State.SUCCESS) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = ")))", fontSize = 14.sp, color = Color(0xFF3B82F6))
+            }
         }
     }
 }
@@ -942,13 +835,10 @@ private fun SpinningRefreshIcon() {
         ),
         label = "rotation"
     )
-
     Box(
         modifier = Modifier
             .size(16.dp)
-            .graphicsLayer {
-                rotationZ = rotation
-            }
+            .graphicsLayer { rotationZ = rotation }
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawArc(
@@ -959,5 +849,40 @@ private fun SpinningRefreshIcon() {
                 style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
             )
         }
+    }
+}
+
+@Composable
+private fun CircularCountdownTimer(
+    timeRemaining: Int,
+    modifier: Modifier = Modifier
+) {
+    val progress by animateFloatAsState(
+        targetValue = timeRemaining.toFloat() / 60,
+        animationSpec = tween(durationMillis = 1000, easing = LinearEasing),
+        label = "progress"
+    )
+    val progressColor = when {
+        timeRemaining <= 10 -> Color(0xFFEF4444)
+        timeRemaining <= 30 -> Color(0xFFF59E0B)
+        else -> Color(0xFF3B82F6)
+    }
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawCircle(color = Color(0xFFE5E7EB), style = Stroke(width = 3.dp.toPx()))
+            drawArc(
+                color = progressColor,
+                startAngle = -90f,
+                sweepAngle = 360f * progress,
+                useCenter = false,
+                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+            )
+        }
+        Text(
+            text = timeRemaining.toString(),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = progressColor
+        )
     }
 }

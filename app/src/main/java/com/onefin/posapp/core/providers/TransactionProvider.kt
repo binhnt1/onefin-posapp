@@ -81,12 +81,12 @@ class TransactionProvider : ContentProvider() {
             TRANS_ID -> {
                 val billNumber = uri.lastPathSegment
                 if (billNumber == null) {
-                    return createErrorCursor("Bill number is required")
+                    return createEmptyCursor()
                 }
                 queryTransaction(billNumber)
             }
             else -> {
-                createErrorCursor("Invalid URI")
+                createEmptyCursor()
             }
         }
     }
@@ -126,7 +126,7 @@ class TransactionProvider : ContentProvider() {
             // Check if user is logged in
             val account = storageService.getAccount()
             if (account == null) {
-                cursor.addRow(arrayOf(createErrorJson("Vui lòng đăng nhập để truy cập")))
+                // Return empty cursor - MainActivity will handle as NOT_FOUND
                 return cursor
             }
 
@@ -142,6 +142,7 @@ class TransactionProvider : ContentProvider() {
                         null
                     }
                 } catch (e: Exception) {
+                    e.printStackTrace()
                     null
                 }
             }
@@ -206,27 +207,20 @@ class TransactionProvider : ContentProvider() {
                     cursor.addRow(arrayOf(responseJson))
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    cursor.addRow(arrayOf(createErrorJson("Lỗi xử lý dữ liệu: ${e.message}")))
+                    // Return empty cursor on parse error
+                    return cursor
                 }
-            } else {
-                cursor.addRow(arrayOf(createErrorJson("Giao dịch không tồn tại")))
             }
+            // If saleResult is null, return empty cursor (transaction not found)
         } catch (e: Exception) {
-            cursor.addRow(arrayOf(createErrorJson("Error: ${e.message}")))
+            e.printStackTrace()
+            // Return empty cursor on any exception
         }
+
         return cursor
     }
 
-    private fun createErrorJson(errorMessage: String): String {
-        return gson.toJson(mapOf(
-            "status" to "error",
-            "message" to errorMessage
-        ))
-    }
-
-    private fun createErrorCursor(errorMessage: String): Cursor {
-        val cursor = MatrixCursor(arrayOf(COLUMN_MEMBER_RESPONSE_DATA))
-        cursor.addRow(arrayOf(createErrorJson(errorMessage)))
-        return cursor
+    private fun createEmptyCursor(): Cursor {
+        return MatrixCursor(arrayOf(COLUMN_MEMBER_RESPONSE_DATA))
     }
 }

@@ -97,19 +97,11 @@ class RefundActivity : BaseActivity() {
     }
 
     private fun returnSuccess(voidResult: VoidResultData, originalRequest: PaymentAppRequest) {
-        val isExternalFlow = storageService.isExternalPaymentFlow()
-
-        if (isExternalFlow) {
-            val pendingRequest = storageService.getPendingPaymentRequest() ?: originalRequest
-            val response = CardHelper.returnVoidResponse(voidResult, pendingRequest)
-            val resultIntent = paymentHelper.buildResultIntentSuccess(response)
-            setResult(RESULT_OK, resultIntent)
-            storageService.clearExternalPaymentContext()
-        } else {
-            val response = CardHelper.returnVoidResponse(voidResult, originalRequest)
-            val resultIntent = paymentHelper.buildResultIntentSuccess(response)
-            setResult(RESULT_OK, resultIntent)
-        }
+        val pendingRequest = storageService.getPendingPaymentRequest() ?: originalRequest
+        val response = CardHelper.returnVoidResponse(voidResult, pendingRequest)
+        val resultIntent = paymentHelper.buildResultIntentSuccess(response)
+        setResult(RESULT_OK, resultIntent)
+        storageService.clearExternalPaymentContext()
         finish()
     }
 }

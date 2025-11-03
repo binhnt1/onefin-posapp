@@ -26,6 +26,7 @@ import com.onefin.posapp.R
 import com.onefin.posapp.core.models.Account
 import com.onefin.posapp.core.models.ResultApi
 import com.onefin.posapp.core.models.Transaction
+import com.onefin.posapp.core.models.data.PaymentAction
 import com.onefin.posapp.core.models.data.VoidResultData
 import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.services.StorageService
@@ -133,8 +134,12 @@ fun TransactionDetailScreen(
                 val gson = Gson()
                 val endpoint = "/api/transaction/$transactionId"
                 val resultApi = apiService.get(endpoint, emptyMap()) as ResultApi<*>
-                val jsonString = gson.toJson(resultApi.data)
-                transaction = gson.fromJson(jsonString, Transaction::class.java)
+                if (resultApi.isSuccess()) {
+                    val jsonString = gson.toJson(resultApi.data)
+                    transaction = gson.fromJson(jsonString, Transaction::class.java)
+                } else {
+                    errorMessage = resultApi.description
+                }
             } catch (e: Exception) {
                 errorMessage = e.message ?: errorLoadingData
             } finally {
@@ -143,12 +148,17 @@ fun TransactionDetailScreen(
         }
     }
 
-    // Function to call Cancel/Void API
-    suspend fun callCancelAPI(password: String): Result<VoidResultData> {
+    suspend fun processRefund(password: String): Result<VoidResultData> {
         delay(1000)
         return try {
             val gson = Gson()
             val requestId = UtilHelper.generateRequestId()
+            val type = when (transaction?.formType) {
+                1 -> "card"
+                2 -> "qr"
+                3 -> "member"
+                else -> "card"
+            }
             val body = mapOf(
                 "requestId" to requestId,
                 "data" to mapOf(
@@ -158,7 +168,11 @@ fun TransactionDetailScreen(
                         "transAmount" to (transaction?.totalTransAmt ?: 0),
                     ),
                 ),
-                "refundapproval" to password
+                "refundapproval" to password,
+                "requestData" to mapOf(
+                    "type" to type,
+                    "action" to PaymentAction.REFUND.value
+                )
             )
 
             val resultApi = apiService.post("/api/card/void", body) as ResultApi<*>
@@ -491,7 +505,7 @@ fun TransactionDetailScreen(
                 scope.launch {
                     showPinSheet = false
                     showProcessingDialog = true
-                    val result = callCancelAPI(password)
+                    val result = processRefund(password)
 
                     result.onSuccess {
                         showProcessingDialog = false

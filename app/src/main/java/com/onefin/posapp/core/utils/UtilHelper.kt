@@ -46,8 +46,8 @@ object UtilHelper {
             }
         }
     }
-    fun formatCurrency(input: String, unit: String? = "đ"): String {
-        if (input.isEmpty()) return ""
+    fun formatCurrency(input: String?, unit: String? = "đ"): String {
+        if (input.isNullOrEmpty()) return ""
 
         val cleanInput = input.replace(".", "")
         val number = cleanInput.toLongOrNull() ?: return ""

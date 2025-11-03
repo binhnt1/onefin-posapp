@@ -7,12 +7,12 @@ import com.atg.pos.app.OneFinSDK
 import com.atg.pos.onefin.OneFinMainActivity
 import com.google.gson.Gson
 import com.onefin.posapp.core.config.ResultConstants
-import com.onefin.posapp.core.models.Account
 import com.onefin.posapp.core.models.data.MerchantRequestData
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentAppResponse
 import com.onefin.posapp.core.models.data.PaymentResponseData
 import com.onefin.posapp.core.models.data.PaymentStatusCode
+import com.onefin.posapp.core.models.entity.DriverInfoEntity
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -84,34 +84,25 @@ class PaymentHelper @Inject constructor(
         }
     }
 
-    fun createPaymentAppRequest(account: Account, request: PaymentAppRequest): PaymentAppRequest {
+    fun createPaymentAppRequest(request: PaymentAppRequest, driverInfo: DriverInfoEntity? = null): PaymentAppRequest {
         val amount = request.merchantRequestData?.amount ?: 0
         val referenceId = request.merchantRequestData?.referenceId ?: UtilHelper.getCurrentTimeStamp()
         val billNumber = request.merchantRequestData?.billNumber ?: UtilHelper.generateRandomBillNumber()
         val additionalData = request.merchantRequestData?.additionalData ?: gson.toJson(mapOf(
-            "driver_phone" to "1055",
-            "trip_distance" to "5km",
-            "driver_name" to "Mai Linh",
-            "agency_phone" to "02838298888",
-            "agency_name" to "Tập đoàn Mai Linh",
-            "agency_add" to "19 Đ. 39, Phường An Khánh, Tp. Thủ Đức, Tp. Hồ Chí Minh",
-            "src_address" to "19 Đ. 39, Phường An Khánh, Tp. Thủ Đức, Tp. Hồ Chí Minh",
-            "dst_address" to "Saigon Pearl, 92 Nguyễn Hữu Cảnh, Phường 22, Quận Bình Thạnh, Tp. Hồ Chí Minh"
+            "driver_name" to "Mai Linh"
         ))
-
         val merchantRequest = MerchantRequestData(
             billNumber = billNumber,
             referenceId = referenceId,
-            tid = account.terminal.tid,
-            mid = account.terminal.mid,
+            tid = driverInfo?.employeeCode,
+            mid = driverInfo?.driverNumber,
             additionalData = additionalData,
             tip = request.merchantRequestData?.tip ?: 0,
             ccy = request.merchantRequestData?.ccy ?: "704",
             amount = request.merchantRequestData?.amount ?: 0,
-            isEnterPin = request.merchantRequestData?.isEnterPin ?: false,
+            isEnterPin = request.merchantRequestData?.isEnterPin ?: true,
             message = request.merchantRequestData?.message ?: ("Thanh toán $amount VND"),
         )
-
         return PaymentAppRequest(
             type = request.type,
             action = request.action,

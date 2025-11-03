@@ -7,12 +7,13 @@ import com.onefin.posapp.core.config.StorageKeys
 import javax.inject.Inject
 import javax.inject.Singleton
 import androidx.core.content.edit
+import com.onefin.posapp.core.config.DriverConstants
 import com.onefin.posapp.core.config.MifareConstants
 import com.onefin.posapp.core.config.PrefsName
+import com.onefin.posapp.core.models.entity.DriverInfoEntity
 import com.onefin.posapp.core.models.Account
 import com.onefin.posapp.core.models.data.NfcConfigResponse
 import com.onefin.posapp.core.models.data.PaymentAppRequest
-import com.onefin.posapp.core.models.data.PkeyConfigResponse
 
 @Singleton
 class StorageService @Inject constructor(
@@ -155,52 +156,33 @@ class StorageService @Inject constructor(
         }
     }
 
-    // ==================== PkeyConfig ====================
-    fun clearPkeyConfig() {
+    // ==================== DriverInfo ====================
+    fun clearDriverInfo() {
         sharedPreferences.edit().apply {
-            remove(MifareConstants.PKEY_CONFIG)
-            remove(MifareConstants.PKEY_CONFIG_TIMESTAMP)
+            remove(DriverConstants.DRIVER_INFO)
             apply()
         }
     }
-    fun getPkeyConfig(): PkeyConfigResponse? {
-        val configJson = sharedPreferences.getString(MifareConstants.PKEY_CONFIG, null)
-        val timestamp = sharedPreferences.getLong(MifareConstants.PKEY_CONFIG_TIMESTAMP, 0L)
-
-        if (configJson == null || timestamp == 0L) {
-            return null
-        }
-
-        // Check expiry
-        val currentTime = System.currentTimeMillis()
-        if (currentTime - timestamp > MifareConstants.PKEY_CONFIG_CACHE_DURATION) {
-            // Expired, clear and return null
-            sharedPreferences.edit {
-                remove(MifareConstants.PKEY_CONFIG)
-                remove(MifareConstants.PKEY_CONFIG_TIMESTAMP)
-            }
+    fun getDriverInfo(): DriverInfoEntity? {
+        val configJson = sharedPreferences.getString(DriverConstants.DRIVER_INFO, null)
+        if (configJson == null) {
             return null
         }
 
         // Parse and return
         return try {
-            gson.fromJson(configJson, PkeyConfigResponse::class.java)
+            gson.fromJson(configJson, DriverInfoEntity::class.java)
         } catch (e: Exception) {
-            // Invalid, clear and return null
             sharedPreferences.edit {
-                remove(MifareConstants.PKEY_CONFIG)
-                remove(MifareConstants.PKEY_CONFIG_TIMESTAMP)
+                remove(DriverConstants.DRIVER_INFO)
             }
             null
         }
     }
-    fun savePkeyConfig(config: PkeyConfigResponse) {
+    fun saveDriverInfo(config: DriverInfoEntity) {
         val configJson = gson.toJson(config)
-        val timestamp = System.currentTimeMillis()
-
         sharedPreferences.edit {
-            putString(MifareConstants.PKEY_CONFIG, configJson)
-            putLong(MifareConstants.PKEY_CONFIG_TIMESTAMP, timestamp)
+            putString(DriverConstants.DRIVER_INFO, configJson)
         }
     }
 

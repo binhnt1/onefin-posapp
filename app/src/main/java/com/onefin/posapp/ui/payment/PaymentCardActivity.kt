@@ -173,19 +173,11 @@ class PaymentCardActivity : BaseActivity() {
     }
 
     private fun returnSuccess(saleResult: SaleResultData, originalRequest: PaymentAppRequest) {
-        val isExternalFlow = storageService.isExternalPaymentFlow()
-
-        if (isExternalFlow) {
-            val pendingRequest = storageService.getPendingPaymentRequest() ?: originalRequest
-            val response = CardHelper.returnSaleResponse(saleResult, pendingRequest)
-            val resultIntent = paymentHelper.buildResultIntentSuccess(response)
-            setResult(RESULT_OK, resultIntent)
-            storageService.clearExternalPaymentContext()
-        } else {
-            val response = CardHelper.returnSaleResponse(saleResult, originalRequest)
-            val resultIntent = paymentHelper.buildResultIntentSuccess(response)
-            setResult(RESULT_OK, resultIntent)
-        }
+        val pendingRequest = storageService.getPendingPaymentRequest() ?: originalRequest
+        val response = CardHelper.returnSaleResponse(saleResult, pendingRequest)
+        val resultIntent = paymentHelper.buildResultIntentSuccess(response)
+        setResult(RESULT_OK, resultIntent)
+        storageService.clearExternalPaymentContext()
         finish()
     }
 }

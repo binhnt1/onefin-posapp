@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.google.gson.Gson
 import com.onefin.posapp.core.models.ResultApi
 import com.onefin.posapp.core.models.data.PaymentResult
+import com.onefin.posapp.core.models.data.MemberResultData
 import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.utils.CardHelper
 import com.onefin.posapp.ui.payment.components.ModernErrorDialog
@@ -50,11 +51,11 @@ enum class Step2State {
 
 @Composable
 fun ChangePinStep2Screen(
-    cardData: PaymentResult.Success,
-    apiService: ApiService,
     onCancel: () -> Unit,
     onTimeout: () -> Unit,
-    onSuccess: () -> Unit
+    apiService: ApiService,
+    cardData: PaymentResult.Success,
+    onSuccess: (MemberResultData) -> Unit
 ) {
     var timeRemaining by remember { mutableIntStateOf(60) }
     var step2State by remember { mutableStateOf(Step2State.ENTER_NEW_PIN) }
@@ -79,7 +80,7 @@ fun ChangePinStep2Screen(
     }
 
     // Function to call PIN change API
-    suspend fun callPinChangeAPI(newPin: String): Result<String> {
+    suspend fun processChangePin(newPin: String): Result<Any?> {
         val gson = Gson()
         return try {
             val requestSale = cardData.requestSale
@@ -121,17 +122,18 @@ fun ChangePinStep2Screen(
             )
 
             val resultApi = apiService.post("/api/card/pinChange", requestBody) as ResultApi<*>
-            val responseData = gson.fromJson(
-                gson.toJson(resultApi.data),
-                Map::class.java
-            )
-            val statusCode = (responseData?.get("status") as? Map<*, *>)?.get("code") as? String
-            val statusMessage = (responseData?.get("status") as? Map<*, *>)?.get("message") as? String
-
-            if (statusCode == "00") {
-                Result.success(statusMessage ?: "Đổi mã PIN thành công")
+            if (resultApi.isSuccess()) {
+                val responseData = gson.fromJson(
+                    gson.toJson(resultApi.data),
+                    MemberResultData::class.java
+                )
+                if (responseData.respcode == "00") {
+                    Result.success(responseData)
+                } else {
+                    Result.failure(Exception(responseData.errorDesc))
+                }
             } else {
-                Result.failure(Exception(statusMessage ?: "Đổi mã PIN thất bại"))
+                Result.failure(Exception(resultApi.description))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -399,11 +401,9 @@ fun ChangePinStep2Screen(
                                         if (firstPinValue == secondPinValue) {
                                             // Call API
                                             step2State = Step2State.CALLING_API
-                                            val result = callPinChangeAPI(firstPinValue)
-
+                                            val result = processChangePin(firstPinValue)
                                             result.onSuccess { message ->
-                                                // Success - move to step 3
-                                                onSuccess()
+                                                onSuccess(message as MemberResultData)
                                             }
 
                                             result.onFailure { error ->

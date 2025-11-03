@@ -13,7 +13,6 @@ import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.NfcConfigResponse
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentResult
-import com.onefin.posapp.core.models.data.PkeyConfigResponse
 import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.EmvUtil
@@ -30,7 +29,6 @@ import kotlinx.coroutines.launch
 import sunmi.paylib.SunmiPayKernel
 import timber.log.Timber
 import com.onefin.posapp.core.managers.helpers.PinInputCallback
-import com.onefin.posapp.core.utils.CardHelper
 
 @Singleton
 class CardProcessorManager(
@@ -159,21 +157,6 @@ class CardProcessorManager(
                         )
                     )
                     return@launch
-                }
-
-                // Load PIN key config if required
-                if (nfcConfig.isPinRequired()) {
-                    val pkeyConfig = loadPkeyConfig()
-                    if (pkeyConfig == null) {
-                        isProcessing = false
-                        handleError(
-                            PaymentResult.Error.from(
-                                PaymentErrorHandler.ErrorType.SDK_INIT_FAILED_MIFARE,
-                                "Failed to load PIN key configuration"
-                            )
-                        )
-                        return@launch
-                    }
                 }
             }
         }
@@ -320,41 +303,12 @@ class CardProcessorManager(
             val config = gson.fromJson(jsonString, NfcConfigResponse::class.java)
 
             // Step 3: Save to cache
-            storageService.saveNfcConfig(config)
-            config
-
+            if (config != null && config.nfckey.isNotEmpty()) {
+                storageService.saveNfcConfig(config)
+                config
+            } else null
         } catch (e: Exception) {
             Timber.e(e, "❌ Failed to load NFC config")
-            null
-        }
-    }
-    private suspend fun loadPkeyConfig(): PkeyConfigResponse? {
-        return try {
-            // Step 1: Try get from cache
-            val cachedConfig = storageService.getPkeyConfig()
-            if (cachedConfig != null) {
-                return cachedConfig
-            }
-
-            // Step 2: Cache miss or expired, fetch from API
-            val endpoint = "/api/card/pkeyConfig"
-            val driver = pendingRequest?.merchantRequestData?.mid ?: ""
-            val employee = pendingRequest?.merchantRequestData?.tid ?: ""
-            val requestBody = mapOf(
-                "mid" to driver,
-                "tid" to employee,
-            )
-
-            val resultApi = apiService.post(endpoint, requestBody) as ResultApi<*>
-            val gson = com.google.gson.Gson()
-            val jsonString = gson.toJson(resultApi.data)
-            val config = gson.fromJson(jsonString, PkeyConfigResponse::class.java)
-
-            // Step 3: Save to cache
-            storageService.savePkeyConfig(config)
-            config
-
-        } catch (e: Exception) {
             null
         }
     }
