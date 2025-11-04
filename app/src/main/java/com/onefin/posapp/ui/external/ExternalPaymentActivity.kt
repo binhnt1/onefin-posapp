@@ -100,7 +100,11 @@ class ExternalPaymentActivity : BaseActivity() {
         if (data != null) {
             try {
                 val type = data.getStringExtra(ResultConstants.RESULT_TYPE) ?: "card"
-                val action = data.getIntExtra(ResultConstants.RESULT_ACTION, -1)
+                @Suppress("DEPRECATION") val action = when (val actionValue = intent.extras?.get(ResultConstants.RESULT_ACTION)) {
+                    is Int -> actionValue
+                    is String -> actionValue.toIntOrNull() ?: -1
+                    else -> intent.getIntExtra(ResultConstants.RESULT_ACTION, -1)
+                }
                 val responseDataJson = data.getStringExtra(ResultConstants.RESULT_PAYMENT_RESPONSE_DATA)
                 if (responseDataJson != null) {
                     val paymentResponseData = gson.fromJson(responseDataJson, PaymentResponseData::class.java)
@@ -135,7 +139,11 @@ class ExternalPaymentActivity : BaseActivity() {
     private fun returnResultError(errorMessage: String? = null) {
         val account = storageService.getAccount()
         val type = intent.getStringExtra(ResultConstants.RESULT_TYPE) ?: ""
-        val action = intent.getIntExtra(ResultConstants.RESULT_ACTION, -1)
+        @Suppress("DEPRECATION") val action = when (val actionValue = intent.extras?.get(ResultConstants.RESULT_ACTION)) {
+            is Int -> actionValue
+            is String -> actionValue.toIntOrNull() ?: -1
+            else -> intent.getIntExtra(ResultConstants.RESULT_ACTION, -1)
+        }
         val paymentRequest = parsePaymentRequest(intent, gson, account) ?: PaymentAppRequest(
             type = type,
             action = action,
@@ -197,10 +205,7 @@ fun ExternalPaymentScreen(
         return true
     }
 
-    suspend fun registerMerchant(
-        paymentRequest: PaymentAppRequest,
-        onFinish: (PaymentAppResponse?, String?) -> Unit
-    ): Boolean {
+    suspend fun registerMerchant(paymentRequest: PaymentAppRequest): Boolean {
         when (BuildConfig.FLAVOR) {
             "mailinh" -> {
                 val account = storageService.getAccount()
@@ -228,7 +233,7 @@ fun ExternalPaymentScreen(
                     object : TypeToken<Map<String, Any>>() {}.type
                 )
                 val resultApi = apiService.post("/api/card/registerTidMid", mapBody) as ResultApi<*>
-                if (resultApi.isSuccess()) {
+                if (!resultApi.isSuccess()) {
                     return false
                 }
 
@@ -314,7 +319,8 @@ fun ExternalPaymentScreen(
                             if (paymentRequest.action == PaymentAction.SALE.value ||
                                 paymentRequest.action == PaymentAction.CHANGE_PIN.value ||
                                 paymentRequest.action == PaymentAction.CHECK_BALANCE.value) {
-                                if (!registerMerchant(paymentRequest, onFinish)) {
+                                if (!registerMerchant(paymentRequest)) {
+                                    onFinish(null, "Đăng ký thiết bị thất bại, vui lòng thử lại sau")
                                     return@launch
                                 }
                             }
@@ -509,7 +515,11 @@ suspend fun performAppKeyLogin(
 fun parsePaymentRequest(intent: Intent, gson: Gson, account: Account?): PaymentAppRequest? {
     return try {
         val type = intent.getStringExtra(ResultConstants.RESULT_TYPE) ?: return null
-        val action = intent.getIntExtra(ResultConstants.RESULT_ACTION, -1)
+        @Suppress("DEPRECATION") val action = when (val actionValue = intent.extras?.get(ResultConstants.RESULT_ACTION)) {
+            is Int -> actionValue
+            is String -> actionValue.toIntOrNull() ?: -1
+            else -> intent.getIntExtra(ResultConstants.RESULT_ACTION, -1)
+        }
         if (action == -1) return null
 
         val merchantRequestDataStr = intent.getStringExtra(ResultConstants.EXTRA_MERCHANT_REQUEST_DATA)
