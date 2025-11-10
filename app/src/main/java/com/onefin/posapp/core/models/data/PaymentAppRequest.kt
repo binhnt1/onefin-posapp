@@ -41,7 +41,7 @@ data class MerchantRequestData(
     val message: String? = null,
 
     @SerializedName("amount")
-    val amount: Long = 0L,
+    var amount: Long = 0L,
 
     @SerializedName("tip")
     val tip: Long? = null,

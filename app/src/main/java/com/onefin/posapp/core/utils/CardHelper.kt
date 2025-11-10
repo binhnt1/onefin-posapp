@@ -374,6 +374,8 @@ object CardHelper {
             additionalData = originalRequest.merchantRequestData?.additionalData,
             ccy = saleResult.data?.currency ?: saleResult.data?.currency ?: "704",
         )
+        if (paymentResponseData.amount != null)
+            paymentResponseData.amount = paymentResponseData.amount!! * 100
 
         val response = PaymentAppResponse(
             type = originalRequest.type,
@@ -398,6 +400,8 @@ object CardHelper {
             additionalData = originalRequest.merchantRequestData?.additionalData,
             ccy = voidResult.data?.currency ?: voidResult.data?.currency ?: "704",
         )
+        if (paymentResponseData.amount != null)
+            paymentResponseData.amount = paymentResponseData.amount!! * 100
 
         val response = PaymentAppResponse(
             type = originalRequest.type,
@@ -418,6 +422,8 @@ object CardHelper {
             mid = result.mid ?: originalRequest.merchantRequestData?.mid,
             additionalData = originalRequest.merchantRequestData?.additionalData,
         )
+        if (paymentResponseData.amount != null)
+            paymentResponseData.amount = paymentResponseData.amount!! * 100
 
         val response = PaymentAppResponse(
             type = originalRequest.type,

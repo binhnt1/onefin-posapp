@@ -52,7 +52,7 @@ data class PaymentResponseData(
     val transactionTime: String? = null,
 
     @SerializedName("amount")
-    val amount: Long? = null,
+    var amount: Long? = null,
 
     @SerializedName("balance")
     val balance: Long? = null,

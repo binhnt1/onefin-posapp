@@ -126,7 +126,6 @@ class TransactionProvider : ContentProvider() {
             // Check if user is logged in
             val account = storageService.getAccount()
             if (account == null) {
-                // Return empty cursor - MainActivity will handle as NOT_FOUND
                 return cursor
             }
 
@@ -139,11 +138,23 @@ class TransactionProvider : ContentProvider() {
                         val transactionJson = gson.toJson(resultApi.data)
                         gson.fromJson(transactionJson, SaleResultData::class.java)
                     } else {
-                        null
+                        val error = SaleResultData(
+                            status = SaleResultData.Status(
+                                code = "12",
+                                message = "12 - Giao dịch không hợp lệ"
+                            )
+                        )
+                        error
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    null
+                    val error = SaleResultData(
+                        status = SaleResultData.Status(
+                            code = "96",
+                            message = "96 - Lỗi hệ thống"
+                        )
+                    )
+                    error
                 }
             }
 

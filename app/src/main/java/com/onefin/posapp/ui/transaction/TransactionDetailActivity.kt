@@ -285,9 +285,9 @@ fun TransactionDetailScreen(
             // Ẩn nút nếu đã hủy thành công
             if (!isCancelSuccess) {
                 val showSendAndPrint = transaction != null && transaction!!.showButtons()
-                val allowCancel =
-                    account?.terminal?.systemConfig?.allowCancel == true && (transaction?.processStatus == 0 || transaction?.processStatus == 1)
-
+                val allowCancel = account?.terminal?.systemConfig?.allowCancel == true
+                        && (transaction?.processStatus == 0 || transaction?.processStatus == 1)
+                        && (transaction?.formType == 1 || transaction?.formType == 3)
                 if (showSendAndPrint || allowCancel) {
                     Column(
                         modifier = Modifier

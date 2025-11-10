@@ -329,6 +329,8 @@ fun ExternalPaymentScreen(
                                 PaymentAction.SALE.value -> {
                                     when (paymentRequest.type.lowercase()) {
                                         "qr" -> {
+                                            if (paymentRequest.merchantRequestData != null)
+                                                paymentRequest.merchantRequestData.amount = paymentRequest.merchantRequestData.amount / 100
                                             val qrIntent = Intent(context, QRCodeDisplayActivity::class.java).apply {
                                                 putExtra("REQUEST_DATA", paymentRequest)
                                                 putExtra("IS_EXTERNAL_PAYMENT", true)
@@ -336,6 +338,8 @@ fun ExternalPaymentScreen(
                                             activity.startActivityForResult(qrIntent, ResultConstants.REQUEST_CODE_PAYMENT)
                                         }
                                         "card" -> {
+                                            if (paymentRequest.merchantRequestData != null)
+                                                paymentRequest.merchantRequestData.amount = paymentRequest.merchantRequestData.amount / 100
                                             val paymentIntent = Intent(context, PaymentCardActivity::class.java).apply {
                                                 putExtra("REQUEST_DATA", paymentRequest)
                                                 putExtra("IS_EXTERNAL_PAYMENT", true)
@@ -343,6 +347,8 @@ fun ExternalPaymentScreen(
                                             activity.startActivityForResult(paymentIntent, ResultConstants.REQUEST_CODE_PAYMENT)
                                         }
                                         "member" -> {
+                                            if (paymentRequest.merchantRequestData != null)
+                                                paymentRequest.merchantRequestData.amount = paymentRequest.merchantRequestData.amount / 100
                                             val paymentIntent = Intent(context, PaymentCardActivity::class.java).apply {
                                                 putExtra("REQUEST_DATA", paymentRequest)
                                                 putExtra("IS_EXTERNAL_PAYMENT", true)
@@ -363,6 +369,8 @@ fun ExternalPaymentScreen(
                                     }
                                     isProcessing = false
                                     delay(100)
+                                    if (paymentRequest.merchantRequestData != null)
+                                        paymentRequest.merchantRequestData.amount = paymentRequest.merchantRequestData.amount / 100
                                     val refundIntent = Intent(context, RefundActivity::class.java).apply {
                                         putExtra("REQUEST_DATA", paymentRequest)
                                         putExtra("IS_EXTERNAL_PAYMENT", true)

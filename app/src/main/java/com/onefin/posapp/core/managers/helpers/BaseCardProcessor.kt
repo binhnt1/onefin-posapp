@@ -130,11 +130,19 @@ abstract class BaseCardProcessor(
                 return
             }
 
+            val mode = when (cardType) {
+                AidlConstants.CardType.IC -> CardType.CHIP.displayName
+                AidlConstants.CardType.MIFARE -> CardType.MIFARE.displayName
+                AidlConstants.CardType.NFC -> CardType.CONTACTLESS.displayName
+                AidlConstants.CardType.MAGNETIC -> CardType.MAGNETIC.displayName
+                else -> CardType.CHIP.displayName
+            }
             val requestSale = CardHelper.buildRequestSale(
                 request,
                 RequestSale.Data.Card(
                     tc = tc,
                     aid = aid,
+                    mode = mode,
                     track2 = track2,
                     track1 = track1,
                     emvData = emvTagsHex,
@@ -142,13 +150,11 @@ abstract class BaseCardProcessor(
                     ksn = currentKsn ?: "",
                     clearPan = cardData.pan,
                     expiryDate = cardData.expiry,
-                    mode = CardType.CHIP.displayName,
                     holderName = cardData.holderName,
                     issuerName = cardData.issuerName,
                     type = CardHelper.detectBrand(cardData.pan),
                 )
             )
-
             processingComplete(PaymentResult.Success(requestSale))
 
         } catch (e: Exception) {

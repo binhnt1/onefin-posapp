@@ -106,6 +106,7 @@ fun SettlementScreen(
     var transactions by remember { mutableStateOf<List<Transaction>>(emptyList()) }
     var stats by remember { mutableStateOf(SettlementStatistic()) }
     var totalAmount by remember { mutableLongStateOf(0L) }
+    var unSettleTotalAmount by remember { mutableLongStateOf(0L) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isSettling by remember { mutableStateOf(false) }
@@ -155,6 +156,7 @@ fun SettlementScreen(
                 val unsettledObjectExtra = unsettledResult.objectExtra as? Map<*, *>
                 val unsettledPaging = unsettledObjectExtra?.get("Paging") as? Map<*, *>
                 val unsettledCount = (unsettledPaging?.get("Total") as? Number)?.toInt() ?: 0
+                unSettleTotalAmount = unsettledAmount
 
                 // Load settled stats (status=2 - Đã kết toán)
                 val settledResult = apiService.get(
@@ -408,10 +410,10 @@ fun SettlementScreen(
         },
         bottomBar = {
             // Chỉ hiện bottom bar khi có transactions (status=0)
-            if (!isLoading && transactions.isNotEmpty()) {
+            if (!isLoading && transactions.isNotEmpty() && unSettleTotalAmount > 0) {
                 SettlementBottomBar(
+                    totalAmount = unSettleTotalAmount,
                     isSettling = isSettling || isPrinting,
-                    totalAmount = totalAmount,
                     onSettleClick = { showSettleDialog = true }
                 )
             }

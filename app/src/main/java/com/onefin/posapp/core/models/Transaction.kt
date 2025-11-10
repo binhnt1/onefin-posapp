@@ -82,6 +82,7 @@ data class Transaction(
 
     fun getPaymentIconRes(): Int {
         if (formType == 2) return R.drawable.icon_qr
+        if (formType == 3) return R.drawable.icon_member
         return when (source.lowercase()) {
             "visa" -> R.drawable.icon_visa
             "master", "mastercard" -> R.drawable.icon_master
