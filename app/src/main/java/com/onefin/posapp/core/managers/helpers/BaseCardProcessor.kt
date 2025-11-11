@@ -95,7 +95,7 @@ abstract class BaseCardProcessor(
         }
     }
 
-    protected fun handleSuccessResult() {
+    protected open fun handleSuccessResult() {
         try {
             val request = currentPaymentAppRequest ?: run {
                 processingComplete(PaymentResult.Error.from(
@@ -164,7 +164,7 @@ abstract class BaseCardProcessor(
             ))
         }
     }
-    protected fun handleError(error: PaymentResult.Error) {
+    protected open fun handleError(error: PaymentResult.Error) {
         isProcessingStarted = false
         processingComplete.invoke(error)
     }
@@ -181,22 +181,87 @@ abstract class BaseCardProcessor(
             putString("amount", currentAmount)
         }
     }
+    // Trong createEmvListener()
     protected fun createEmvListener(): EMVListenerV2 {
+        Timber.d("🎧 Creating EMV Listener...")
         return object : EMVListenerV2.Stub() {
-            override fun onOnlineProc() { onEmvOnlineProc() }
-            override fun onPreFirstGenAC() { onEmvPreFirstGenAC() }
-            override fun onRequestSignature() { onEmvRequestSignature() }
-            override fun onTermRiskManagement() { onEmvTermRiskManagement() }
-            override fun onConfirmCardNo(cardNo: String?) { onEmvConfirmCardNo(cardNo) }
-            override fun onConfirmationCodeVerified() { onEmvConfirmationCodeVerified() }
-            override fun onCardDataExchangeComplete() { onEmvCardDataExchangeComplete() }
-            override fun onRequestDataExchange(data: String?) { onEmvRequestDataExchange(data) }
-            override fun onAppFinalSelect(tag9F06Value: String?) { onEmvAppFinalSelect(tag9F06Value) }
-            override fun onTransResult(resultCode: Int, msg: String?) { onEmvTransResult(resultCode, msg) }
-            override fun onCertVerify(certType: Int, certInfo: String?) { onEmvCertVerify(certType, certInfo) }
-            override fun onDataStorageProc(tags: Array<out String?>?, values: Array<out String?>?) { onEmvDataStorageProc(tags, values) }
-            override fun onRequestShowPinPad(pinType: Int, remainTime: Int) { onEmvRequestShowPinPad(pinType, remainTime) }
-            override fun onWaitAppSelect(candidates: MutableList<EMVCandidateV2>?, isFirstSelect: Boolean) { onEmvWaitAppSelect(candidates, isFirstSelect) }
+            override fun onWaitAppSelect(candidates: MutableList<EMVCandidateV2>?, isFirstSelect: Boolean) {
+                Timber.d("🔔 EMV Callback: onWaitAppSelect")
+                Timber.d("   candidates: ${candidates?.size ?: 0}")
+                Timber.d("   isFirstSelect: $isFirstSelect")
+                onEmvWaitAppSelect(candidates, isFirstSelect)
+            }
+
+            override fun onAppFinalSelect(tag9F06Value: String?) {
+                Timber.d("🔔 EMV Callback: onAppFinalSelect")
+                Timber.d("   AID: $tag9F06Value")
+                onEmvAppFinalSelect(tag9F06Value)
+            }
+
+            override fun onConfirmCardNo(cardNo: String?) {
+                Timber.d("🔔 EMV Callback: onConfirmCardNo")
+                Timber.d("   Card: $cardNo")
+                onEmvConfirmCardNo(cardNo)
+            }
+
+            override fun onRequestShowPinPad(pinType: Int, remainTime: Int) {
+                Timber.d("🔔 EMV Callback: onRequestShowPinPad")
+                Timber.d("   pinType: $pinType, remainTime: $remainTime")
+                onEmvRequestShowPinPad(pinType, remainTime)
+            }
+
+            override fun onCardDataExchangeComplete() {
+                Timber.d("🔔 EMV Callback: onCardDataExchangeComplete")
+                onEmvCardDataExchangeComplete()
+            }
+
+            override fun onOnlineProc() {
+                Timber.d("🔔 EMV Callback: onOnlineProc")
+                onEmvOnlineProc()
+            }
+
+            override fun onTransResult(resultCode: Int, msg: String?) {
+                Timber.d("🔔 EMV Callback: onTransResult")
+                Timber.d("   resultCode: $resultCode")
+                Timber.d("   message: $msg")
+                onEmvTransResult(resultCode, msg)
+            }
+
+            override fun onConfirmationCodeVerified() {
+                Timber.d("🔔 EMV Callback: onConfirmationCodeVerified")
+                onEmvConfirmationCodeVerified()
+            }
+
+            override fun onRequestDataExchange(data: String?) {
+                Timber.d("🔔 EMV Callback: onRequestDataExchange")
+                onEmvRequestDataExchange(data)
+            }
+
+            override fun onTermRiskManagement() {
+                Timber.d("🔔 EMV Callback: onTermRiskManagement")
+                onEmvTermRiskManagement()
+            }
+
+            override fun onPreFirstGenAC() {
+                Timber.d("🔔 EMV Callback: onPreFirstGenAC")
+                onEmvPreFirstGenAC()
+            }
+
+            override fun onDataStorageProc(tags: Array<out String?>?, values: Array<out String?>?) {
+                Timber.d("🔔 EMV Callback: onDataStorageProc")
+                onEmvDataStorageProc(tags, values)
+            }
+
+            override fun onCertVerify(certType: Int, certInfo: String?) {
+                Timber.d("🔔 EMV Callback: onCertVerify")
+                Timber.d("   certType: $certType")
+                onEmvCertVerify(certType, certInfo)
+            }
+
+            override fun onRequestSignature() {
+                Timber.d("🔔 EMV Callback: onRequestSignature")
+                onEmvRequestSignature()
+            }
         }
     }
     protected fun readEmvTags(tags: Array<String>): String? {

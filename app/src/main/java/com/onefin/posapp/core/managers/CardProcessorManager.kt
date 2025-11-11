@@ -442,6 +442,21 @@ class CardProcessorManager(
         }
     }
     private fun onCardDetected(cardType: AidlConstants.CardType, info: Bundle) {
+        Timber.d("🎯 ====== CARD DETECTED ======")
+        Timber.d("   Card Type: $cardType")
+        Timber.d("   Bundle keys: ${info.keySet().joinToString()}")
+
+        // Log bundle contents
+        info.keySet().forEach { key ->
+            @Suppress("DEPRECATION") val value = info.get(key)
+            Timber.d("   - $key: $value")
+        }
+
+        if (currentProcessor != null) {
+            Timber.w("⚠️ Processor already exists, ignoring")
+            return
+        }
+
         if (currentProcessor != null) {
             return
         }
