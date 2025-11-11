@@ -485,6 +485,20 @@ class CardProcessorManager(
             }
 
             AidlConstants.CardType.NFC -> {
+                val cvmAmount = (amount.toLongOrNull() ?: 0L) - 1
+                Timber.d("🔄 Updating NAPAS AID for NFC transaction...")
+                val updateSuccess = EmvUtil.updateNapasAidForTransaction(emvOpt!!, cvmAmount)
+                if (!updateSuccess) {
+                    isProcessing = false
+                    handleError(
+                        PaymentResult.Error.from(
+                            PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
+                            "Failed to update NAPAS AID configuration"
+                        )
+                    )
+                    return
+                }
+
                 NfcCardProcessor(context, emvOpt!!, terminal, pinPadOpt!!, readCardOpt!!, securityOpt!!)
             }
 
