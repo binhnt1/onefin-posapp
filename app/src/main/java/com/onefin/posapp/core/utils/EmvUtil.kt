@@ -220,60 +220,6 @@ object EmvUtil {
             false
         }
     }
-    @SuppressLint("DefaultLocale")
-    fun updateNapasAidForTransaction(emv: EMVOptV2, cvmAmount: Long): Boolean {
-        return try {
-            Timber.d("🔄 ====== UPDATING NAPAS AID ======")
-            Timber.d("   CVM Amount: $cvmAmount")
-
-            // 1. Delete existing NAPAS AID
-            emv.deleteAid("A0000007271010")
-            Timber.d("   ✅ Deleted old NAPAS AID")
-
-            // 2. Create new AID with dynamic CVM limit
-            val aidV2 = AidV2().apply {
-                // Base AID
-                aid = hexStr2Bytes("A0000007271010")
-                version = hexStr2Bytes("0001")
-                dDOL = hexStr2Bytes("9F3704")
-                tDOL = hexStr2Bytes("9F3704")
-
-                // TAC values (matching old code)
-                TACDefault = hexStr2Bytes("A4D0048000")
-                TACDenial = hexStr2Bytes("0000000000")
-                TACOnline = hexStr2Bytes("A4D0048000")
-
-                // Floor limits (matching old code)
-                termOfflineFloorLmt = hexStr2Bytes(String.format("%012d", 0))
-
-                // ⚠️ CRITICAL FIX: Add "00" prefix (13 chars total)
-                termClssLmt = hexStr2Bytes("009999999999")  // ✅ FIX HERE
-
-                // 🔥 DYNAMIC CVM LIMIT - changes per transaction
-                cvmLmt = hexStr2Bytes(String.format("%012d", cvmAmount))
-
-                // Kernel type - Old code uses 9
-                kernelType = 0x09.toByte()
-            }
-
-            // 3. Add new AID
-            val result = emv.addAid(aidV2)
-
-            if (result == 0) {
-                Timber.d("   ✅ NAPAS AID updated successfully")
-                Timber.d("   termClssLmt: 009999999999")
-                Timber.d("   CVM Limit: ${String.format("%012d", cvmAmount)}")
-                true
-            } else {
-                Timber.e("   ❌ Failed to add NAPAS AID: result=$result")
-                false
-            }
-
-        } catch (e: Exception) {
-            Timber.e(e, "❌ Exception updating NAPAS AID")
-            false
-        }
-    }
 
     private fun setGlobalTlvs(emv: EMVOptV2, terminal: Terminal?) {
         val config: EvmConfig = terminal?.evmConfigs?.firstOrNull() ?: EvmConfig()
@@ -415,7 +361,7 @@ object EmvUtil {
         Timber.d("   Contactless CVM Limit: ${contactlessCvm.cvmRequiredLimit}")
 
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, chipValues)
-        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, tags, contactlessValues)
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_DPAS, tags, contactlessValues)
     }
     private fun setPayWaveTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(

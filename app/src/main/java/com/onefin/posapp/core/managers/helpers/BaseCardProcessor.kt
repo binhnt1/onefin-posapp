@@ -95,7 +95,7 @@ abstract class BaseCardProcessor(
         }
     }
 
-    protected open fun handleSuccessResult() {
+    protected fun handleSuccessResult() {
         try {
             val request = currentPaymentAppRequest ?: run {
                 processingComplete(PaymentResult.Error.from(
@@ -164,7 +164,7 @@ abstract class BaseCardProcessor(
             ))
         }
     }
-    protected open fun handleError(error: PaymentResult.Error) {
+    protected fun handleError(error: PaymentResult.Error) {
         isProcessingStarted = false
         processingComplete.invoke(error)
     }
