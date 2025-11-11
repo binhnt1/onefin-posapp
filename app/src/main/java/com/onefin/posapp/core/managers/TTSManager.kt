@@ -1,6 +1,7 @@
 package com.onefin.posapp.core.managers
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.speech.tts.TextToSpeech
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
@@ -16,19 +17,50 @@ class TTSManager @Inject constructor(
 
     companion object {
         private const val TAG = "TTSManager"
-        private const val MAX_RETRY_COUNT = 3
-        private const val RETRY_DELAY_MS = 1000L
     }
+
     private var isInitialized = false
+    private var isTTSAvailable = false
     private var textToSpeech: TextToSpeech? = null
     private val pendingSpeechQueue = mutableListOf<String>()
 
     init {
-        initializeTTS()
+        if (checkTTSAvailability()) {
+            initializeTTS()
+        } else {
+            Timber.tag(TAG).w("⚠️ TTS not available on this device - feature disabled")
+        }
+    }
+
+    fun stop() {
+        if (!isTTSAvailable)
+            return
+        try {
+            textToSpeech?.stop()
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Error stopping TTS")
+        }
+    }
+
+    fun shutdown() {
+        if (!isTTSAvailable)
+            return
+
+        try {
+            textToSpeech?.stop()
+            textToSpeech?.shutdown()
+            isInitialized = false
+            isTTSAvailable = false
+        } catch (e: Exception) {
+            Timber.tag(TAG).w(e, "⚠️ Error shutting down TTS (non-critical)")
+        }
     }
 
     fun speak(text: String) {
         if (text.isEmpty()) return
+        if (!isTTSAvailable) {
+            return
+        }
 
         if (!isInitialized || textToSpeech == null) {
             if (textToSpeech != null) {
@@ -53,6 +85,12 @@ class TTSManager @Inject constructor(
         }
     }
 
+    fun isSpeaking(): Boolean {
+        if (!isTTSAvailable)
+            return false
+        return textToSpeech?.isSpeaking ?: false
+    }
+
     private fun initializeTTS() {
         try {
             textToSpeech = TextToSpeech(context.applicationContext) { status ->
@@ -60,18 +98,17 @@ class TTSManager @Inject constructor(
                     TextToSpeech.SUCCESS -> {
                         textToSpeech?.let { tts ->
                             try {
-                                val result = tts.setLanguage(Locale.Builder().setLanguage("vi").setRegion("VN").build())
+                                val result = tts.setLanguage(
+                                    Locale.Builder()
+                                        .setLanguage("vi")
+                                        .setRegion("VN")
+                                        .build()
+                                )
                                 when (result) {
-                                    TextToSpeech.LANG_MISSING_DATA -> {
-                                        Timber.tag(TAG).w("Vietnamese language data missing, using default")
-                                        tts.language = Locale.getDefault()
-                                    }
+                                    TextToSpeech.LANG_MISSING_DATA,
                                     TextToSpeech.LANG_NOT_SUPPORTED -> {
-                                        Timber.tag(TAG).w("Vietnamese not supported, using default")
+                                        Timber.tag(TAG).w("⚠️ Vietnamese not available, using default")
                                         tts.language = Locale.getDefault()
-                                    }
-                                    else -> {
-                                        Timber.tag(TAG).d("Language set successfully: $result")
                                     }
                                 }
 
@@ -79,88 +116,71 @@ class TTSManager @Inject constructor(
                                 tts.setPitch(1.0f)
 
                                 isInitialized = true
-                                Timber.tag(TAG).d("TTS initialized successfully")
-
-                                // Phát các speech đang chờ
-                                processPendingSpeech()
+                                isTTSAvailable = true
+                                Timber.tag(TAG).d("✅ TTS initialized successfully")
                             } catch (e: Exception) {
-                                Timber.tag(TAG).e(e, "Error configuring TTS")
-                                isInitialized = true
+                                Timber.tag(TAG).w(e, "⚠️ Error configuring TTS (non-critical)")
+                                isInitialized = false
+                                isTTSAvailable = false
                             }
                         }
                     }
+
                     TextToSpeech.ERROR -> {
-                        Timber.tag(TAG).e("TTS initialization failed: ERROR (-1)")
-                        Timber.tag(TAG).e("Possible causes:")
-                        Timber.tag(TAG).e("1. No TTS engine installed")
-                        Timber.tag(TAG).e("2. TTS service not available")
-                        Timber.tag(TAG).e("3. Out of memory")
-
-                        // Không retry nếu lỗi ERROR
+                        Timber.tag(TAG).w("⚠️ TTS initialization failed - feature disabled")
                         isInitialized = false
+                        isTTSAvailable = false
 
-                        // Xóa pending queue vì không thể phát
-                        if (pendingSpeechQueue.isNotEmpty()) {
-                            Timber.tag(TAG).w("Clearing ${pendingSpeechQueue.size} pending speech(es) due to TTS error")
-                            pendingSpeechQueue.clear()
-                        }
+                        // ✅ Cleanup
+                        textToSpeech?.shutdown()
+                        textToSpeech = null
                     }
+
                     else -> {
-                        Timber.tag(TAG).e("TTS initialization failed with unknown status: $status")
+                        Timber.tag(TAG).w("⚠️ TTS initialization failed with status: $status - feature disabled")
                         isInitialized = false
+                        isTTSAvailable = false
                     }
                 }
             }
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Exception while initializing TTS")
+            Timber.tag(TAG).w(e, "⚠️ Exception initializing TTS - feature disabled")
             isInitialized = false
+            isTTSAvailable = false
+            textToSpeech = null
         }
     }
+    private fun checkTTSAvailability(): Boolean {
+        return try {
+            // Check Google TTS package
+            context.packageManager.getPackageInfo("com.google.android.tts", 0)
+            Timber.tag(TAG).d("✅ Google TTS found")
+            true
+        } catch (e: PackageManager.NameNotFoundException) {
+            // Check any TTS engine
+            val intent = android.content.Intent(TextToSpeech.Engine.ACTION_CHECK_TTS_DATA)
+            val activities = context.packageManager.queryIntentActivities(
+                intent,
+                PackageManager.MATCH_DEFAULT_ONLY
+            )
 
-    private fun processPendingSpeech() {
-        if (pendingSpeechQueue.isNotEmpty()) {
-            Timber.tag(TAG).d("Processing ${pendingSpeechQueue.size} pending speech(es)")
-            pendingSpeechQueue.forEach { text ->
-                speak(text)
+            val available = activities.isNotEmpty()
+            if (!available) {
+                Timber.tag(TAG).w("⚠️ No TTS engine found on device")
             }
-            pendingSpeechQueue.clear()
+            available
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "❌ Error checking TTS availability")
+            false
         }
     }
-
     private fun retryInitialization(retryCount: Int = 0) {
-        if (retryCount >= MAX_RETRY_COUNT) {
-            Timber.tag(TAG).w("Max retry count reached for TTS initialization")
-            return
-        }
-
         CoroutineScope(Dispatchers.Main).launch {
-            delay(RETRY_DELAY_MS)
+            delay(1000L)
             if (!isInitialized) {
                 Timber.tag(TAG).d("Retrying TTS initialization (attempt ${retryCount + 1})")
                 initializeTTS()
             }
         }
-    }
-
-    fun stop() {
-        try {
-            textToSpeech?.stop()
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error stopping TTS")
-        }
-    }
-
-    fun shutdown() {
-        try {
-            textToSpeech?.stop()
-            textToSpeech?.shutdown()
-            isInitialized = false
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error shutting down TTS")
-        }
-    }
-
-    fun isSpeaking(): Boolean {
-        return textToSpeech?.isSpeaking ?: false
     }
 }
