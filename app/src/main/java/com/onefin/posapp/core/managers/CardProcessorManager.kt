@@ -485,7 +485,7 @@ class CardProcessorManager(
             }
 
             AidlConstants.CardType.NFC -> {
-                val cvmAmount = (amount.toLongOrNull() ?: 0L) - 1
+                val cvmAmount = 99999999L
                 Timber.d("🔄 Updating NAPAS AID for NFC transaction...")
                 val updateSuccess = EmvUtil.updateNapasAidForTransaction(emvOpt!!, cvmAmount)
                 if (!updateSuccess) {

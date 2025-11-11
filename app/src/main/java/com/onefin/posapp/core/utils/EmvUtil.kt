@@ -1,5 +1,6 @@
 package com.onefin.posapp.core.utils
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.text.TextUtils
 import com.atg.pos.domain.entities.payment.TLVUtil
@@ -219,6 +220,7 @@ object EmvUtil {
             false
         }
     }
+    @SuppressLint("DefaultLocale")
     fun updateNapasAidForTransaction(emv: EMVOptV2, cvmAmount: Long): Boolean {
         return try {
             Timber.d("🔄 ====== UPDATING NAPAS AID ======")
@@ -244,8 +246,8 @@ object EmvUtil {
                 // Floor limits (matching old code)
                 termOfflineFloorLmt = hexStr2Bytes(String.format("%012d", 0))
 
-                // ⚠️ CRITICAL: Old code has "00" prefix (13 chars)
-                termClssLmt = hexStr2Bytes("009999999999")
+                // ⚠️ CRITICAL FIX: Add "00" prefix (13 chars total)
+                termClssLmt = hexStr2Bytes("009999999999")  // ✅ FIX HERE
 
                 // 🔥 DYNAMIC CVM LIMIT - changes per transaction
                 cvmLmt = hexStr2Bytes(String.format("%012d", cvmAmount))
@@ -259,6 +261,7 @@ object EmvUtil {
 
             if (result == 0) {
                 Timber.d("   ✅ NAPAS AID updated successfully")
+                Timber.d("   termClssLmt: 009999999999")
                 Timber.d("   CVM Limit: ${String.format("%012d", cvmAmount)}")
                 true
             } else {
