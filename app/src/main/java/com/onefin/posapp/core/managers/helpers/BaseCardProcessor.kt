@@ -41,9 +41,6 @@ abstract class BaseCardProcessor(
     protected var currentKsn: String? = null
     protected var currentPinBlock: String? = null
 
-    // 🔥 Flag to prevent double app selection (fixes NAPAS NFC error -4001)
-    protected var hasProcessedAppSelect = false
-
     protected abstract fun processTransaction(info: Bundle)
 
     fun startProcessing(
@@ -71,7 +68,6 @@ abstract class BaseCardProcessor(
 
         // Reset state
         cardPanForPin = null
-        hasProcessedAppSelect = false  // Reset app selection flag
         isProcessingStarted = true
         processingComplete = onProcessingComplete
         currentPaymentAppRequest = paymentRequest
@@ -448,21 +444,7 @@ abstract class BaseCardProcessor(
         Timber.d("💾 onDataStorageProc")
     }
     private fun onEmvWaitAppSelect(candidates: MutableList<EMVCandidateV2>?, isFirstSelect: Boolean) {
-        Timber.d("💾 onWaitAppSelect - isFirstSelect: $isFirstSelect, candidates: ${candidates?.size ?: 0}, hasProcessedAppSelect: $hasProcessedAppSelect")
-
-        // Prevent double app selection (SDK sometimes calls this twice - fixes NAPAS error -4001)
-        if (hasProcessedAppSelect) {
-            Timber.d("⚠️ Already processed app selection, skipping duplicate request")
-            // Don't just return - SDK is waiting for response
-            // Call importAppSelect(-1) to indicate "cancel/skip this redundant selection"
-            try {
-                emvOpt.importAppSelect(-1)  // Skip redundant app selection
-                Timber.d("✅ Notified SDK to skip duplicate app selection (-1)")
-            } catch (e: Exception) {
-                Timber.e(e, "⚠️ Failed to notify SDK on duplicate call")
-            }
-            return
-        }
+        Timber.d("💾 onWaitAppSelect - isFirstSelect: $isFirstSelect, candidates: ${candidates?.size ?: 0}")
 
         if (candidates.isNullOrEmpty()) {
             Timber.d("⚠️ No candidates to select")
@@ -470,11 +452,9 @@ abstract class BaseCardProcessor(
         }
 
         try {
-            hasProcessedAppSelect = true  // Mark as processed before calling importAppSelect
-            Timber.d("✅ Calling importAppSelect(0) - first time only")
+            Timber.d("✅ Calling importAppSelect(0)")
             emvOpt.importAppSelect(0)
         } catch (e: Exception) {
-            hasProcessedAppSelect = false  // Reset on error to allow retry
             handleError(PaymentResult.Error.from(
                 PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
                 "importAppSelect failed: ${e.message}"))

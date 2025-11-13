@@ -35,9 +35,9 @@ class NfcCardProcessor(
             EmvUtil.setEmvTlvs(context, emvOpt, terminal)
             Timber.d("✅ setEmvTlvs re-applied (NAPAS TTQ: 26000000)")
 
-            // 3. Wait for NFC card activation (contactless cards need 300-500ms to be ready)
-            Timber.d("⏳ Waiting 400ms for NFC card activation...")
-            Thread.sleep(400)
+            // 3. Wait for NFC card activation (NAPAS Pure cards need 2-3s based on Java ref code)
+            Timber.d("⏳ Waiting 2000ms for NFC card activation...")
+            Thread.sleep(2000)
             Timber.d("✅ NFC card should be ready now")
 
             // 4. Transaction
