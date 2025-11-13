@@ -452,7 +452,14 @@ abstract class BaseCardProcessor(
 
         // Prevent double app selection (SDK sometimes calls this twice - fixes NAPAS error -4001)
         if (hasProcessedAppSelect) {
-            Timber.d("⚠️ Already processed app selection, skipping duplicate call")
+            Timber.d("⚠️ Already processed app selection, notifying SDK to continue")
+            // Don't just return - SDK is waiting for response. Call importAppSelect with status 0 to continue
+            try {
+                emvOpt.importAppSelect(0)  // Continue with already-selected app
+                Timber.d("✅ Notified SDK to continue with selected app")
+            } catch (e: Exception) {
+                Timber.e(e, "⚠️ Failed to notify SDK on duplicate call")
+            }
             return
         }
 
