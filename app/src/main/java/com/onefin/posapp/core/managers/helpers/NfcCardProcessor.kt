@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Bundle
 import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.PaymentResult
+import com.onefin.posapp.core.utils.EmvUtil
 import com.sunmi.pay.hardware.aidl.AidlConstants
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
 import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadOptV2
@@ -30,7 +31,11 @@ class NfcCardProcessor(
             emvOpt.initEmvProcess()
             Timber.d("✅ initEmvProcess OK.")
 
-            // 2. Transaction
+            // 2. Re-apply EMV TLVs after initEmvProcess (fixes NAPAS error -4125)
+            EmvUtil.setEmvTlvs(context, emvOpt, terminal)
+            Timber.d("✅ setEmvTlvs re-applied (NAPAS TTQ: 26000000)")
+
+            // 3. Transaction
             val bundle = createBundle()
             val listener = createEmvListener()
             Timber.d("🚀 Gọi transactProcessEx...")
