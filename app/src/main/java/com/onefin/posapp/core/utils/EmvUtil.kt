@@ -308,34 +308,26 @@ object EmvUtil {
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, contactlessValues)
     }
     private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
-        // NAPAS Pure contactless requires comprehensive TLV configuration
-        // Similar to PayPass/PayWave with all EMV contactless tags (must include DF8123 and DF811D!)
+        // NAPAS Pure contactless TLV configuration - MUST match PayWave/PayPass pattern
+        // Use only DF81xx tags (NOT DF7F/DF8134/DF8133 - those are set in AID injection!)
         val napasTags = arrayOf(
-            "DF7F",   // AID
-            "DF8134", // NAPAS-specific tag
-            "DF8133", // TTQ (Terminal Transaction Qualifiers)
             "DF8117", // cardDataInputCap
             "DF8118", // chipCVMCap
             "DF8119", // chipCVMCapNoCVM
             "DF811B", // kernelConfig
-            "DF811D", // Status check (CRITICAL - missing caused L2 error!)
+            "DF811D", // Status check
             "DF811E", // MSDCVMCap
             "DF811F", // securityCap
             "DF8120", // ClTACDefault
             "DF8121", // CLTACDenial
             "DF8122", // CLTACOnline
-            "DF8123", // TAC Default (CRITICAL - missing caused L2 error!)
+            "DF8123", // TAC Default
             "DF8124", // CLTransLimitNoCDCVM
             "DF8125", // CLTransLimitCDCVM
             "DF812C"  // MSDCVMCapNoCVM
         )
 
-        // Values from AID.json pureAID section
-        val napasAid = "A0000007271010"
-        val df8134Value = "D9"
-        val ttqValue = "26000000"  // TTQ_9F66 from JSON
-
-        // Contactless TLV values from JSON
+        // Contactless TLV values from AID.json pureAID section
         val cardDataInputCap = "E0"  // Default value (empty in JSON, use E0 like PayPass)
         val chipCvmCap = "08"        // chipCVMCap_DF8118
         val chipCvmCapNoCvm = "F0"   // chipCVMCapNoCVM_DF8119
@@ -352,9 +344,6 @@ object EmvUtil {
         val msdCvmCapNoCvm = "08"    // MSDCVMCapNoCVM_DF812C
 
         val napasValues = arrayOf(
-            napasAid,              // DF7F
-            df8134Value,           // DF8134
-            ttqValue,              // DF8133
             cardDataInputCap,      // DF8117
             chipCvmCap,            // DF8118
             chipCvmCapNoCvm,       // DF8119
@@ -371,10 +360,7 @@ object EmvUtil {
             msdCvmCapNoCvm         // DF812C
         )
 
-        Timber.d("📋 NAPAS Pure Contactless TLV Config (Full - 17 tags):")
-        Timber.d("   DF7F (AID): $napasAid")
-        Timber.d("   DF8134: $df8134Value")
-        Timber.d("   DF8133 (TTQ): $ttqValue")
+        Timber.d("📋 NAPAS Pure Contactless TLV Config (14 tags - matching PayWave/PayPass pattern):")
         Timber.d("   DF8117 (cardDataInputCap): $cardDataInputCap")
         Timber.d("   DF8118 (chipCVMCap): $chipCvmCap")
         Timber.d("   DF8119 (chipCVMCapNoCVM): $chipCvmCapNoCvm")
