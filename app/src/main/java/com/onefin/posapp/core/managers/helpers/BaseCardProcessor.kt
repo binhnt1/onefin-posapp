@@ -444,7 +444,19 @@ abstract class BaseCardProcessor(
         Timber.d("💾 onDataStorageProc")
     }
     private fun onEmvWaitAppSelect(candidates: MutableList<EMVCandidateV2>?, isFirstSelect: Boolean) {
-        Timber.d("💾 onWaitAppSelect")
+        Timber.d("💾 onWaitAppSelect - isFirstSelect: $isFirstSelect, candidates: ${candidates?.size ?: 0}")
+
+        // Only process on first selection to avoid double app selection (fixes error -4001)
+        if (!isFirstSelect) {
+            Timber.d("⚠️ Skipping non-first app selection call")
+            return
+        }
+
+        if (candidates.isNullOrEmpty()) {
+            Timber.d("⚠️ No candidates to select")
+            return
+        }
+
         try {
             emvOpt.importAppSelect(0)
         } catch (e: Exception) {
