@@ -309,7 +309,7 @@ object EmvUtil {
     }
     private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         // NAPAS Pure contactless requires comprehensive TLV configuration
-        // Similar to PayPass/PayWave with all EMV contactless tags
+        // Similar to PayPass/PayWave with all EMV contactless tags (must include DF8123 and DF811D!)
         val napasTags = arrayOf(
             "DF7F",   // AID
             "DF8134", // NAPAS-specific tag
@@ -318,11 +318,13 @@ object EmvUtil {
             "DF8118", // chipCVMCap
             "DF8119", // chipCVMCapNoCVM
             "DF811B", // kernelConfig
+            "DF811D", // Status check (CRITICAL - missing caused L2 error!)
             "DF811E", // MSDCVMCap
             "DF811F", // securityCap
             "DF8120", // ClTACDefault
             "DF8121", // CLTACDenial
             "DF8122", // CLTACOnline
+            "DF8123", // TAC Default (CRITICAL - missing caused L2 error!)
             "DF8124", // CLTransLimitNoCDCVM
             "DF8125", // CLTransLimitCDCVM
             "DF812C"  // MSDCVMCapNoCVM
@@ -338,11 +340,13 @@ object EmvUtil {
         val chipCvmCap = "08"        // chipCVMCap_DF8118
         val chipCvmCapNoCvm = "F0"   // chipCVMCapNoCVM_DF8119
         val kernelConfig = "30"      // kernelConfig_DF811B
+        val statusCheck = "02"       // DF811D - Same as PayPass/PayWave
         val msdCvmCap = "60"         // MSDCVMCap_DF811E
         val securityCap = "08"       // securityCap_DF811F
         val clTacDefault = "A4D0048000"      // ClTACDefault_DF8120
         val clTacDenial = "0000000000"       // CLTACDenial_DF8121
         val clTacOnline = "A4D0048000"       // CLTACOnline_DF8122
+        val tacDefault = config.tacDefault   // DF8123 - From baseAID TACDefault
         val clTransLimitNoCdcvm = "999999999999"  // CLTransLimitNoCDCVM_DF8124
         val clTransLimitCdcvm = "999999999999"    // CLTransLimitCDCVM_DF8125
         val msdCvmCapNoCvm = "08"    // MSDCVMCapNoCVM_DF812C
@@ -355,17 +359,19 @@ object EmvUtil {
             chipCvmCap,            // DF8118
             chipCvmCapNoCvm,       // DF8119
             kernelConfig,          // DF811B
+            statusCheck,           // DF811D
             msdCvmCap,             // DF811E
             securityCap,           // DF811F
             clTacDefault,          // DF8120
             clTacDenial,           // DF8121
             clTacOnline,           // DF8122
+            tacDefault,            // DF8123
             clTransLimitNoCdcvm,   // DF8124
             clTransLimitCdcvm,     // DF8125
             msdCvmCapNoCvm         // DF812C
         )
 
-        Timber.d("📋 NAPAS Pure Contactless TLV Config (Full):")
+        Timber.d("📋 NAPAS Pure Contactless TLV Config (Full - 17 tags):")
         Timber.d("   DF7F (AID): $napasAid")
         Timber.d("   DF8134: $df8134Value")
         Timber.d("   DF8133 (TTQ): $ttqValue")
@@ -373,11 +379,13 @@ object EmvUtil {
         Timber.d("   DF8118 (chipCVMCap): $chipCvmCap")
         Timber.d("   DF8119 (chipCVMCapNoCVM): $chipCvmCapNoCvm")
         Timber.d("   DF811B (kernelConfig): $kernelConfig")
+        Timber.d("   DF811D (statusCheck): $statusCheck")
         Timber.d("   DF811E (MSDCVMCap): $msdCvmCap")
         Timber.d("   DF811F (securityCap): $securityCap")
         Timber.d("   DF8120 (ClTACDefault): $clTacDefault")
         Timber.d("   DF8121 (CLTACDenial): $clTacDenial")
         Timber.d("   DF8122 (CLTACOnline): $clTacOnline")
+        Timber.d("   DF8123 (tacDefault): $tacDefault")
         Timber.d("   DF8124 (CLTransLimitNoCDCVM): $clTransLimitNoCdcvm")
         Timber.d("   DF8125 (CLTransLimitCDCVM): $clTransLimitCdcvm")
         Timber.d("   DF812C (MSDCVMCapNoCVM): $msdCvmCapNoCvm")
