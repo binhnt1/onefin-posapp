@@ -314,6 +314,7 @@ object EmvUtil {
             "DF8117", // cardDataInputCap
             "DF8118", // chipCVMCap
             "DF8119", // chipCVMCapNoCVM
+            "DF811A", // UDOL (User Data Object List) - CRITICAL for NAPAS Pure!
             "DF811B", // kernelConfig
             "DF811D", // Status check
             "DF811E", // MSDCVMCap
@@ -331,6 +332,7 @@ object EmvUtil {
         val cardDataInputCap = "E0"  // Default value (empty in JSON, use E0 like PayPass)
         val chipCvmCap = "08"        // chipCVMCap_DF8118
         val chipCvmCapNoCvm = "F0"   // chipCVMCapNoCVM_DF8119
+        val udol = "9F6A04"          // UDOL_DF811A from AID.json - specifies terminal requested data
         val kernelConfig = "30"      // kernelConfig_DF811B
         val statusCheck = "02"       // DF811D - Same as PayPass/PayWave
         val msdCvmCap = "60"         // MSDCVMCap_DF811E
@@ -347,6 +349,7 @@ object EmvUtil {
             cardDataInputCap,      // DF8117
             chipCvmCap,            // DF8118
             chipCvmCapNoCvm,       // DF8119
+            udol,                  // DF811A
             kernelConfig,          // DF811B
             statusCheck,           // DF811D
             msdCvmCap,             // DF811E
@@ -360,10 +363,11 @@ object EmvUtil {
             msdCvmCapNoCvm         // DF812C
         )
 
-        Timber.d("📋 NAPAS Pure Contactless TLV Config (14 tags - matching PayWave/PayPass pattern):")
+        Timber.d("📋 NAPAS Pure Contactless TLV Config (15 tags - with UDOL_DF811A):")
         Timber.d("   DF8117 (cardDataInputCap): $cardDataInputCap")
         Timber.d("   DF8118 (chipCVMCap): $chipCvmCap")
         Timber.d("   DF8119 (chipCVMCapNoCVM): $chipCvmCapNoCvm")
+        Timber.d("   DF811A (UDOL): $udol")
         Timber.d("   DF811B (kernelConfig): $kernelConfig")
         Timber.d("   DF811D (statusCheck): $statusCheck")
         Timber.d("   DF811E (MSDCVMCap): $msdCvmCap")
