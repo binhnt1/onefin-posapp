@@ -232,6 +232,7 @@ object EmvUtil {
         val ttq = when (config.vendorName.uppercase(Locale.getDefault())) {
             "VISA" -> "26000080"
             "MASTERCARD" -> "3600C080"
+            "NAPAS" -> "26000000"  // NAPAS Pure TTQ - CRITICAL for L2 candidate list building
             else -> "3600C080"
         }
         val globalValues = arrayOf(
