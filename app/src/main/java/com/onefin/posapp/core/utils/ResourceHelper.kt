@@ -145,7 +145,15 @@ object ResourceHelper {
                 else -> hexStr2Bytes("")
             }
 
-            kernelID = hexStr2Bytes("")
+            // KernelID must match TLV OpCode for contactless processing
+            kernelID = when (type) {
+                "paypass" -> hexStr2Bytes("02") // OP_PAYPASS + 1
+                "paywave" -> hexStr2Bytes("03") // OP_PAYWAVE + 1
+                "pure" -> hexStr2Bytes("06")     // OP_PURE (NAPAS)
+                "jcb" -> hexStr2Bytes("05")      // OP_JCB
+                "qpboc" -> hexStr2Bytes("03")    // QuickPass uses 03
+                else -> hexStr2Bytes("")
+            }
             extSelectSupFlg = 0x00.toByte()
 
             // Contactless Limits - Lấy từ specific AID
