@@ -703,12 +703,19 @@ object EmvUtil {
 
                 try {
                     val aidV2 = ResourceHelper.convertToAidV2(aidEntry, type)
+
+                    // Log kernelID and kernelType for debugging
+                    val kernelIdHex = aidV2.kernelID?.let { bytes ->
+                        bytes.joinToString("") { "%02X".format(it) }
+                    } ?: "null"
+                    val kernelTypeHex = String.format("%02X", aidV2.kernelType)
+
                     val result = emvOptV2.addAid(aidV2)
                     if (result == 0) {
                         successCount++
-                        Timber.d("   ✅ [${index+1}/${aidList.size}] $type - AID: $aidValue")
+                        Timber.d("   ✅ [${index+1}/${aidList.size}] $type - AID: $aidValue - kernelType: $kernelTypeHex, kernelID: $kernelIdHex")
                     } else {
-                        Timber.w("   ⚠️ [${index+1}/${aidList.size}] $type - AID: $aidValue - Code: $result")
+                        Timber.w("   ⚠️ [${index+1}/${aidList.size}] $type - AID: $aidValue - kernelType: $kernelTypeHex, kernelID: $kernelIdHex - Code: $result")
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "   ❌ [${index+1}/${aidList.size}] $type - AID: $aidValue")
