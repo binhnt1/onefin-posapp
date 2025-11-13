@@ -57,11 +57,11 @@ object EmvUtil {
                     Timber.e(e, "   Lỗi khi parse/nạp AID: ${aidHexString.take(50)}...")
                 }
             }
-            Timber.d("   Nạp AIDs mặc định từ tài liệu thành công!")
+            Timber.d("   ✅ Nạp AIDs mặc định từ tài liệu thành công!")
 
             // Nạp AID từ JSON
-            injectAidsFromJson(context, emvOptV2)
-            Timber.d("   Nạp AIDs từ JSON thành công!")
+            val jsonAidsCount = injectAidsFromJson(context, emvOptV2)
+            Timber.d("   ✅ Nạp AIDs từ JSON: $jsonAidsCount AIDs thành công")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -724,22 +724,28 @@ object EmvUtil {
             }
 
             var successCount = 0
-            for (aidData in aidList) {
+            Timber.d("📋 Bắt đầu inject ${aidList.size} AIDs từ JSON...")
+
+            for ((index, aidData) in aidList.withIndex()) {
                 val entry = aidData.getEntry() ?: continue
                 val (type, aidEntry) = entry
+                val aidValue = aidEntry.baseAID?.get("AID_9F06") as? String ?: "UNKNOWN"
 
                 try {
                     val aidV2 = ResourceHelper.convertToAidV2(aidEntry, type)
                     val result = emvOptV2.addAid(aidV2)
                     if (result == 0) {
                         successCount++
+                        Timber.d("   ✅ [${index+1}/${aidList.size}] $type - AID: $aidValue")
+                    } else {
+                        Timber.w("   ⚠️ [${index+1}/${aidList.size}] $type - AID: $aidValue - Code: $result")
                     }
                 } catch (e: Exception) {
-                    Timber.e(e, "❌ Lỗi khi convert/inject AID $type")
+                    Timber.e(e, "   ❌ [${index+1}/${aidList.size}] $type - AID: $aidValue")
                 }
             }
 
-            Timber.i("Đã inject $successCount/${aidList.size} AIDs từ JSON")
+            Timber.d("✅ Đã inject $successCount/${aidList.size} AIDs từ JSON")
             return successCount
         } catch (e: Exception) {
             return 0
