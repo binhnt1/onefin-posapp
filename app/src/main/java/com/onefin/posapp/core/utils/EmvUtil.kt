@@ -361,8 +361,8 @@ object EmvUtil {
         Timber.d("   Contactless CVM Limit: ${contactlessCvm.cvmRequiredLimit}")
 
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, chipValues)
-        // Use OP_JSPEEDY (6) for NAPAS contactless to match Java implementation
-        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_JSPEEDY, tags, contactlessValues)
+        // Use OP_PURE (6) for NAPAS Pure contactless to match Java implementation
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, tags, contactlessValues)
     }
     private fun setPayWaveTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
