@@ -509,6 +509,9 @@ class CardProcessorManager(
         }
 
         currentProcessor?.apply {
+            // Set kernel initialized flag for this processor instance
+            isKernelInitialized = true
+
             startProcessing(info, amount, request) { result ->
                 isProcessing = false
                 pendingAmount = null
