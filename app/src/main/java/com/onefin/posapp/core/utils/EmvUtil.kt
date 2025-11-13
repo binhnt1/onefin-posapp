@@ -729,7 +729,7 @@ object EmvUtil {
             for ((index, aidData) in aidList.withIndex()) {
                 val entry = aidData.getEntry() ?: continue
                 val (type, aidEntry) = entry
-                val aidValue = aidEntry.baseAID?.get("AID_9F06") as? String ?: "UNKNOWN"
+                val aidValue = aidEntry.baseAid.aid
 
                 try {
                     val aidV2 = ResourceHelper.convertToAidV2(aidEntry, type)
