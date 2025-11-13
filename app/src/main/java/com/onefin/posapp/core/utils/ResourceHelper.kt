@@ -150,11 +150,11 @@ object ResourceHelper {
                 else -> hexStr2Bytes("")
             }
 
-            // KernelID must match TLV OpCode for contactless processing
+            // KernelID configuration (Java reference uses 00 for NAPAS Pure)
             kernelID = when (type) {
                 "paypass" -> hexStr2Bytes("02") // OP_PAYPASS + 1
                 "paywave" -> hexStr2Bytes("03") // OP_PAYWAVE + 1
-                "pure" -> hexStr2Bytes("06")     // OP_PURE (NAPAS) - kernelID 06, kernelType 09
+                "pure" -> hexStr2Bytes("00")     // NAPAS Pure - kernelID=00, kernelType=09
                 "jcb" -> hexStr2Bytes("05")      // OP_JCB
                 "qpboc" -> hexStr2Bytes("03")    // QuickPass uses 03
                 else -> hexStr2Bytes("")

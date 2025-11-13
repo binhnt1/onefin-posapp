@@ -450,7 +450,7 @@
                 "CLCVMLimit": "1000001",
                 "CLFloorLimit": "000000000000",
                 "CLTransLimit": "999999999999",
-                "TTQ_9F66": "26000000",
+                "TTQ_9F66": "26000080",
                 "amountZeroOption": "1",
                 "enableAmountZeroOption": "1",
                 "enableCVMLimit": "1",

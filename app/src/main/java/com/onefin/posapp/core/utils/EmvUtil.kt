@@ -309,9 +309,11 @@ object EmvUtil {
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, contactlessValues)
     }
     private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
-        // NAPAS Pure contactless TLV configuration - MUST match PayWave/PayPass pattern
-        // Use only DF81xx tags (NOT DF7F/DF8134/DF8133 - those are set in AID injection!)
+        // NAPAS Pure contactless TLV configuration (Java reference shows these tags are required)
         val napasTags = arrayOf(
+            "DF7F",   // AID - Application Identifier (for kernel identification)
+            "DF8134", // Unknown NAPAS-specific tag
+            "DF8133", // Unknown NAPAS-specific tag
             "9F66",   // TTQ (Terminal Transaction Qualifiers) - CRITICAL for L2 candidate list!
             "DF8117", // cardDataInputCap
             "DF8118", // chipCVMCap
@@ -330,8 +332,11 @@ object EmvUtil {
             "DF812C"  // MSDCVMCapNoCVM
         )
 
-        // Contactless TLV values from AID.json pureAID section
-        val ttq = "26000000"         // TTQ_9F66 - NAPAS Pure Terminal Transaction Qualifiers
+        // Contactless TLV values from AID.json pureAID section and Java reference
+        val aid = "A0000007271010"   // DF7F - NAPAS Pure AID
+        val napasTag8134 = "D9"      // DF8134 - From Java successful log
+        val napasTag8133 = "3200E043F9" // DF8133 - From Java successful log
+        val ttq = "26000080"         // TTQ_9F66 - NAPAS Pure Terminal Transaction Qualifiers (byte 4 = 0x80!)
         val cardDataInputCap = "E0"  // Default value (empty in JSON, use E0 like PayPass)
         val chipCvmCap = "08"        // chipCVMCap_DF8118
         val chipCvmCapNoCvm = "F0"   // chipCVMCapNoCVM_DF8119
@@ -349,6 +354,9 @@ object EmvUtil {
         val msdCvmCapNoCvm = "08"    // MSDCVMCapNoCVM_DF812C
 
         val napasValues = arrayOf(
+            aid,                   // DF7F - NAPAS Pure AID (for kernel identification)
+            napasTag8134,          // DF8134 - NAPAS-specific tag from Java ref
+            napasTag8133,          // DF8133 - NAPAS-specific tag from Java ref
             ttq,                   // 9F66 - TTQ MUST be set explicitly for NAPAS Pure kernel!
             cardDataInputCap,      // DF8117
             chipCvmCap,            // DF8118
@@ -367,7 +375,10 @@ object EmvUtil {
             msdCvmCapNoCvm         // DF812C
         )
 
-        Timber.d("📋 NAPAS Pure Contactless TLV Config (16 tags - with TTQ + UDOL):")
+        Timber.d("📋 NAPAS Pure Contactless TLV Config (19 tags - matching Java reference):")
+        Timber.d("   DF7F (AID): $aid")
+        Timber.d("   DF8134: $napasTag8134")
+        Timber.d("   DF8133: $napasTag8133")
         Timber.d("   9F66 (TTQ): $ttq")
         Timber.d("   DF8117 (cardDataInputCap): $cardDataInputCap")
         Timber.d("   DF8118 (chipCVMCap): $chipCvmCap")
