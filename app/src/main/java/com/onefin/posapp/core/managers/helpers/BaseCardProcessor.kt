@@ -41,6 +41,9 @@ abstract class BaseCardProcessor(
     protected var currentKsn: String? = null
     protected var currentPinBlock: String? = null
 
+    // 🔥 Flag to prevent double app selection (fixes NAPAS NFC error -4001)
+    protected var hasProcessedAppSelect = false
+
     protected abstract fun processTransaction(info: Bundle)
 
     fun startProcessing(
@@ -68,6 +71,7 @@ abstract class BaseCardProcessor(
 
         // Reset state
         cardPanForPin = null
+        hasProcessedAppSelect = false  // Reset app selection flag
         isProcessingStarted = true
         processingComplete = onProcessingComplete
         currentPaymentAppRequest = paymentRequest
@@ -444,11 +448,11 @@ abstract class BaseCardProcessor(
         Timber.d("💾 onDataStorageProc")
     }
     private fun onEmvWaitAppSelect(candidates: MutableList<EMVCandidateV2>?, isFirstSelect: Boolean) {
-        Timber.d("💾 onWaitAppSelect - isFirstSelect: $isFirstSelect, candidates: ${candidates?.size ?: 0}")
+        Timber.d("💾 onWaitAppSelect - isFirstSelect: $isFirstSelect, candidates: ${candidates?.size ?: 0}, hasProcessedAppSelect: $hasProcessedAppSelect")
 
-        // Only process on first selection to avoid double app selection (fixes error -4001)
-        if (!isFirstSelect) {
-            Timber.d("⚠️ Skipping non-first app selection call")
+        // Prevent double app selection (SDK sometimes calls this twice - fixes NAPAS error -4001)
+        if (hasProcessedAppSelect) {
+            Timber.d("⚠️ Already processed app selection, skipping duplicate call")
             return
         }
 
@@ -458,8 +462,11 @@ abstract class BaseCardProcessor(
         }
 
         try {
+            hasProcessedAppSelect = true  // Mark as processed before calling importAppSelect
+            Timber.d("✅ Calling importAppSelect(0) - first time only")
             emvOpt.importAppSelect(0)
         } catch (e: Exception) {
+            hasProcessedAppSelect = false  // Reset on error to allow retry
             handleError(PaymentResult.Error.from(
                 PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
                 "importAppSelect failed: ${e.message}"))
