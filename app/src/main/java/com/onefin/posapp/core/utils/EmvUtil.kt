@@ -308,26 +308,79 @@ object EmvUtil {
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, contactlessValues)
     }
     private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
-        // NAPAS Pure contactless requires special TLV configuration
-        // Based on Java: initEmvTlvNapas() - uses only 3 tags
-        val napasTags = arrayOf("DF7F", "DF8134", "DF8133")
+        // NAPAS Pure contactless requires comprehensive TLV configuration
+        // Similar to PayPass/PayWave with all EMV contactless tags
+        val napasTags = arrayOf(
+            "DF7F",   // AID
+            "DF8134", // NAPAS-specific tag
+            "DF8133", // TTQ (Terminal Transaction Qualifiers)
+            "DF8117", // cardDataInputCap
+            "DF8118", // chipCVMCap
+            "DF8119", // chipCVMCapNoCVM
+            "DF811B", // kernelConfig
+            "DF811E", // MSDCVMCap
+            "DF811F", // securityCap
+            "DF8120", // ClTACDefault
+            "DF8121", // CLTACDenial
+            "DF8122", // CLTACOnline
+            "DF8124", // CLTransLimitNoCDCVM
+            "DF8125", // CLTransLimitCDCVM
+            "DF812C"  // MSDCVMCapNoCVM
+        )
 
-        // Get NAPAS AID from AID.json (A0000007271010)
+        // Values from AID.json pureAID section
         val napasAid = "A0000007271010"
-
-        // DF8134 value - based on Java implementation
         val df8134Value = "D9"
+        val ttqValue = "26000000"  // TTQ_9F66 from JSON
 
-        // DF8133 value - Terminal Transaction Qualifiers (TTQ)
-        // Use TTQ_9F66 from AID.json for NAPAS Pure (26000000)
-        val df8133Value = "26000000"
+        // Contactless TLV values from JSON
+        val cardDataInputCap = "E0"  // Default value (empty in JSON, use E0 like PayPass)
+        val chipCvmCap = "08"        // chipCVMCap_DF8118
+        val chipCvmCapNoCvm = "F0"   // chipCVMCapNoCVM_DF8119
+        val kernelConfig = "30"      // kernelConfig_DF811B
+        val msdCvmCap = "60"         // MSDCVMCap_DF811E
+        val securityCap = "08"       // securityCap_DF811F
+        val clTacDefault = "A4D0048000"      // ClTACDefault_DF8120
+        val clTacDenial = "0000000000"       // CLTACDenial_DF8121
+        val clTacOnline = "A4D0048000"       // CLTACOnline_DF8122
+        val clTransLimitNoCdcvm = "999999999999"  // CLTransLimitNoCDCVM_DF8124
+        val clTransLimitCdcvm = "999999999999"    // CLTransLimitCDCVM_DF8125
+        val msdCvmCapNoCvm = "08"    // MSDCVMCapNoCVM_DF812C
 
-        val napasValues = arrayOf(napasAid, df8134Value, df8133Value)
+        val napasValues = arrayOf(
+            napasAid,              // DF7F
+            df8134Value,           // DF8134
+            ttqValue,              // DF8133
+            cardDataInputCap,      // DF8117
+            chipCvmCap,            // DF8118
+            chipCvmCapNoCvm,       // DF8119
+            kernelConfig,          // DF811B
+            msdCvmCap,             // DF811E
+            securityCap,           // DF811F
+            clTacDefault,          // DF8120
+            clTacDenial,           // DF8121
+            clTacOnline,           // DF8122
+            clTransLimitNoCdcvm,   // DF8124
+            clTransLimitCdcvm,     // DF8125
+            msdCvmCapNoCvm         // DF812C
+        )
 
-        Timber.d("📋 NAPAS Pure Contactless TLV Config:")
+        Timber.d("📋 NAPAS Pure Contactless TLV Config (Full):")
         Timber.d("   DF7F (AID): $napasAid")
         Timber.d("   DF8134: $df8134Value")
-        Timber.d("   DF8133 (TTQ): $df8133Value")
+        Timber.d("   DF8133 (TTQ): $ttqValue")
+        Timber.d("   DF8117 (cardDataInputCap): $cardDataInputCap")
+        Timber.d("   DF8118 (chipCVMCap): $chipCvmCap")
+        Timber.d("   DF8119 (chipCVMCapNoCVM): $chipCvmCapNoCvm")
+        Timber.d("   DF811B (kernelConfig): $kernelConfig")
+        Timber.d("   DF811E (MSDCVMCap): $msdCvmCap")
+        Timber.d("   DF811F (securityCap): $securityCap")
+        Timber.d("   DF8120 (ClTACDefault): $clTacDefault")
+        Timber.d("   DF8121 (CLTACDenial): $clTacDenial")
+        Timber.d("   DF8122 (CLTACOnline): $clTacOnline")
+        Timber.d("   DF8124 (CLTransLimitNoCDCVM): $clTransLimitNoCdcvm")
+        Timber.d("   DF8125 (CLTransLimitCDCVM): $clTransLimitCdcvm")
+        Timber.d("   DF812C (MSDCVMCapNoCVM): $msdCvmCapNoCvm")
 
         // NAPAS Pure contactless only needs OP_PURE (6), not OP_NORMAL
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, napasTags, napasValues)
