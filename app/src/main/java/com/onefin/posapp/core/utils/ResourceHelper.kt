@@ -154,7 +154,7 @@ object ResourceHelper {
             kernelID = when (type) {
                 "paypass" -> hexStr2Bytes("02") // OP_PAYPASS + 1
                 "paywave" -> hexStr2Bytes("03") // OP_PAYWAVE + 1
-                "pure" -> hexStr2Bytes("09")     // NAPAS Pure - code Java uses 09
+                "pure" -> hexStr2Bytes("06")     // OP_PURE (NAPAS) - kernelID 06, kernelType 09
                 "jcb" -> hexStr2Bytes("05")      // OP_JCB
                 "qpboc" -> hexStr2Bytes("03")    // QuickPass uses 03
                 else -> hexStr2Bytes("")
@@ -289,7 +289,7 @@ object ResourceHelper {
         return when (type) {
             "paypass" -> 0x02.toByte() // MasterCard Contactless
             "paywave" -> 0x03.toByte() // Visa Contactless
-            "pure" -> 0x06.toByte()    // NAPAS Pure - must match kernelID and OP_PURE
+            "pure" -> 0x09.toByte()    // NAPAS Pure - Java ref uses kernelType=9
             "jcb" -> 0x04.toByte()     // JCB
             "qpboc" -> 0x07.toByte()   // UnionPay
             else -> 0x00.toByte()      // Standard EMV
