@@ -35,7 +35,12 @@ class NfcCardProcessor(
             EmvUtil.setEmvTlvs(context, emvOpt, terminal)
             Timber.d("✅ setEmvTlvs re-applied (NAPAS TTQ: 26000000)")
 
-            // 3. Transaction
+            // 3. Wait for NFC card activation (contactless cards need 300-500ms to be ready)
+            Timber.d("⏳ Waiting 400ms for NFC card activation...")
+            Thread.sleep(400)
+            Timber.d("✅ NFC card should be ready now")
+
+            // 4. Transaction
             val bundle = createBundle()
             val listener = createEmvListener()
             Timber.d("🚀 Gọi transactProcessEx...")
