@@ -390,7 +390,9 @@ object EmvUtil {
         Timber.d("   DF8125 (CLTransLimitCDCVM): $clTransLimitCdcvm")
         Timber.d("   DF812C (MSDCVMCapNoCVM): $msdCvmCapNoCvm")
 
-        // NAPAS Pure contactless only needs OP_PURE (6), not OP_NORMAL
+        // NAPAS Pure needs BOTH OP_NORMAL and OP_PURE (same pattern as PayWave/PayPass)
+        // OP_NORMAL is required for building L2 candidate list
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, napasTags, napasValues)
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, napasTags, napasValues)
     }
     private fun setPayWaveTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
