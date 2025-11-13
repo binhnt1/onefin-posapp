@@ -154,7 +154,7 @@ object ResourceHelper {
             kernelID = when (type) {
                 "paypass" -> hexStr2Bytes("02") // OP_PAYPASS + 1
                 "paywave" -> hexStr2Bytes("03") // OP_PAYWAVE + 1
-                "pure" -> hexStr2Bytes("06")     // OP_PURE (NAPAS)
+                "pure" -> hexStr2Bytes("09")     // NAPAS Pure - code Java uses 09
                 "jcb" -> hexStr2Bytes("05")      // OP_JCB
                 "qpboc" -> hexStr2Bytes("03")    // QuickPass uses 03
                 else -> hexStr2Bytes("")
