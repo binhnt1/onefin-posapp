@@ -144,8 +144,10 @@ object ResourceHelper {
             ttq = when (type) {
                 "paypass" -> hexStr2Bytes(aidEntry.paypassAid?.ttq ?: "3600C080")
                 "paywave" -> hexStr2Bytes(aidEntry.paywaveAid?.ttq ?: "3600C080")
-                // NAPAS Pure: Must match TLV DF8133 value (3200E043F9) - supports CVM for amounts <= 1M
-                "pure" -> hexStr2Bytes("3200E043F9")
+                // NAPAS Pure: Use mCTLSAppCapa if available, otherwise use DF8133 value
+                "pure" -> hexStr2Bytes(
+                    aidEntry.pureAid?.mctlsAppCapa ?: "3200E043F9"
+                )
                 "qpboc" -> hexStr2Bytes(aidEntry.qpbocAid?.ttq ?: "3600C080")
                 else -> hexStr2Bytes("")
             }

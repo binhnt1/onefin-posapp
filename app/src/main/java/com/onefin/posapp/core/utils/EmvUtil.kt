@@ -319,9 +319,8 @@ object EmvUtil {
         val df8134Value = "D9"
 
         // DF8133 value - Terminal Transaction Qualifiers (TTQ)
-        // Java uses: amount <= 1000000 ? "3200E043F9" : "3600E043F9"
-        // For now, use the lower limit value (supports CVM)
-        val df8133Value = "3200E043F9"
+        // Use mCTLSAppCapa value from AID.json for NAPAS Pure
+        val df8133Value = "36005003F9"
 
         val napasValues = arrayOf(napasAid, df8134Value, df8133Value)
 
