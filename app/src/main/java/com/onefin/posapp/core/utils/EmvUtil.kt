@@ -346,7 +346,7 @@ object EmvUtil {
         val clTacDefault = "A4D0048000"      // ClTACDefault_DF8120
         val clTacDenial = "0000000000"       // CLTACDenial_DF8121
         val clTacOnline = "A4D0048000"       // CLTACOnline_DF8122
-        val tacDefault = config.tacDefault   // DF8123 - From baseAID TACDefault
+        val tacDefault = "BCF8049800"   // DF8123 - NAPAS Pure TACDefault from AID.json (not config.tacDefault!)
         val clTransLimitNoCdcvm = "999999999999"  // CLTransLimitNoCDCVM_DF8124
         val clTransLimitCdcvm = "999999999999"    // CLTransLimitCDCVM_DF8125
         val msdCvmCapNoCvm = "08"    // MSDCVMCapNoCVM_DF812C
