@@ -308,61 +308,30 @@ object EmvUtil {
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, contactlessValues)
     }
     private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
-        val tags = arrayOf(
-            "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
-            "DF8123", "DF8124", "DF8125", "DF8126"
-        )
+        // NAPAS Pure contactless requires special TLV configuration
+        // Based on Java: initEmvTlvNapas() - uses only 3 tags
+        val napasTags = arrayOf("DF7F", "DF8134", "DF8133")
 
-        val chipCvm = if (cvmConfig != null) {
-            ResourceHelper.convertToTlv(cvmConfig, "napas", "chip")
-        } else {
-            ResourceHelper.getDefaultTlvValues()
-        }
+        // Get NAPAS AID from AID.json (A0000007271010)
+        val napasAid = "A0000007271010"
 
-        val contactlessCvm = if (cvmConfig != null) {
-            ResourceHelper.convertToTlv(cvmConfig, "napas", "contactless")
-        } else {
-            ResourceHelper.getDefaultTlvValues()
-        }
+        // DF8134 value - based on Java implementation
+        val df8134Value = "D9"
 
-        val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
+        // DF8133 value - Terminal Transaction Qualifiers (TTQ)
+        // Java uses: amount <= 1000000 ? "3200E043F9" : "3600E043F9"
+        // For now, use the lower limit value (supports CVM)
+        val df8133Value = "3200E043F9"
 
-        // 🔥 NAPAS CHIP: Force PIN từ 0 đồng
-        val chipValues = arrayOf(
-            floorLimit,
-            floorLimit,
-            floorLimit,
-            chipCvm.contactlessTransLimit,
-            chipCvm.cvmRequiredLimit,
-            chipCvm.readerCvmRequiredLimit,
-            config.tacDefault,
-            config.tacDenial,
-            config.tacOnline,
-            chipCvm.pinRequiredLimit
-        )
+        val napasValues = arrayOf(napasAid, df8134Value, df8133Value)
 
-        val contactlessValues = arrayOf(
-            floorLimit,
-            floorLimit,
-            floorLimit,
-            contactlessCvm.contactlessTransLimit,
-            contactlessCvm.cvmRequiredLimit,
-            contactlessCvm.readerCvmRequiredLimit,
-            config.tacDefault,
-            config.tacDenial,
-            config.tacOnline,
-            contactlessCvm.cvmRequiredLimit
-        )
+        Timber.d("📋 NAPAS Pure Contactless TLV Config:")
+        Timber.d("   DF7F (AID): $napasAid")
+        Timber.d("   DF8134: $df8134Value")
+        Timber.d("   DF8133 (TTQ): $df8133Value")
 
-        Timber.d("📋 NAPAS CVM Config:")
-        Timber.d("   Chip CVM Limit: ${chipValues[4]}")
-        Timber.d("   Chip Reader CVM Limit: ${chipValues[5]}")
-        Timber.d("   Chip PIN Limit: ${chipValues[9]}")
-        Timber.d("   Contactless CVM Limit: ${contactlessCvm.cvmRequiredLimit}")
-
-        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, chipValues)
-        // Use OP_PURE (6) for NAPAS Pure contactless to match Java implementation
-        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, tags, contactlessValues)
+        // NAPAS Pure contactless only needs OP_PURE (6), not OP_NORMAL
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, napasTags, napasValues)
     }
     private fun setPayWaveTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
