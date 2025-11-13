@@ -284,7 +284,7 @@ object ResourceHelper {
         return when (type) {
             "paypass" -> 0x02.toByte() // MasterCard Contactless
             "paywave" -> 0x03.toByte() // Visa Contactless
-            "pure" -> 0x09.toByte()    // NAPAS Pure (Sunmi kernel 9)
+            "pure" -> 0x06.toByte()    // NAPAS Pure - must match kernelID and OP_PURE
             "jcb" -> 0x04.toByte()     // JCB
             "qpboc" -> 0x07.toByte()   // UnionPay
             else -> 0x00.toByte()      // Standard EMV
