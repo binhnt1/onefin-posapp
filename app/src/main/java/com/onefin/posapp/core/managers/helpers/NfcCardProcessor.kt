@@ -38,7 +38,6 @@ class NfcCardProcessor(
             val bundle = createBundle()
             val listener = createEmvListener()
             emvOpt.transactProcessEx(bundle, listener)
-
         } catch (e: Exception) {
             handleError(
                 PaymentResult.Error.from(

@@ -13,6 +13,7 @@ object PaymentErrorHandler {
         CARD_READ_TIMEOUT,
         CARD_READ_CANCELLED,
         CARD_REMOVED,
+        CARD_REMOVE_FAST,
         CARD_READ_FAILED,
         MAGNETIC_STRIPE_ERROR,
         INVALID_CARD_FORMAT,
@@ -66,6 +67,7 @@ object PaymentErrorHandler {
             ErrorType.CARD_READ_FAILED -> "Không đọc được thẻ"
             ErrorType.MAGNETIC_STRIPE_ERROR -> "Lỗi đọc từ tính thẻ"
             ErrorType.INVALID_CARD_FORMAT -> "Định dạng thẻ không hợp lệ"
+            ErrorType.CARD_REMOVE_FAST -> "Thẻ đã bị rút ra quá nhanh"
 
             // EMV Transaction Errors
             ErrorType.EMV_TIMEOUT -> "Hết thời gian xử lý giao dịch"

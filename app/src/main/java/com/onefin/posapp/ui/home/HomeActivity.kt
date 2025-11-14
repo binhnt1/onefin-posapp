@@ -198,7 +198,6 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         if (!autoLoginAttempted) {
             autoLoginAttempted = true
-
             val currentAccount = storageService.getAccount()
             if (currentAccount != null) {
                 cachedAccount = currentAccount
@@ -259,7 +258,7 @@ fun HomeScreen(
 
             // Init EMV manager in background using suspend coroutine
             try {
-                val (success, error) = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+                val (success) = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
                     when (deviceType) {
                         "sunmi" -> {
                             cardProcessorManager.initialize { success, error ->
@@ -280,15 +279,10 @@ fun HomeScreen(
 
                 isInitializingEMV = false
                 if (success) {
-                    emvInitialized = true
                     showSuccessMessage = true
-                } else {
-                    // Failed to initialize, user will see error when trying to pay
-                    emvInitialized = false
                 }
             } catch (e: Exception) {
                 isInitializingEMV = false
-                emvInitialized = false
             }
         }
     }
