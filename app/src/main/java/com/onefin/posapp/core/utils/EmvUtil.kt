@@ -57,11 +57,11 @@ object EmvUtil {
                     Timber.e(e, "   Lỗi khi parse/nạp AID: ${aidHexString.take(50)}...")
                 }
             }
-            Timber.d("   Nạp AIDs mặc định từ tài liệu thành công!")
+            Timber.d("   ✅ Nạp AIDs mặc định từ tài liệu thành công!")
 
             // Nạp AID từ JSON
-            injectAidsFromJson(context, emvOptV2)
-            Timber.d("   Nạp AIDs từ JSON thành công!")
+            val jsonAidsCount = injectAidsFromJson(context, emvOptV2)
+            Timber.d("   ✅ Nạp AIDs từ JSON: $jsonAidsCount AIDs thành công")
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -232,6 +232,7 @@ object EmvUtil {
         val ttq = when (config.vendorName.uppercase(Locale.getDefault())) {
             "VISA" -> "26000080"
             "MASTERCARD" -> "3600C080"
+            "NAPAS" -> "26000000"  // NAPAS Pure TTQ - CRITICAL for L2 candidate list building
             else -> "3600C080"
         }
         val globalValues = arrayOf(
@@ -308,60 +309,97 @@ object EmvUtil {
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, contactlessValues)
     }
     private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
-        val tags = arrayOf(
-            "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
-            "DF8123", "DF8124", "DF8125", "DF8126"
+        // NAPAS Pure contactless TLV configuration (Java reference shows these tags are required)
+        val napasTags = arrayOf(
+            "DF7F",   // AID - Application Identifier (for kernel identification)
+            "DF8134", // Unknown NAPAS-specific tag
+            "DF8133", // Unknown NAPAS-specific tag
+            "9F66",   // TTQ (Terminal Transaction Qualifiers) - CRITICAL for L2 candidate list!
+            "DF8117", // cardDataInputCap
+            "DF8118", // chipCVMCap
+            "DF8119", // chipCVMCapNoCVM
+            "DF811A", // UDOL (User Data Object List) - CRITICAL for NAPAS Pure!
+            "DF811B", // kernelConfig
+            "DF811D", // Status check
+            "DF811E", // MSDCVMCap
+            "DF811F", // securityCap
+            "DF8120", // ClTACDefault
+            "DF8121", // CLTACDenial
+            "DF8122", // CLTACOnline
+            "DF8123", // TAC Default
+            "DF8124", // CLTransLimitNoCDCVM
+            "DF8125", // CLTransLimitCDCVM
+            "DF812C"  // MSDCVMCapNoCVM
         )
 
-        val chipCvm = if (cvmConfig != null) {
-            ResourceHelper.convertToTlv(cvmConfig, "napas", "chip")
-        } else {
-            ResourceHelper.getDefaultTlvValues()
-        }
+        // Contactless TLV values from AID.json pureAID section and Java reference
+        val aid = "A0000007271010"   // DF7F - NAPAS Pure AID
+        val napasTag8134 = "D9"      // DF8134 - From Java successful log
+        val napasTag8133 = "3200E043F9" // DF8133 - From Java successful log
+        val ttq = "26000080"         // TTQ_9F66 - NAPAS Pure Terminal Transaction Qualifiers (byte 4 = 0x80!)
+        val cardDataInputCap = "E0"  // Default value (empty in JSON, use E0 like PayPass)
+        val chipCvmCap = "08"        // chipCVMCap_DF8118
+        val chipCvmCapNoCvm = "F0"   // chipCVMCapNoCVM_DF8119
+        val udol = "9F6A04"          // UDOL_DF811A from AID.json - specifies terminal requested data
+        val kernelConfig = "30"      // kernelConfig_DF811B
+        val statusCheck = "02"       // DF811D - Same as PayPass/PayWave
+        val msdCvmCap = "60"         // MSDCVMCap_DF811E
+        val securityCap = "08"       // securityCap_DF811F
+        val clTacDefault = "A4D0048000"      // ClTACDefault_DF8120
+        val clTacDenial = "0000000000"       // CLTACDenial_DF8121
+        val clTacOnline = "A4D0048000"       // CLTACOnline_DF8122
+        val tacDefault = "BCF8049800"   // DF8123 - NAPAS Pure TACDefault from AID.json (not config.tacDefault!)
+        val clTransLimitNoCdcvm = "999999999999"  // CLTransLimitNoCDCVM_DF8124
+        val clTransLimitCdcvm = "999999999999"    // CLTransLimitCDCVM_DF8125
+        val msdCvmCapNoCvm = "08"    // MSDCVMCapNoCVM_DF812C
 
-        val contactlessCvm = if (cvmConfig != null) {
-            ResourceHelper.convertToTlv(cvmConfig, "napas", "contactless")
-        } else {
-            ResourceHelper.getDefaultTlvValues()
-        }
-
-        val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
-
-        // 🔥 NAPAS CHIP: Force PIN từ 0 đồng
-        val chipValues = arrayOf(
-            floorLimit,
-            floorLimit,
-            floorLimit,
-            chipCvm.contactlessTransLimit,
-            chipCvm.cvmRequiredLimit,
-            chipCvm.readerCvmRequiredLimit,
-            config.tacDefault,
-            config.tacDenial,
-            config.tacOnline,
-            chipCvm.pinRequiredLimit
+        val napasValues = arrayOf(
+            aid,                   // DF7F - NAPAS Pure AID (for kernel identification)
+            napasTag8134,          // DF8134 - NAPAS-specific tag from Java ref
+            napasTag8133,          // DF8133 - NAPAS-specific tag from Java ref
+            ttq,                   // 9F66 - TTQ MUST be set explicitly for NAPAS Pure kernel!
+            cardDataInputCap,      // DF8117
+            chipCvmCap,            // DF8118
+            chipCvmCapNoCvm,       // DF8119
+            udol,                  // DF811A
+            kernelConfig,          // DF811B
+            statusCheck,           // DF811D
+            msdCvmCap,             // DF811E
+            securityCap,           // DF811F
+            clTacDefault,          // DF8120
+            clTacDenial,           // DF8121
+            clTacOnline,           // DF8122
+            tacDefault,            // DF8123
+            clTransLimitNoCdcvm,   // DF8124
+            clTransLimitCdcvm,     // DF8125
+            msdCvmCapNoCvm         // DF812C
         )
 
-        val contactlessValues = arrayOf(
-            floorLimit,
-            floorLimit,
-            floorLimit,
-            contactlessCvm.contactlessTransLimit,
-            contactlessCvm.cvmRequiredLimit,
-            contactlessCvm.readerCvmRequiredLimit,
-            config.tacDefault,
-            config.tacDenial,
-            config.tacOnline,
-            contactlessCvm.cvmRequiredLimit
-        )
+        Timber.d("📋 NAPAS Pure Contactless TLV Config (19 tags - matching Java reference):")
+        Timber.d("   DF7F (AID): $aid")
+        Timber.d("   DF8134: $napasTag8134")
+        Timber.d("   DF8133: $napasTag8133")
+        Timber.d("   9F66 (TTQ): $ttq")
+        Timber.d("   DF8117 (cardDataInputCap): $cardDataInputCap")
+        Timber.d("   DF8118 (chipCVMCap): $chipCvmCap")
+        Timber.d("   DF8119 (chipCVMCapNoCVM): $chipCvmCapNoCvm")
+        Timber.d("   DF811A (UDOL): $udol")
+        Timber.d("   DF811B (kernelConfig): $kernelConfig")
+        Timber.d("   DF811D (statusCheck): $statusCheck")
+        Timber.d("   DF811E (MSDCVMCap): $msdCvmCap")
+        Timber.d("   DF811F (securityCap): $securityCap")
+        Timber.d("   DF8120 (ClTACDefault): $clTacDefault")
+        Timber.d("   DF8121 (CLTACDenial): $clTacDenial")
+        Timber.d("   DF8122 (CLTACOnline): $clTacOnline")
+        Timber.d("   DF8123 (tacDefault): $tacDefault")
+        Timber.d("   DF8124 (CLTransLimitNoCDCVM): $clTransLimitNoCdcvm")
+        Timber.d("   DF8125 (CLTransLimitCDCVM): $clTransLimitCdcvm")
+        Timber.d("   DF812C (MSDCVMCapNoCVM): $msdCvmCapNoCvm")
 
-        Timber.d("📋 NAPAS CVM Config:")
-        Timber.d("   Chip CVM Limit: ${chipValues[4]}")
-        Timber.d("   Chip Reader CVM Limit: ${chipValues[5]}")
-        Timber.d("   Chip PIN Limit: ${chipValues[9]}")
-        Timber.d("   Contactless CVM Limit: ${contactlessCvm.cvmRequiredLimit}")
-
-        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, chipValues)
-        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_DPAS, tags, contactlessValues)
+        // NAPAS Pure needs BOTH OP_NORMAL and OP_PURE (same pattern as PayWave/PayPass)
+        // OP_NORMAL is required for building L2 candidate list
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, napasTags, napasValues)
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, napasTags, napasValues)
     }
     private fun setPayWaveTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
@@ -724,22 +762,35 @@ object EmvUtil {
             }
 
             var successCount = 0
-            for (aidData in aidList) {
+            Timber.d("📋 Bắt đầu inject ${aidList.size} AIDs từ JSON...")
+
+            for ((index, aidData) in aidList.withIndex()) {
                 val entry = aidData.getEntry() ?: continue
                 val (type, aidEntry) = entry
+                val aidValue = aidEntry.baseAid.aid
 
                 try {
                     val aidV2 = ResourceHelper.convertToAidV2(aidEntry, type)
+
+                    // Log kernelID and kernelType for debugging
+                    val kernelIdHex = aidV2.kernelID?.let { bytes ->
+                        bytes.joinToString("") { "%02X".format(it) }
+                    } ?: "null"
+                    val kernelTypeHex = String.format("%02X", aidV2.kernelType)
+
                     val result = emvOptV2.addAid(aidV2)
                     if (result == 0) {
                         successCount++
+                        Timber.d("   ✅ [${index+1}/${aidList.size}] $type - AID: $aidValue - kernelType: $kernelTypeHex, kernelID: $kernelIdHex")
+                    } else {
+                        Timber.w("   ⚠️ [${index+1}/${aidList.size}] $type - AID: $aidValue - kernelType: $kernelTypeHex, kernelID: $kernelIdHex - Code: $result")
                     }
                 } catch (e: Exception) {
-                    Timber.e(e, "❌ Lỗi khi convert/inject AID $type")
+                    Timber.e(e, "   ❌ [${index+1}/${aidList.size}] $type - AID: $aidValue")
                 }
             }
 
-            Timber.i("Đã inject $successCount/${aidList.size} AIDs từ JSON")
+            Timber.d("✅ Đã inject $successCount/${aidList.size} AIDs từ JSON")
             return successCount
         } catch (e: Exception) {
             return 0

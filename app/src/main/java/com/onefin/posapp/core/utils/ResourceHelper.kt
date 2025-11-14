@@ -134,18 +134,31 @@ object ResourceHelper {
             clsStatusCheck = 0x00.toByte()
             zeroCheck = 0x00.toByte()
             kernelType = getKernelType(type)
-            paramType = 0x01.toByte() // Both Contact/Contactless
+            // paramType: 0x00=Contact only, 0x01=Both, 0x02=Contactless only
+            paramType = when (type) {
+                "pure" -> 0x02.toByte()  // NAPAS Pure is contactless only
+                else -> 0x01.toByte()     // Others support both
+            }
 
             // TTQ - Lấy từ specific AID nếu có
             ttq = when (type) {
                 "paypass" -> hexStr2Bytes(aidEntry.paypassAid?.ttq ?: "3600C080")
                 "paywave" -> hexStr2Bytes(aidEntry.paywaveAid?.ttq ?: "3600C080")
-                "pure" -> hexStr2Bytes(aidEntry.pureAid?.ttq ?: "3600C080")
+                // NAPAS Pure: Use TTQ_9F66 from JSON (26000000)
+                "pure" -> hexStr2Bytes(aidEntry.pureAid?.ttq ?: "26000000")
                 "qpboc" -> hexStr2Bytes(aidEntry.qpbocAid?.ttq ?: "3600C080")
                 else -> hexStr2Bytes("")
             }
 
-            kernelID = hexStr2Bytes("")
+            // KernelID configuration (Java reference uses 00 for NAPAS Pure)
+            kernelID = when (type) {
+                "paypass" -> hexStr2Bytes("02") // OP_PAYPASS + 1
+                "paywave" -> hexStr2Bytes("03") // OP_PAYWAVE + 1
+                "pure" -> hexStr2Bytes("00")     // NAPAS Pure - kernelID=00, kernelType=09
+                "jcb" -> hexStr2Bytes("05")      // OP_JCB
+                "qpboc" -> hexStr2Bytes("03")    // QuickPass uses 03
+                else -> hexStr2Bytes("")
+            }
             extSelectSupFlg = 0x00.toByte()
 
             // Contactless Limits - Lấy từ specific AID
@@ -276,7 +289,7 @@ object ResourceHelper {
         return when (type) {
             "paypass" -> 0x02.toByte() // MasterCard Contactless
             "paywave" -> 0x03.toByte() // Visa Contactless
-            "pure" -> 0x06.toByte()    // NAPAS
+            "pure" -> 0x09.toByte()    // NAPAS Pure - Java ref uses kernelType=9
             "jcb" -> 0x04.toByte()     // JCB
             "qpboc" -> 0x07.toByte()   // UnionPay
             else -> 0x00.toByte()      // Standard EMV
