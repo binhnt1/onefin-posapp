@@ -1,10 +1,8 @@
 package com.onefin.posapp.core.utils
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.text.TextUtils
 import com.atg.pos.domain.entities.payment.TLVUtil
-import com.onefin.posapp.core.config.CardConstants
 import com.onefin.posapp.core.models.EvmConfig
 import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.CvmConfig
@@ -250,7 +248,7 @@ object EmvUtil {
             "00000001"
         )
 
-        emv.setTlvList(CardConstants.OP_NORMAL, globalTags, globalValues)
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, globalTags, globalValues)
     }
     private fun setJcbTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
