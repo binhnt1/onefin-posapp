@@ -81,12 +81,12 @@ class TransactionProvider : ContentProvider() {
             TRANS_ID -> {
                 val billNumber = uri.lastPathSegment
                 if (billNumber == null) {
-                    return createEmptyCursor()
+                    return createErrorCursor("99", "Lỗi chưa xác định")
                 }
                 queryTransaction(billNumber)
             }
             else -> {
-                createEmptyCursor()
+                createErrorCursor("99", "Lỗi chưa xác định")
             }
         }
     }
@@ -120,16 +120,12 @@ class TransactionProvider : ContentProvider() {
     }
 
     private fun queryTransaction(billNumber: String): Cursor {
-        val cursor = MatrixCursor(arrayOf(COLUMN_MEMBER_RESPONSE_DATA))
-
         try {
-            // Check if user is logged in
             val account = storageService.getAccount()
             if (account == null) {
-                return cursor
+                return createErrorCursor("99", "Chưa đăng nhập, vui lòng đăng nhập")
             }
 
-            // Query transaction from API
             val saleResult = runBlocking {
                 try {
                     val endpoint = "/api/card/transaction/$billNumber"
@@ -147,7 +143,6 @@ class TransactionProvider : ContentProvider() {
                         error
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
                     val error = SaleResultData(
                         status = SaleResultData.Status(
                             code = "96",
@@ -160,10 +155,8 @@ class TransactionProvider : ContentProvider() {
 
             if (saleResult != null) {
                 try {
-                    // Build response map directly without parsing to PaymentAppRequest
                     val responseMap = mutableMapOf<String, Any?>()
 
-                    // Extract type and action from requestData
                     val requestDataMap = when (val requestData = saleResult.requestData) {
                         is String -> {
                             @Suppress("UNCHECKED_CAST")
@@ -179,7 +172,6 @@ class TransactionProvider : ContentProvider() {
                     responseMap["type"] = requestDataMap["type"] ?: "card"
                     responseMap["action"] = requestDataMap["action"] ?: 1
 
-                    // Build payment_response_data
                     val paymentResponseData = mutableMapOf<String, Any?>()
                     paymentResponseData["status"] = saleResult.status?.code ?: "99"
                     paymentResponseData["description"] = saleResult.status?.message
@@ -189,7 +181,6 @@ class TransactionProvider : ContentProvider() {
                     paymentResponseData["amount"] = saleResult.data?.totalAmount?.toLongOrNull() ?: 0L
                     paymentResponseData["ccy"] = saleResult.data?.currency ?: "704"
 
-                    // Extract merchant data if exists
                     val merchantRequestData = requestDataMap["merchant_request_data"]
                     val merchantDataMap = when (merchantRequestData) {
                         is String -> {
@@ -215,23 +206,32 @@ class TransactionProvider : ContentProvider() {
                     responseMap["payment_response_data"] = paymentResponseData
 
                     val responseJson = gson.toJson(responseMap)
+                    val cursor = MatrixCursor(arrayOf(COLUMN_MEMBER_RESPONSE_DATA))
                     cursor.addRow(arrayOf(responseJson))
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                    // Return empty cursor on parse error
                     return cursor
+                } catch (e: Exception) {
+                    return createErrorCursor("99", "Lỗi chưa xác định")
                 }
+            } else {
+                return createErrorCursor("99", "Lỗi chưa xác định")
             }
-            // If saleResult is null, return empty cursor (transaction not found)
         } catch (e: Exception) {
-            e.printStackTrace()
-            // Return empty cursor on any exception
+            return createErrorCursor("99", "Lỗi chưa xác định")
         }
-
-        return cursor
     }
 
-    private fun createEmptyCursor(): Cursor {
-        return MatrixCursor(arrayOf(COLUMN_MEMBER_RESPONSE_DATA))
+    private fun createErrorCursor(errorCode: String, errorMessage: String): Cursor {
+        val cursor = MatrixCursor(arrayOf(COLUMN_MEMBER_RESPONSE_DATA))
+        val errorResponse = mapOf(
+            "type" to "card",
+            "action" to 1,
+            "payment_response_data" to mapOf(
+                "status" to errorCode,
+                "description" to errorMessage
+            )
+        )
+        val responseJson = gson.toJson(errorResponse)
+        cursor.addRow(arrayOf(responseJson))
+        return cursor
     }
 }

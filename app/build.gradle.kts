@@ -28,7 +28,7 @@ android {
         debug {
             isDebuggable = true
             isMinifyEnabled = false
-            applicationIdSuffix = ".debug"
+            // applicationIdSuffix = ".debug"  // Removed to keep applicationId as com.onefin.posapp
         }
         release {
             isDebuggable = false
@@ -100,7 +100,6 @@ android {
         create("mailinh") {
             dimension = "customer"
             versionNameSuffix = "-mailinh"
-            applicationIdSuffix = ".mailinh"
             resValue("string", "app_name", "POS App - MaiLinh")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "USERNAME", "\"mailinh@yopmail.com\"")
@@ -111,7 +110,6 @@ android {
         create("sgpt") {
             dimension = "customer"
             versionNameSuffix = "-sgpt"
-            applicationIdSuffix = ".sgpt"
             resValue("string", "app_name", "POS App - SGPT")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "USERNAME", "\"sgpt@yopmail.com\"")
@@ -122,7 +120,6 @@ android {
         create("megatech") {
             dimension = "customer"
             versionNameSuffix = "-megatech"
-            applicationIdSuffix = ".megatech"
             resValue("string", "app_name", "POS App - MegaTech")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "USERNAME", "\"mcmegatech@yopmail.com\"")
