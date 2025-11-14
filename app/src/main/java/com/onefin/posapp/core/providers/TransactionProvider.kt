@@ -77,15 +77,19 @@ class TransactionProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
         sortOrder: String?
     ): Cursor? {
+        android.util.Log.d("TransactionProvider", "📞 Query called with URI: $uri")
         return when (uriMatcher.match(uri)) {
             TRANS_ID -> {
                 val billNumber = uri.lastPathSegment
+                android.util.Log.d("TransactionProvider", "📝 BillNumber: $billNumber")
                 if (billNumber == null) {
+                    android.util.Log.w("TransactionProvider", "⚠️ BillNumber is null, returning empty cursor")
                     return createEmptyCursor()
                 }
                 queryTransaction(billNumber)
             }
             else -> {
+                android.util.Log.w("TransactionProvider", "⚠️ URI not matched: $uri")
                 createEmptyCursor()
             }
         }
@@ -120,24 +124,32 @@ class TransactionProvider : ContentProvider() {
     }
 
     private fun queryTransaction(billNumber: String): Cursor {
+        android.util.Log.d("TransactionProvider", "🔍 Querying transaction for billNumber: $billNumber")
         val cursor = MatrixCursor(arrayOf(COLUMN_MEMBER_RESPONSE_DATA))
 
         try {
             // Check if user is logged in
             val account = storageService.getAccount()
+            android.util.Log.d("TransactionProvider", "👤 Account check: ${if (account != null) "Logged in" else "Not logged in"}")
             if (account == null) {
+                android.util.Log.w("TransactionProvider", "⚠️ User not logged in, returning empty cursor")
                 return cursor
             }
 
             // Query transaction from API
+            android.util.Log.d("TransactionProvider", "🌐 Calling API to fetch transaction...")
             val saleResult = runBlocking {
                 try {
                     val endpoint = "/api/card/transaction/$billNumber"
+                    android.util.Log.d("TransactionProvider", "📡 API endpoint: $endpoint")
                     val resultApi = apiService.get(endpoint, emptyMap()) as ResultApi<*>
+                    android.util.Log.d("TransactionProvider", "📥 API response: success=${resultApi.isSuccess()}")
                     if (resultApi.isSuccess()) {
                         val transactionJson = gson.toJson(resultApi.data)
+                        android.util.Log.d("TransactionProvider", "✅ Transaction found, parsing...")
                         gson.fromJson(transactionJson, SaleResultData::class.java)
                     } else {
+                        android.util.Log.w("TransactionProvider", "⚠️ Transaction not found (API returned error)")
                         val error = SaleResultData(
                             status = SaleResultData.Status(
                                 code = "12",
@@ -147,6 +159,7 @@ class TransactionProvider : ContentProvider() {
                         error
                     }
                 } catch (e: Exception) {
+                    android.util.Log.e("TransactionProvider", "❌ API call failed: ${e.message}", e)
                     e.printStackTrace()
                     val error = SaleResultData(
                         status = SaleResultData.Status(
@@ -159,6 +172,7 @@ class TransactionProvider : ContentProvider() {
             }
 
             if (saleResult != null) {
+                android.util.Log.d("TransactionProvider", "🔨 Building response data...")
                 try {
                     // Build response map directly without parsing to PaymentAppRequest
                     val responseMap = mutableMapOf<String, Any?>()
@@ -216,18 +230,24 @@ class TransactionProvider : ContentProvider() {
 
                     val responseJson = gson.toJson(responseMap)
                     cursor.addRow(arrayOf(responseJson))
+                    android.util.Log.d("TransactionProvider", "✅ Cursor populated with data, count=${cursor.count}")
                 } catch (e: Exception) {
+                    android.util.Log.e("TransactionProvider", "❌ Failed to build response: ${e.message}", e)
                     e.printStackTrace()
                     // Return empty cursor on parse error
                     return cursor
                 }
+            } else {
+                android.util.Log.w("TransactionProvider", "⚠️ saleResult is null, returning empty cursor")
             }
             // If saleResult is null, return empty cursor (transaction not found)
         } catch (e: Exception) {
+            android.util.Log.e("TransactionProvider", "❌ Exception in queryTransaction: ${e.message}", e)
             e.printStackTrace()
             // Return empty cursor on any exception
         }
 
+        android.util.Log.d("TransactionProvider", "📤 Returning cursor with ${cursor.count} rows")
         return cursor
     }
 
