@@ -18,6 +18,9 @@ object PaymentTTSHelper {
             PaymentErrorHandler.ErrorType.CARD_REMOVED ->
                 "Thẻ đã bị rút ra. Vui lòng giữ thẻ cho đến khi hoàn tất"
 
+            PaymentErrorHandler.ErrorType.CARD_REMOVE_FAST ->
+                "Thẻ đã bị rút ra quá nhanh. Vui lòng giữ thẻ cho đến khi hoàn tất"
+
             PaymentErrorHandler.ErrorType.CARD_READ_FAILED ->
                 "Không đọc được thẻ. Vui lòng thử lại"
 

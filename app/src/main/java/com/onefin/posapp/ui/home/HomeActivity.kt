@@ -82,6 +82,12 @@ class HomeActivity : BaseActivity() {
     @Inject
     lateinit var snackbarManager: SnackbarManager
 
+    @Inject
+    lateinit var cardProcessorManager: com.onefin.posapp.core.managers.CardProcessorManager
+
+    @Inject
+    lateinit var nfcPhoneReaderManager: com.onefin.posapp.core.managers.NfcPhoneReaderManager
+
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -97,7 +103,9 @@ class HomeActivity : BaseActivity() {
                     deviceHelper = deviceHelper,
                     paymentHelper = paymentHelper,
                     storageService = storageService,
-                    snackbarManager = snackbarManager
+                    snackbarManager = snackbarManager,
+                    cardProcessorManager = cardProcessorManager,
+                    nfcPhoneReaderManager = nfcPhoneReaderManager
                 )
 
                 GlobalSnackbarHost(
@@ -124,9 +132,20 @@ fun HomeScreen(
     deviceHelper: DeviceHelper,
     paymentHelper: PaymentHelper,
     storageService: StorageService,
-    snackbarManager: SnackbarManager
+    snackbarManager: SnackbarManager,
+    cardProcessorManager: com.onefin.posapp.core.managers.CardProcessorManager,
+    nfcPhoneReaderManager: com.onefin.posapp.core.managers.NfcPhoneReaderManager
 ) {
     val context = LocalContext.current
+
+    // Detect device type
+    val deviceType = remember {
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        val model = Build.MODEL.lowercase()
+        val isSunmi = manufacturer.contains("sunmi") ||
+                model.contains("p2") || model.contains("v2") || model.contains("p1")
+        if (isSunmi) "sunmi" else "phone"
+    }
 
     // State management
     var isNetworkAvailable by remember { mutableStateOf(true) }
@@ -138,6 +157,11 @@ fun HomeScreen(
 
     var cachedAccount by remember { mutableStateOf<Account?>(null) }
     var screenAlpha by remember { mutableFloatStateOf(0f) }
+
+    // EMV initialization states
+    var isInitializingEMV by remember { mutableStateOf(false) }
+    var emvInitialized by remember { mutableStateOf(false) }
+    var showSuccessMessage by remember { mutableStateOf(false) }
 
     val networkErrorMessage = stringResource(R.string.network_dialog_message)
     val networkRestoredMessage = stringResource(R.string.network_dialog_title)
@@ -174,7 +198,6 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         if (!autoLoginAttempted) {
             autoLoginAttempted = true
-
             val currentAccount = storageService.getAccount()
             if (currentAccount != null) {
                 cachedAccount = currentAccount
@@ -228,6 +251,50 @@ fun HomeScreen(
         }
     }
 
+    // EMV pre-initialization
+    LaunchedEffect(cachedAccount, deviceType) {
+        if (cachedAccount != null && !emvInitialized && !isInitializingEMV) {
+            isInitializingEMV = true
+
+            // Init EMV manager in background using suspend coroutine
+            try {
+                val (success) = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+                    when (deviceType) {
+                        "sunmi" -> {
+                            cardProcessorManager.initialize { success, error ->
+                                if (continuation.isActive) {
+                                    continuation.resume(Pair(success, error)) {}
+                                }
+                            }
+                        }
+                        "phone" -> {
+                            nfcPhoneReaderManager.initialize { success, error ->
+                                if (continuation.isActive) {
+                                    continuation.resume(Pair(success, error)) {}
+                                }
+                            }
+                        }
+                    }
+                }
+
+                isInitializingEMV = false
+                if (success) {
+                    showSuccessMessage = true
+                }
+            } catch (e: Exception) {
+                isInitializingEMV = false
+            }
+        }
+    }
+
+    // Auto-dismiss success message after 5 seconds
+    LaunchedEffect(showSuccessMessage) {
+        if (showSuccessMessage) {
+            delay(5000)
+            showSuccessMessage = false
+        }
+    }
+
     when {
         isAutoLoggingIn -> {
             AutoLoginDialog()
@@ -249,6 +316,8 @@ fun HomeScreen(
                         paymentHelper = paymentHelper,
                         storageService = storageService,
                         isNetworkAvailable = isNetworkAvailable,
+                        isInitializingEMV = isInitializingEMV,
+                        showSuccessMessage = showSuccessMessage,
                         modifier = Modifier.padding(paddingValues)
                     )
                 }
@@ -313,7 +382,9 @@ fun HomeContent(
     paymentHelper: PaymentHelper,
     modifier: Modifier = Modifier,
     storageService: StorageService,
-    driverInfo: DriverInfoEntity? = null
+    driverInfo: DriverInfoEntity? = null,
+    isInitializingEMV: Boolean = false,
+    showSuccessMessage: Boolean = false
 ) {
 
     val isP2 = remember {
@@ -389,6 +460,71 @@ fun HomeContent(
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // EMV Initialization Progress Bar
+            if (isInitializingEMV) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFFEF3C7),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = Color(0xFFF59E0B)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Đang khởi tạo thiết bị...",
+                            fontSize = 14.sp,
+                            color = Color(0xFF92400E),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            // Success Message
+            if (showSuccessMessage) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFD1FAE5),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            painter = painterResource(id = android.R.drawable.ic_dialog_info),
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = Color(0xFF059669)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Thiết bị sẵn sàng cho giao dịch",
+                            fontSize = 14.sp,
+                            color = Color(0xFF065F46),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
             Surface(
                 modifier = Modifier
                     .fillMaxWidth(),
