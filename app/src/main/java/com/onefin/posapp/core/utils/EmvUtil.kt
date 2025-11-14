@@ -307,16 +307,15 @@ object EmvUtil {
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, contactlessValues)
     }
     private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
-        // NAPAS Pure contactless TLV configuration (Java reference shows these tags are required)
-        val napasTags = arrayOf(
-            "DF7F",   // AID - Application Identifier (for kernel identification)
-            "DF8134", // Unknown NAPAS-specific tag
-            "DF8133", // Unknown NAPAS-specific tag
-            "9F66",   // TTQ (Terminal Transaction Qualifiers) - CRITICAL for L2 candidate list!
+        val tags = arrayOf(
+            "DF7F",   // AID - Application Identifier
+            "DF8134", // NAPAS-specific tag
+            "DF8133", // NAPAS-specific tag (mCTLSAppCapa)
+            "9F66",   // TTQ - Terminal Transaction Qualifiers
             "DF8117", // cardDataInputCap
             "DF8118", // chipCVMCap
             "DF8119", // chipCVMCapNoCVM
-            "DF811A", // UDOL (User Data Object List) - CRITICAL for NAPAS Pure!
+            "DF811A", // UDOL - User Data Object List
             "DF811B", // kernelConfig
             "DF811D", // Status check
             "DF811E", // MSDCVMCap
@@ -330,74 +329,64 @@ object EmvUtil {
             "DF812C"  // MSDCVMCapNoCVM
         )
 
-        // Contactless TLV values from AID.json pureAID section and Java reference
-        val aid = "A0000007271010"   // DF7F - NAPAS Pure AID
-        val napasTag8134 = "D9"      // DF8134 - From Java successful log
-        val napasTag8133 = "3200E043F9" // DF8133 - From Java successful log
-        val ttq = "26000080"         // TTQ_9F66 - NAPAS Pure Terminal Transaction Qualifiers (byte 4 = 0x80!)
-        val cardDataInputCap = "E0"  // Default value (empty in JSON, use E0 like PayPass)
-        val chipCvmCap = "08"        // chipCVMCap_DF8118
-        val chipCvmCapNoCvm = "F0"   // chipCVMCapNoCVM_DF8119
-        val udol = "9F6A04"          // UDOL_DF811A from AID.json - specifies terminal requested data
-        val kernelConfig = "30"      // kernelConfig_DF811B
-        val statusCheck = "02"       // DF811D - Same as PayPass/PayWave
-        val msdCvmCap = "60"         // MSDCVMCap_DF811E
-        val securityCap = "08"       // securityCap_DF811F
-        val clTacDefault = "A4D0048000"      // ClTACDefault_DF8120
-        val clTacDenial = "0000000000"       // CLTACDenial_DF8121
-        val clTacOnline = "A4D0048000"       // CLTACOnline_DF8122
-        val tacDefault = "BCF8049800"   // DF8123 - NAPAS Pure TACDefault from AID.json (not config.tacDefault!)
-        val clTransLimitNoCdcvm = "999999999999"  // CLTransLimitNoCDCVM_DF8124
-        val clTransLimitCdcvm = "999999999999"    // CLTransLimitCDCVM_DF8125
-        val msdCvmCapNoCvm = "08"    // MSDCVMCapNoCVM_DF812C
+        val chipCvm = if (cvmConfig != null) {
+            ResourceHelper.convertToTlv(cvmConfig, "napas", "chip")
+        } else {
+            ResourceHelper.getDefaultTlvValues()
+        }
 
-        val napasValues = arrayOf(
-            aid,                   // DF7F - NAPAS Pure AID (for kernel identification)
-            napasTag8134,          // DF8134 - NAPAS-specific tag from Java ref
-            napasTag8133,          // DF8133 - NAPAS-specific tag from Java ref
-            ttq,                   // 9F66 - TTQ MUST be set explicitly for NAPAS Pure kernel!
-            cardDataInputCap,      // DF8117
-            chipCvmCap,            // DF8118
-            chipCvmCapNoCvm,       // DF8119
-            udol,                  // DF811A
-            kernelConfig,          // DF811B
-            statusCheck,           // DF811D
-            msdCvmCap,             // DF811E
-            securityCap,           // DF811F
-            clTacDefault,          // DF8120
-            clTacDenial,           // DF8121
-            clTacOnline,           // DF8122
-            tacDefault,            // DF8123
-            clTransLimitNoCdcvm,   // DF8124
-            clTransLimitCdcvm,     // DF8125
-            msdCvmCapNoCvm         // DF812C
+        val contactlessCvm = if (cvmConfig != null) {
+            ResourceHelper.convertToTlv(cvmConfig, "napas", "contactless")
+        } else {
+            ResourceHelper.getDefaultTlvValues()
+        }
+
+        val chipValues = arrayOf(
+            config.aid9F06.ifEmpty { "A0000007271010" },  // DF7F
+            "D9",                                          // DF8134
+            "3200E043F9",                                  // DF8133
+            "26000080",                                    // 9F66
+            "E0",                                          // DF8117
+            "08",                                          // DF8118
+            "F0",                                          // DF8119
+            "9F6A04",                                      // DF811A
+            "30",                                          // DF811B
+            "02",                                          // DF811D
+            chipCvm.cvmRequiredLimit,                      // DF811E
+            "08",                                          // DF811F
+            config.tacDefault,                             // DF8120
+            config.tacDenial,                              // DF8121
+            config.tacOnline,                              // DF8122
+            config.tacDefault,                             // DF8123
+            chipCvm.contactlessTransLimit,                 // DF8124
+            chipCvm.contactlessCvmLimit,                   // DF8125
+            chipCvm.readerCvmRequiredLimit                 // DF812C
         )
 
-        Timber.d("📋 NAPAS Pure Contactless TLV Config (19 tags - matching Java reference):")
-        Timber.d("   DF7F (AID): $aid")
-        Timber.d("   DF8134: $napasTag8134")
-        Timber.d("   DF8133: $napasTag8133")
-        Timber.d("   9F66 (TTQ): $ttq")
-        Timber.d("   DF8117 (cardDataInputCap): $cardDataInputCap")
-        Timber.d("   DF8118 (chipCVMCap): $chipCvmCap")
-        Timber.d("   DF8119 (chipCVMCapNoCVM): $chipCvmCapNoCvm")
-        Timber.d("   DF811A (UDOL): $udol")
-        Timber.d("   DF811B (kernelConfig): $kernelConfig")
-        Timber.d("   DF811D (statusCheck): $statusCheck")
-        Timber.d("   DF811E (MSDCVMCap): $msdCvmCap")
-        Timber.d("   DF811F (securityCap): $securityCap")
-        Timber.d("   DF8120 (ClTACDefault): $clTacDefault")
-        Timber.d("   DF8121 (CLTACDenial): $clTacDenial")
-        Timber.d("   DF8122 (CLTACOnline): $clTacOnline")
-        Timber.d("   DF8123 (tacDefault): $tacDefault")
-        Timber.d("   DF8124 (CLTransLimitNoCDCVM): $clTransLimitNoCdcvm")
-        Timber.d("   DF8125 (CLTransLimitCDCVM): $clTransLimitCdcvm")
-        Timber.d("   DF812C (MSDCVMCapNoCVM): $msdCvmCapNoCvm")
+        val contactlessValues = arrayOf(
+            config.aid9F06.ifEmpty { "A0000007271010" },  // DF7F
+            "D9",                                          // DF8134
+            "3200E043F9",                                  // DF8133
+            "26000080",                                    // 9F66
+            "E0",                                          // DF8117
+            "08",                                          // DF8118
+            "F0",                                          // DF8119
+            "9F6A04",                                      // DF811A
+            "30",                                          // DF811B
+            "02",                                          // DF811D
+            contactlessCvm.cvmRequiredLimit,               // DF811E
+            "08",                                          // DF811F
+            "A4D0048000",                                  // DF8120
+            "0000000000",                                  // DF8121
+            "A4D0048000",                                  // DF8122
+            config.tacDefault,                             // DF8123
+            contactlessCvm.contactlessTransLimit,          // DF8124
+            contactlessCvm.contactlessCvmLimit,            // DF8125
+            "08"                                           // DF812C
+        )
 
-        // NAPAS Pure needs BOTH OP_NORMAL and OP_PURE (same pattern as PayWave/PayPass)
-        // OP_NORMAL is required for building L2 candidate list
-        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, napasTags, napasValues)
-        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, napasTags, napasValues)
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, chipValues)
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, tags, contactlessValues)
     }
     private fun setPayWaveTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(

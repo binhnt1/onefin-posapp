@@ -171,11 +171,54 @@ data class PureAid(
     @SerializedName("TTQ_9F66")
     val ttq: String? = null,
 
+    @SerializedName("transType_9C")
+    val transType: String? = null,
+
+    // NAPAS Pure specific TLV tags (thêm các field này)
+    @SerializedName("napasTag_DF8134")
+    val napasTagDf8134: String? = null,
+
     @SerializedName("mCTLSAppCapa")
     val mctlsAppCapa: String? = null,
 
-    @SerializedName("transType_9C")
-    val transType: String? = null
+    @SerializedName("cardDataInputCap_DF8117")
+    val cardDataInputCapDf8117: String? = null,
+
+    @SerializedName("chipCVMCap_DF8118")
+    val chipCvmCapDf8118: String? = null,
+
+    @SerializedName("chipCVMCapNoCVM_DF8119")
+    val chipCvmCapNoCvmDf8119: String? = null,
+
+    @SerializedName("UDOL_DF811A")
+    val udolDf811a: String? = null,
+
+    @SerializedName("kernelConfig_DF811B")
+    val kernelConfigDf811b: String? = null,
+
+    @SerializedName("MSDCVMCap_DF811E")
+    val msdCvmCapDf811e: String? = null,
+
+    @SerializedName("securityCap_DF811F")
+    val securityCapDf811f: String? = null,
+
+    @SerializedName("ClTACDefault_DF8120")
+    val clTacDefaultDf8120: String? = null,
+
+    @SerializedName("CLTACDenial_DF8121")
+    val clTacDenialDf8121: String? = null,
+
+    @SerializedName("CLTACOnline_DF8122")
+    val clTacOnlineDf8122: String? = null,
+
+    @SerializedName("CLTransLimitNoCDCVM_DF8124")
+    val clTransLimitNoCdcvmDf8124: String? = null,
+
+    @SerializedName("CLTransLimitCDCVM_DF8125")
+    val clTransLimitCdcvmDf8125: String? = null,
+
+    @SerializedName("MSDCVMCapNoCVM_DF812C")
+    val msdCvmCapNoCvmDf812c: String? = null
 )
 
 /**

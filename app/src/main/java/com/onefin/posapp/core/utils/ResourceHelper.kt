@@ -134,11 +134,6 @@ object ResourceHelper {
             clsStatusCheck = 0x00.toByte()
             zeroCheck = 0x00.toByte()
             kernelType = getKernelType(type)
-            // paramType: 0x00=Contact only, 0x01=Both, 0x02=Contactless only
-            paramType = when (type) {
-                "pure" -> 0x02.toByte()  // NAPAS Pure is contactless only
-                else -> 0x01.toByte()     // Others support both
-            }
 
             // TTQ - Lấy từ specific AID nếu có
             ttq = when (type) {

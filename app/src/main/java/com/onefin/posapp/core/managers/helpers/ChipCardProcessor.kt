@@ -24,12 +24,10 @@ class ChipCardProcessor(
             // 1. Init
             emvOpt.abortTransactProcess()
             emvOpt.initEmvProcess()
-            Timber.d("✅ initEmvProcess OK.")
 
             // 2. Transaction
             val bundle = createBundle()
             val listener = createEmvListener()
-            Timber.d("🚀 Gọi transactProcessEx...")
             emvOpt.transactProcessEx(bundle, listener)
 
         } catch (e: Exception) {

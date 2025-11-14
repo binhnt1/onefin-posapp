@@ -29,21 +29,14 @@ class NfcCardProcessor(
             // 1. Init
             emvOpt.abortTransactProcess()
             emvOpt.initEmvProcess()
-            Timber.d("✅ initEmvProcess OK.")
 
             // 2. Re-apply EMV TLVs after initEmvProcess (fixes NAPAS error -4125)
             EmvUtil.setEmvTlvs(context, emvOpt, terminal)
-            Timber.d("✅ setEmvTlvs re-applied (NAPAS TTQ: 26000080)")
-
-            // 3. Wait for NFC card activation (contactless cards need brief activation time)
-            Timber.d("⏳ Waiting 400ms for NFC card activation...")
             Thread.sleep(400)
-            Timber.d("✅ NFC card should be ready now")
 
-            // 4. Transaction
+            // 3. Transaction
             val bundle = createBundle()
             val listener = createEmvListener()
-            Timber.d("🚀 Gọi transactProcessEx...")
             emvOpt.transactProcessEx(bundle, listener)
 
         } catch (e: Exception) {
