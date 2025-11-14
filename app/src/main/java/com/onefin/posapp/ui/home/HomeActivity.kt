@@ -82,6 +82,12 @@ class HomeActivity : BaseActivity() {
     @Inject
     lateinit var snackbarManager: SnackbarManager
 
+    @Inject
+    lateinit var cardProcessorManager: com.onefin.posapp.core.managers.CardProcessorManager
+
+    @Inject
+    lateinit var nfcPhoneReaderManager: com.onefin.posapp.core.managers.NfcPhoneReaderManager
+
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -97,7 +103,9 @@ class HomeActivity : BaseActivity() {
                     deviceHelper = deviceHelper,
                     paymentHelper = paymentHelper,
                     storageService = storageService,
-                    snackbarManager = snackbarManager
+                    snackbarManager = snackbarManager,
+                    cardProcessorManager = cardProcessorManager,
+                    nfcPhoneReaderManager = nfcPhoneReaderManager
                 )
 
                 GlobalSnackbarHost(
@@ -124,9 +132,20 @@ fun HomeScreen(
     deviceHelper: DeviceHelper,
     paymentHelper: PaymentHelper,
     storageService: StorageService,
-    snackbarManager: SnackbarManager
+    snackbarManager: SnackbarManager,
+    cardProcessorManager: com.onefin.posapp.core.managers.CardProcessorManager,
+    nfcPhoneReaderManager: com.onefin.posapp.core.managers.NfcPhoneReaderManager
 ) {
     val context = LocalContext.current
+
+    // Detect device type
+    val deviceType = remember {
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        val model = Build.MODEL.lowercase()
+        val isSunmi = manufacturer.contains("sunmi") ||
+                model.contains("p2") || model.contains("v2") || model.contains("p1")
+        if (isSunmi) "sunmi" else "phone"
+    }
 
     // State management
     var isNetworkAvailable by remember { mutableStateOf(true) }
@@ -234,15 +253,42 @@ fun HomeScreen(
     }
 
     // EMV pre-initialization
-    LaunchedEffect(cachedAccount) {
+    LaunchedEffect(cachedAccount, deviceType) {
         if (cachedAccount != null && !emvInitialized && !isInitializingEMV) {
             isInitializingEMV = true
 
-            // Init EMV SDK in background
-            paymentHelper.initSDK(context.applicationContext as android.app.Application) {
+            // Init EMV manager in background using suspend coroutine
+            try {
+                val (success, error) = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+                    when (deviceType) {
+                        "sunmi" -> {
+                            cardProcessorManager.initialize { success, error ->
+                                if (continuation.isActive) {
+                                    continuation.resume(Pair(success, error)) {}
+                                }
+                            }
+                        }
+                        "phone" -> {
+                            nfcPhoneReaderManager.initialize { success, error ->
+                                if (continuation.isActive) {
+                                    continuation.resume(Pair(success, error)) {}
+                                }
+                            }
+                        }
+                    }
+                }
+
                 isInitializingEMV = false
-                emvInitialized = true
-                showSuccessMessage = true
+                if (success) {
+                    emvInitialized = true
+                    showSuccessMessage = true
+                } else {
+                    // Failed to initialize, user will see error when trying to pay
+                    emvInitialized = false
+                }
+            } catch (e: Exception) {
+                isInitializingEMV = false
+                emvInitialized = false
             }
         }
     }
