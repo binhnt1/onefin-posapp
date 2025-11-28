@@ -237,7 +237,7 @@ object CardHelper {
                 ?.takeIf { it.isNotEmpty() }
                 ?.let { exp ->
                     if (exp.length >= 4) {
-                        val yy = exp.substring(0, 2)
+                        val yy = exp.take(2)
                         val mm = exp.substring(2, 4)
 
                         val monthInt = mm.toIntOrNull()

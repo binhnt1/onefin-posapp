@@ -15,7 +15,7 @@ data  class RequestSale(
 ) : Serializable {
     data class Data(
         @SerializedName("card")
-        val card: Card,
+        var card: Card,
 
         @SerializedName("bank")
         val bank: String? = null,
@@ -52,16 +52,16 @@ data  class RequestSale(
             val track1: String? = null,
 
             @SerializedName("track2")
-            val track2: String? = null,
+            var track2: String? = null,
 
             @SerializedName("track3")
             val track3: String? = null,
 
             @SerializedName("emvData")
-            val emvData: String? = null,
+            var emvData: String? = null,
 
             @SerializedName("clearPan")
-            val clearPan: String,
+            var clearPan: String,
 
             @SerializedName("holderName")
             val holderName: String? = null,

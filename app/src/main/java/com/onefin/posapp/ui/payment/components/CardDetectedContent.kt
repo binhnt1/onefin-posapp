@@ -112,7 +112,7 @@ fun CardDetectedContent(
                     InfoRow("Request Id", req.requestId)
                     Spacer(modifier = Modifier.height(8.dp))
                     if (req.data.card.mode != null) {
-                        InfoRow("Mode", req.data.card.mode)
+                        InfoRow("Mode", req.data.card.mode!!)
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     InfoRow("Card", req.data.card.type ?: "")

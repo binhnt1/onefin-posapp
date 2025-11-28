@@ -6,6 +6,7 @@ import com.atg.pos.domain.entities.payment.TLVUtil
 import com.onefin.posapp.core.models.EvmConfig
 import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.CvmConfig
+import com.onefin.posapp.core.models.data.RequestSale.Data.Card
 import com.sunmi.pay.hardware.aidl.AidlConstants
 import com.sunmi.pay.hardware.aidlv2.bean.AidV2
 import com.sunmi.pay.hardware.aidlv2.bean.CapkV2
@@ -809,5 +810,21 @@ object EmvUtil {
         } catch (e: Exception) {
             return 0
         }
+    }
+
+    fun removePaddingCard(card: Card): Card {
+        val pan = card.clearPan;
+        val track2 = card.track2;
+        if (pan.endsWith("F", ignoreCase = true)) {
+            card.clearPan = pan.dropLast(1)
+            if (card.emvData != null)
+                card.emvData = card.emvData!!.replace(pan, card.clearPan)
+        }
+        if (track2 != null && track2.endsWith("F", ignoreCase = true)) {
+            card.track2 = track2.dropLast(1)
+            if (card.emvData != null)
+                card.emvData = card.emvData!!.replace(track2, card.track2.toString())
+        }
+        return card
     }
 }

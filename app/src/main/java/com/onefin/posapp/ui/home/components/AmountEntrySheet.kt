@@ -232,6 +232,44 @@ fun AmountEntrySheet(
                             modifier = Modifier.weight(1f)
                         )
                         PaymentOptionButton(
+                            text = "SDK Sunmi",
+                            icon = Icons.Default.CreditCard,
+                            onClick = {
+                                if (isValidAmount && !isProcessing) {
+                                    isProcessing = true
+                                    loadingButtonType = "CARD"
+                                    val account = storageService.getAccount()
+                                    if (account != null) {
+                                        val paymentRequest = PaymentAppRequest(
+                                            type = "card",
+                                            action = PaymentAction.SALE.value,
+                                            merchantRequestData = MerchantRequestData(
+                                                amount = amountValue
+                                            )
+                                        )
+                                        val driverInfo = storageService.getDriverInfo()
+                                        val paymentRequestData = paymentHelper.createPaymentAppRequest(paymentRequest, driverInfo)
+                                        val intent = Intent(
+                                            context,
+                                            TransparentPaymentActivity::class.java
+                                        ).apply {
+                                            putExtra("REQUEST_DATA", paymentRequestData)
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(intent)
+                                        onDismiss()
+                                    } else {
+                                        isProcessing = false
+                                        loadingButtonType = null
+                                    }
+                                }
+                            },
+                            isPrimary = true,
+                            enabled = isValidAmount && !isProcessing,
+                            isLoading = loadingButtonType == "CARD",
+                            modifier = Modifier.weight(1f)
+                        )
+                        PaymentOptionButton(
                             text = stringResource(R.string.payment_generate_qr),
                             icon = Icons.Default.QrCode,
                             onClick = {
