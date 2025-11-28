@@ -100,7 +100,7 @@ android {
         create("mailinh") {
             dimension = "customer"
             versionNameSuffix = "-mailinh"
-            resValue("string", "app_name", "POS App - MaiLinh")
+            resValue("string", "app_name", "Onefin Payment")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "USERNAME", "\"mailinh@yopmail.com\"")
             buildConfigField("String", "APP_KEY", "\"85ba2fcfe7fa4511a37a8f017a282fa8\"")
@@ -110,7 +110,7 @@ android {
         create("sgpt") {
             dimension = "customer"
             versionNameSuffix = "-sgpt"
-            resValue("string", "app_name", "POS App - SGPT")
+            resValue("string", "app_name", "Onefin Payment")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "USERNAME", "\"sgpt@yopmail.com\"")
             buildConfigField("String", "APP_KEY", "\"21f7d3f50ab94f23a0b0b3e081fa8ced\"")
@@ -120,7 +120,7 @@ android {
         create("megatech") {
             dimension = "customer"
             versionNameSuffix = "-megatech"
-            resValue("string", "app_name", "POS App - MegaTech")
+            resValue("string", "app_name", "Onefin Payment")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "USERNAME", "\"mcmegatech@yopmail.com\"")
             buildConfigField("String", "APP_KEY", "\"909c326357b74a36a9dafadfdf6cb5bf\"")
@@ -129,6 +129,7 @@ android {
         // Flavor mặc định (không có APP_KEY - phải login thủ công)
         create("default") {
             dimension = "customer"
+            resValue("string", "app_name", "Onefin Payment")
             buildConfigField("String", "APP_KEY", "\"\"")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "USERNAME", "\"\"")

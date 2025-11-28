@@ -1,5 +1,6 @@
 package com.onefin.posapp.core.services
 
+import com.onefin.posapp.core.config.AppConfig
 import com.rabbitmq.client.*
 import kotlinx.coroutines.*
 import javax.inject.Inject
@@ -111,7 +112,7 @@ class RabbitMQService @Inject constructor(
 
         val rabbitUrl = account?.terminal?.systemConfig?.rabbitUrl
             ?.takeIf { it.isNotEmpty() }
-            ?: com.onefin.posapp.core.config.RabbitConstants.DEFAULT_RABBIT_URL
+            ?: AppConfig.baseRabbitUrl
 
         val factory = ConnectionFactory().apply {
             setUri(rabbitUrl)
