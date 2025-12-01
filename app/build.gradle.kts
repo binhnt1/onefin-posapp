@@ -131,7 +131,7 @@ android {
             dimension = "customer"
             versionNameSuffix = "-pilot"
             resValue("string", "app_name", "Onefin Pilot")
-            buildConfigField("String", "SDK_TYPE", "\"onefin\"")
+            buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "USERNAME", "\"anhchu@onefin.vn\"")
             buildConfigField("String", "APP_KEY", "\"2cc3ec327ce34f0ba4488071d356baf0\"")
         }
