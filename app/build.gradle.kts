@@ -203,8 +203,7 @@ dependencies {
     // ===== OneFin SDKs =====
     implementation(files("libs/PayLib-release-2.0.07.aar"))
 
-    implementation(files("libs/onefin-1.0.0.aar"))
-//    implementation(files("libs/paylib-1.0.0.aar"))
+    implementation(files("libs/onefin-1.0.1.aar"))
     implementation(files("libs/payment-1.0.0.aar"))
     implementation(files("libs/printerlibrary-1.0.19.aar"))
 

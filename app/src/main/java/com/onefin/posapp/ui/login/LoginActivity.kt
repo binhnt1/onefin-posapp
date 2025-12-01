@@ -275,8 +275,8 @@ fun LoginForm(
         }
 
         // hard-code
-        // deviceSerial = "P365257WJ0280"
-        // storageService.saveSerial(deviceSerial)
+         deviceSerial = "P313E46510098"
+         storageService.saveSerial(deviceSerial)
     }
 
     // Clear error when typing
