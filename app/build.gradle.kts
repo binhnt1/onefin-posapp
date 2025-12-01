@@ -28,7 +28,6 @@ android {
         debug {
             isDebuggable = true
             isMinifyEnabled = false
-            // applicationIdSuffix = ".debug"  // Removed to keep applicationId as com.onefin.posapp
         }
         release {
             isDebuggable = false
@@ -96,17 +95,8 @@ android {
 
     flavorDimensions += "customer"
     productFlavors {
-        // Flavor cho khách hàng A
-        create("mailinh") {
-            dimension = "customer"
-            versionNameSuffix = "-mailinh"
-            resValue("string", "app_name", "Onefin Payment")
-            buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
-            buildConfigField("String", "USERNAME", "\"mailinh@yopmail.com\"")
-            buildConfigField("String", "APP_KEY", "\"85ba2fcfe7fa4511a37a8f017a282fa8\"")
-        }
 
-        // Flavor cho khách hàng B
+        // Flavor cho khách hàng A
         create("sgpt") {
             dimension = "customer"
             versionNameSuffix = "-sgpt"
@@ -114,6 +104,16 @@ android {
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "USERNAME", "\"sgpt@yopmail.com\"")
             buildConfigField("String", "APP_KEY", "\"21f7d3f50ab94f23a0b0b3e081fa8ced\"")
+        }
+
+        // Flavor cho khách hàng B
+        create("mailinh") {
+            dimension = "customer"
+            versionNameSuffix = "-mailinh"
+            resValue("string", "app_name", "Onefin Payment")
+            buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
+            buildConfigField("String", "USERNAME", "\"mailinh@yopmail.com\"")
+            buildConfigField("String", "APP_KEY", "\"85ba2fcfe7fa4511a37a8f017a282fa8\"")
         }
 
         // Flavor cho khách hàng C

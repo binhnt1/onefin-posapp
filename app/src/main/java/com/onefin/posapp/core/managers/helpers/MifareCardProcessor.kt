@@ -6,7 +6,6 @@ import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.MifareData
 import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.models.data.RequestSale
-import com.onefin.posapp.core.models.enums.CardType
 import com.onefin.posapp.core.services.StorageService
 import com.onefin.posapp.core.utils.CardHelper
 import com.onefin.posapp.core.utils.MifareUtil
@@ -206,9 +205,13 @@ class MifareCardProcessor(
                     emvData = icData,
                     expiryDate = expiry,
                     holderName = holderName,
-                    mode = CardType.MIFARE.displayName,
+                    mode = cardType.value.toString(),
                     type = CardHelper.detectBrand(pan),
                     issuerName = storageService.getAccount()?.name,
+                ),
+                RequestSale.Data.Device(
+                    posEntryMode = "00",
+                    posConditionCode = "00"
                 )
             )
             processingComplete(PaymentResult.Success(requestSale))

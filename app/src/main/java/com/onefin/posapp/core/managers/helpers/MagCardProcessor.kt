@@ -5,8 +5,8 @@ import android.os.Bundle
 import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.models.data.RequestSale
-import com.onefin.posapp.core.models.enums.CardType
 import com.onefin.posapp.core.utils.CardHelper
+import com.onefin.posapp.core.utils.EMVTag
 import com.sunmi.pay.hardware.aidl.AidlConstants
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
 import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadOptV2
@@ -57,7 +57,7 @@ class MagCardProcessor(
 
             // check track2
             val track1 = info.getString("TRACK1") ?: info.getString("track1") ?: ""
-            val track2 = info.getString("TRACK2") ?: info.getString("track2") ?: ""
+            var track2 = info.getString("TRACK2") ?: info.getString("track2") ?: ""
             val track3 = info.getString("TRACK3") ?: info.getString("track3") ?: ""
             if (track2.isEmpty()) {
                 processingComplete(
@@ -86,7 +86,11 @@ class MagCardProcessor(
                 pan = parsedData.pan,
                 expiryDate = parsedData.expiry,
                 serviceCode = parsedData.serviceCode,
+                amount = request.merchantRequestData?.amount ?: 0L,  // ⭐ Thêm amount
+                currencyCode = "0704",    // VND
+                countryCode = "0704"      // VN
             )
+            val posEntryMode = CardHelper.parsePosEntryMode(null, cardType)
             val requestSale = CardHelper.buildRequestSale(
                 request,
                 RequestSale.Data.Card(
@@ -96,10 +100,14 @@ class MagCardProcessor(
                     emvData = emvData,
                     clearPan = parsedData.pan,
                     expiryDate = parsedData.expiry,
+                    mode = cardType.value.toString(),
                     holderName = parsedData.holderName,
                     issuerName = parsedData.issuerName,
-                    mode = CardType.MAGNETIC.displayName,
                     type = CardHelper.detectBrand(parsedData.pan),
+                ),
+                RequestSale.Data.Device(
+                    posEntryMode =posEntryMode,
+                    posConditionCode = "00"
                 )
             )
             processingComplete(PaymentResult.Success(requestSale))

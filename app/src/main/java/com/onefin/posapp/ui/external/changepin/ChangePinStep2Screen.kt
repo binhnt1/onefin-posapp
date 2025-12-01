@@ -93,6 +93,7 @@ fun ChangePinStep2Screen(
                         "ksn" to requestSale.data.card.ksn,
                         "pin" to requestSale.data.card.pin,
                         "type" to requestSale.data.card.type,
+                        "mode" to requestSale.data.card.mode,
                         "track1" to requestSale.data.card.track1,
                         "track2" to requestSale.data.card.track2,
                         "track3" to requestSale.data.card.track3,
@@ -101,7 +102,6 @@ fun ChangePinStep2Screen(
                         "expiryDate" to requestSale.data.card.expiryDate,
                         "holderName" to requestSale.data.card.holderName,
                         "issuerName" to requestSale.data.card.issuerName,
-                        "mode" to CardHelper.getCardMode(requestSale.data.card.mode),
                     ),
                     "device" to mapOf(
                         "posEntryMode" to requestSale.data.device.posEntryMode,

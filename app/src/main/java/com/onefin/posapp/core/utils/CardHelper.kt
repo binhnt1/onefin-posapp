@@ -11,7 +11,8 @@ import com.onefin.posapp.core.models.data.SaleResultData
 import com.onefin.posapp.core.models.data.MemberResultData
 import com.onefin.posapp.core.models.data.VoidResultData
 import com.onefin.posapp.core.models.enums.CardBrand
-import com.onefin.posapp.core.models.enums.CardType
+import com.sunmi.pay.hardware.aidl.AidlConstants
+import timber.log.Timber
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -24,43 +25,24 @@ object CardHelper {
 
         if (cleanPan.length < 6) return CardBrand.UNKNOWN.displayName
 
-        val bin6 = cleanPan.substring(0, 6)
-        val bin8 = if (cleanPan.length >= 8) cleanPan.substring(0, 8) else bin6
+        val bin6 = cleanPan.take(6)
+        val bin8 = if (cleanPan.length >= 8) cleanPan.take(8) else bin6
 
         return when {
             bin6.startsWith("970") -> CardBrand.NAPAS.displayName
             cleanPan.startsWith("4") -> CardBrand.VISA.displayName
-            bin6.substring(0, 2) in listOf("51", "52", "53", "54", "55") -> CardBrand.MASTERCARD.displayName
-            bin6.substring(0, 4).toIntOrNull()?.let { it in 2221..2720 } == true -> CardBrand.MASTERCARD.displayName
+            bin6.take(2) in listOf("51", "52", "53", "54", "55") -> CardBrand.MASTERCARD.displayName
+            bin6.take(4).toIntOrNull()?.let { it in 2221..2720 } == true -> CardBrand.MASTERCARD.displayName
             bin6.startsWith("35") -> CardBrand.JCB.displayName
-            bin6.substring(0, 2) in listOf("34", "37") -> CardBrand.AMEX.displayName
+            bin6.take(2) in listOf("34", "37") -> CardBrand.AMEX.displayName
             cleanPan.startsWith("62") -> CardBrand.UNIONPAY.displayName
             bin6.startsWith("6011") -> CardBrand.DISCOVER.displayName
             bin8.toIntOrNull()?.let { it in 622126..622925 } == true -> CardBrand.DISCOVER.displayName
-            bin6.substring(0, 3).toIntOrNull()?.let { it in 644..649 } == true -> CardBrand.DISCOVER.displayName
+            bin6.take(3).toIntOrNull()?.let { it in 644..649 } == true -> CardBrand.DISCOVER.displayName
             bin6.startsWith("65") -> CardBrand.DISCOVER.displayName
             bin6.startsWith("1207") -> CardBrand.MEMBER.displayName
             else -> CardBrand.UNKNOWN.displayName
         }
-    }
-
-    fun getCardMode(mode: String?): String {
-        var cardMode = "3"
-        when (mode) {
-            CardType.CHIP.displayName -> {
-                cardMode = "2"
-            }
-            CardType.MIFARE.displayName -> {
-                cardMode = "3"
-            }
-            CardType.MAGNETIC.displayName -> {
-                cardMode = "1"
-            }
-            CardType.CONTACTLESS.displayName -> {
-                cardMode = "3"
-            }
-        }
-        return cardMode
     }
 
     fun extractEmvDataHex(emvCard: EmvCard): String {
@@ -180,7 +162,7 @@ object CardHelper {
 
             val pan = parts[0].trim()
             val expiryAndMore = parts[1]
-            if (pan.length < 13 || pan.length > 19 || !pan.all { it.isDigit() }) {
+            if (pan.length !in 13..19 || !pan.all { it.isDigit() }) {
                 return null
             }
 
@@ -189,7 +171,7 @@ object CardHelper {
 
                 if (!yymmFromTrack.all { it.isDigit() }) return null
 
-                val yy = yymmFromTrack.substring(0, 2)
+                val yy = yymmFromTrack.take(2)
                 val mm = yymmFromTrack.substring(2, 4)
 
                 val monthInt = mm.toIntOrNull()
@@ -228,62 +210,95 @@ object CardHelper {
 
     fun parseEmvData(emvData: String, track1: String, track2: String): EmvCardData? {
         try {
-            if (emvData.isEmpty()) return null
+            Timber.d("=== parseEmvData START ===")
+            Timber.d("Input lengths - emvData: ${emvData.length}, track1: ${track1.length}, track2: ${track2.length}")
+
+            if (emvData.isEmpty()) {
+                Timber.w("EMV data is empty")
+                return null
+            }
 
             val tags = parseEmvTlv(emvData)
+            Timber.d("Parsed ${tags.size} tags: ${tags.keys.joinToString(",")}")
 
-            var pan = tags["5A"]?.takeIf { it.isNotEmpty() } ?: ""
+            // ISSUE 1: Nên remove 'F' padding từ PAN
+            var pan = tags["5A"]?.takeIf { it.isNotEmpty() }?.replace("F", "")?.replace("f", "") ?: ""
+            Timber.d("PAN from tag 5A: ${if (pan.isNotEmpty()) "${pan.take(6)}...${pan.takeLast(4)}" else "Empty"}")
+
             var expiry = tags["5F24"]
                 ?.takeIf { it.isNotEmpty() }
                 ?.let { exp ->
+                    Timber.d("Raw expiry (5F24): $exp")
                     if (exp.length >= 4) {
                         val yy = exp.take(2)
                         val mm = exp.substring(2, 4)
 
                         val monthInt = mm.toIntOrNull()
                         if (monthInt == null || monthInt < 1 || monthInt > 12) {
+                            Timber.w("Invalid month: $mm")
                             return@let null
                         }
 
                         "$mm$yy"
                     } else {
+                        Timber.w("Expiry too short: ${exp.length}")
                         null
                     }
                 }
+            Timber.d("Parsed expiry: $expiry")
 
+            // Fallback to Track2
             if (pan.isEmpty() || expiry == null) {
+                Timber.d("Attempting fallback to Track2 (tag 57)")
                 tags["57"]
                     ?.takeIf { it.isNotEmpty() }
                     ?.let { track2Hex ->
+                        Timber.d("Track2 hex: $track2Hex")
                         val track2Data = parseTrack2FromHex(track2Hex)
                         if (track2Data != null) {
+                            Timber.d("Track2 parsed: PAN=${track2Data.pan.take(6)}..., Expiry=${track2Data.expiry}")
                             if (pan.isEmpty()) {
                                 pan = track2Data.pan
                             }
                             if (expiry == null) {
                                 expiry = track2Data.expiry
                             }
+                        } else {
+                            Timber.w("Failed to parse Track2")
                         }
                     }
             }
-            if (pan.isEmpty()) return null
-            if (expiry == null || expiry.isEmpty()) return null
 
+            if (pan.isEmpty()) {
+                Timber.e("PAN is empty after all attempts")
+                return null
+            }
+            if (expiry == null || expiry.isEmpty()) {
+                Timber.e("Expiry is empty after all attempts")
+                return null
+            }
+
+            // Parse cardholder name
             var cardholderName = tags["5F20"]
                 ?.takeIf { it.isNotEmpty() }
                 ?.let { hex ->
                     try {
+                        Timber.d("Parsing name from 5F20: $hex")
                         val name = hex.chunked(2)
                             .map { it.toInt(16).toChar() }
                             .joinToString("")
                             .trim()
+                        Timber.d("Parsed name (5F20): $name")
                         name
                     } catch (e: Exception) {
+                        Timber.e(e, "Failed to parse 5F20")
                         null
                     }
                 } ?: ""
 
+            // Fallback to tag 9F0B
             if (cardholderName.isEmpty()) {
+                Timber.d("Attempting fallback name from 9F0B")
                 cardholderName = tags["9F0B"]
                     ?.takeIf { it.isNotEmpty() }
                     ?.let { hex ->
@@ -292,40 +307,54 @@ object CardHelper {
                                 .map { it.toInt(16).toChar() }
                                 .joinToString("")
                                 .trim()
+                            Timber.d("Parsed name (9F0B): $name")
                             name
                         } catch (e: Exception) {
+                            Timber.e(e, "Failed to parse 9F0B")
                             null
                         }
                     } ?: ""
             }
 
+            // ISSUE 2: Name formatting có thể sai với một số định dạng
             if (cardholderName.isNotEmpty() && cardholderName.contains("/")) {
+                val originalName = cardholderName
                 val names = cardholderName.split("/").reversed()
-                cardholderName = names.joinToString(" ")
+                cardholderName = names.joinToString(" ").trim()
+                Timber.d("Name reformatted: '$originalName' -> '$cardholderName'")
             }
 
             val issuerName = BinLookupHelper.lookupIssuer(pan) ?: ""
+            Timber.d("Issuer from BIN: $issuerName")
+
             val emvData = EmvCardData(pan, expiry, cardholderName, issuerName)
+
+            // Fallback to magnetic data
             val cardData = parseMagneticCard(track1, track2)
-            if (emvData.holderName.isNullOrEmpty())
+            if (cardData != null) {
+                Timber.d("Magnetic data available - Name: ${cardData.holderName}, Issuer: ${cardData.issuerName}")
+            }
+
+            if (emvData.holderName.isNullOrEmpty()) {
                 emvData.holderName = cardData?.holderName
-            if (emvData.issuerName.isNullOrEmpty())
+                Timber.d("Using magnetic holder name: ${emvData.holderName}")
+            }
+            if (emvData.issuerName.isNullOrEmpty()) {
                 emvData.issuerName = cardData?.issuerName
+                Timber.d("Using magnetic issuer name: ${emvData.issuerName}")
+            }
+
+            Timber.d("=== parseEmvData SUCCESS ===")
             return emvData
+
         } catch (e: Exception) {
+            Timber.e(e, "Exception in parseEmvData")
             return null
         }
     }
 
-    fun buildRequestSale(request: PaymentAppRequest, card: RequestSale.Data.Card): RequestSale {
+    fun buildRequestSale(request: PaymentAppRequest, card: RequestSale.Data.Card, device: RequestSale.Data.Device): RequestSale {
         val amount = request.merchantRequestData?.amount ?: 0
-        val posEntryMode = when (card.mode) {
-            "MAGNETIC" -> "90"
-            "CHIP" -> "05"
-            "CONTACTLESS" -> "07"
-            else -> "00"
-        }
-
         val requestId = UtilHelper.generateRequestId()
         return RequestSale(
             requestData = request,
@@ -347,8 +376,8 @@ object CardHelper {
                     issuerName = card.issuerName,
                 ),
                 device = RequestSale.Data.Device(
-                    posEntryMode = posEntryMode,
-                    posConditionCode = "00"
+                    posEntryMode = device.posEntryMode,
+                    posConditionCode = device.posConditionCode
                 ),
                 payment = RequestSale.Data.PaymentData(
                     currency = "VND",
@@ -356,6 +385,26 @@ object CardHelper {
                 )
             )
         )
+    }
+
+    fun parsePosEntryMode(tag9F39: String?, cardType: AidlConstants.CardType, transactionHasPin: Boolean = false, deviceHasPinPad: Boolean = true): String {
+        // Byte 1: Entry Mode
+        val entryMode = when {
+            tag9F39 == "07" || tag9F39 == "91" -> "07"          // Contactless
+            tag9F39 == "05" -> "05"                             // Contact chip
+            cardType == AidlConstants.CardType.MAGNETIC -> "02"
+            cardType == AidlConstants.CardType.NFC -> "07"
+            cardType == AidlConstants.CardType.IC -> "05"
+            else -> "05"
+        }
+
+        // Byte 2: PIN Capability
+        val pinCapability = when {
+            transactionHasPin -> "1"
+            deviceHasPinPad -> "1"
+            else -> "0"
+        }
+        return "$entryMode$pinCapability"
     }
 
     fun returnSaleResponse(saleResult: SaleResultData, originalRequest: PaymentAppRequest): PaymentAppResponse {
@@ -433,47 +482,146 @@ object CardHelper {
         return response
     }
 
-    fun buildMagneticEmvData(pan: String, expiryDate: String, track2: String, serviceCode: String? = null): String {
-        val tlvBuilder = StringBuilder()
+    @SuppressLint("DefaultLocale")
+    fun buildMagneticEmvData(
+        track2: String,
+        pan: String,
+        expiryDate: String,  // Format: MMYY (e.g., "1225")
+        serviceCode: String? = null,
+        amount: Long = 0,
+        currencyCode: String = "0704",  // VND
+        countryCode: String = "0704"    // VN
+    ): String {
+        try {
+            val tlvBuilder = StringBuilder()
 
-        tlvBuilder.append(buildTlv("5A", pan))
+            // 1. AID (Tag 4F) - Default Visa/Mastercard AID
+            val aid = when {
+                pan.startsWith("4") -> "A0000000031010"  // Visa
+                pan.startsWith("5") -> "A0000000041010"  // Mastercard
+                else -> "A0000000031010"  // Default Visa
+            }
+            tlvBuilder.append(buildTlv("4F", aid))
+            Timber.d("Tag 4F (AID): $aid")
 
-        tlvBuilder.append(buildTlv("57", track2.replace("=", "D")))
+            // 2. Currency Code (Tag 5F2A)
+            tlvBuilder.append(buildTlv("5F2A", currencyCode))
+            Timber.d("Tag 5F2A (Currency): $currencyCode")
 
-        val expiryYYMMDD = if (expiryDate.length == 4) {
-            expiryDate + "01"
-        } else {
-            expiryDate
+            // 3. PAN Sequence Number (Tag 5F34)
+            tlvBuilder.append(buildTlv("5F34", "01"))
+            Timber.d("Tag 5F34 (PAN Seq): 01")
+
+            // 4. AIP (Tag 82) - Application Interchange Profile
+            // 1C00 = SDA supported, Cardholder verification supported
+            tlvBuilder.append(buildTlv("82", "1C00"))
+            Timber.d("Tag 82 (AIP): 1C00")
+
+            // 5. Dedicated File Name (Tag 84) - Same as AID
+            tlvBuilder.append(buildTlv("84", aid))
+            Timber.d("Tag 84 (DF Name): $aid")
+
+            // 6. TVR (Tag 95) - Terminal Verification Results
+            // 8080008000 = Default offline approved
+            tlvBuilder.append(buildTlv("95", "8080008000"))
+            Timber.d("Tag 95 (TVR): 8080008000")
+
+            // 7. Transaction Date (Tag 9A) - YYMMDD
+            val currentDate = getCurrentDateYYMMDD()
+            tlvBuilder.append(buildTlv("9A", currentDate))
+            Timber.d("Tag 9A (Date): $currentDate")
+
+            // 8. Transaction Type (Tag 9C)
+            // 00 = Purchase
+            tlvBuilder.append(buildTlv("9C", "00"))
+            Timber.d("Tag 9C (Type): 00")
+
+            // 9. Amount (Tag 9F02) - 12 digits (6 bytes)
+            val amountHex = String.format("%012d", amount)
+            tlvBuilder.append(buildTlv("9F02", amountHex))
+            Timber.d("Tag 9F02 (Amount): $amountHex")
+
+            // 10. IAD (Tag 9F10) - Issuer Application Data
+            // Format: Version(2) + Derivation(2) + CVR(6) + DAC/ICC(4)
+            val iadVersion = "06"      // Version 6
+            val derivation = "01"      // Derivation method
+            val cvr = "0A0360A400"     // Card Verification Results
+            val iad = "$iadVersion$derivation$cvr"
+            tlvBuilder.append(buildTlv("9F10", iad))
+            Timber.d("Tag 9F10 (IAD): $iad")
+
+            // 11. Terminal Country Code (Tag 9F1A)
+            tlvBuilder.append(buildTlv("9F1A", countryCode))
+            Timber.d("Tag 9F1A (Country): $countryCode")
+
+            // 12. Application Cryptogram (Tag 9F26) - TC
+            // Generate pseudo cryptogram from track2
+            val cryptogram = generatePseudoCryptogram(track2, amount.toString())
+            tlvBuilder.append(buildTlv("9F26", cryptogram))
+            Timber.d("Tag 9F26 (Cryptogram): $cryptogram")
+
+            // 13. CID (Tag 9F27) - Cryptogram Information Data
+            // 40 = TC (Transaction Certificate)
+            tlvBuilder.append(buildTlv("9F27", "40"))
+            Timber.d("Tag 9F27 (CID): 40")
+
+            // 14. Terminal Capabilities (Tag 9F33)
+            // E0F8C8 = Full capabilities
+            tlvBuilder.append(buildTlv("9F33", "E0F8C8"))
+            Timber.d("Tag 9F33 (Terminal Cap): E0F8C8")
+
+            // 15. ATC (Tag 9F36) - Application Transaction Counter
+            // Random 2-byte counter
+            val atc = String.format("%04X", (Math.random() * 65535).toInt())
+            tlvBuilder.append(buildTlv("9F36", atc))
+            Timber.d("Tag 9F36 (ATC): $atc")
+
+            // 16. Unpredictable Number (Tag 9F37)
+            val unpredictableNumber = generateUnpredictableNumber()
+            tlvBuilder.append(buildTlv("9F37", unpredictableNumber))
+            Timber.d("Tag 9F37 (UN): $unpredictableNumber")
+
+            // 17. Amount Other (Tag 9F03) - Always 0 for single currency
+            tlvBuilder.append(buildTlv("9F03", "000000000000"))
+            Timber.d("Tag 9F03 (Amount Other): 000000000000")
+
+            val result = tlvBuilder.toString()
+            Timber.d("=== MAGNETIC EMV DATA COMPLETE ===")
+            Timber.d("Total length: ${result.length} chars")
+            Timber.d("Data: ${result.take(100)}...")
+
+            return result
+
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to build magnetic EMV data")
+            return ""
         }
-        tlvBuilder.append(buildTlv("5F24", expiryYYMMDD))
+    }
 
-        tlvBuilder.append(buildTlv("5F34", "00"))
+    private fun generatePseudoCryptogram(track2: String, amount: String): String {
+        try {
+            // Generate pseudo cryptogram from track2 + amount
+            // Sử dụng hash để tạo cryptogram 8 bytes
+            val input = "$track2$amount${System.currentTimeMillis()}"
+            val bytes = input.toByteArray()
 
-        tlvBuilder.append(buildTlv("9F27", "00"))
+            val hash = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(bytes)
 
-        tlvBuilder.append(buildTlv("9F33", "E0F8C8"))
+            // Lấy 8 bytes đầu
+            return hash.take(8)
+                .joinToString("") { "%02X".format(it) }
 
-        tlvBuilder.append(buildTlv("9F35", "22"))
-
-        tlvBuilder.append(buildTlv("9F36", "0000"))
-
-        val unpredictableNumber = generateUnpredictableNumber()
-        tlvBuilder.append(buildTlv("9F37", unpredictableNumber))
-
-        tlvBuilder.append(buildTlv("82", "0000"))
-
-        tlvBuilder.append(buildTlv("95", "0000008000"))
-
-        val dateYYMMDD = getCurrentDateYYMMDD()
-        tlvBuilder.append(buildTlv("9A", dateYYMMDD))
-
-        tlvBuilder.append(buildTlv("9C", "00"))
-
-        serviceCode?.let {
-            tlvBuilder.append(buildTlv("5F30", it))
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to generate cryptogram")
+            // Fallback: random 8 bytes
+            val random = java.util.Random()
+            return buildString {
+                repeat(8) {
+                    append(String.format("%02X", random.nextInt(256)))
+                }
+            }
         }
-
-        return tlvBuilder.toString()
     }
 
     @SuppressLint("DefaultLocale")
@@ -547,17 +695,17 @@ object CardHelper {
             if (parts.size < 2) return null
 
             val pan = parts[0].trim()
-            if (pan.length < 13 || pan.length > 19 || !pan.all { it.isDigit() }) {
+            if (pan.length !in 13..19 || !pan.all { it.isDigit() }) {
                 return null
             }
 
             val secondPart = parts[1]
             if (secondPart.length < 4) return null
 
-            val yymmFromTrack = secondPart.substring(0, 4)
+            val yymmFromTrack = secondPart.take(4)
             if (!yymmFromTrack.all { it.isDigit() }) return null
 
-            val yy = yymmFromTrack.substring(0, 2)
+            val yy = yymmFromTrack.take(2)
             val mm = yymmFromTrack.substring(2, 4)
 
             val monthInt = mm.toIntOrNull()

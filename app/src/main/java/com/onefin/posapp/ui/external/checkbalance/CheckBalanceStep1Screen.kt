@@ -500,6 +500,7 @@ suspend fun processCheckBalance(
                 "card" to mapOf(
                     "ksn" to requestSale.data.card.ksn,
                     "pin" to requestSale.data.card.pin,
+                    "mode" to requestSale.data.card.mode,
                     "type" to requestSale.data.card.type,
                     "newPin" to requestSale.data.card.newPin,
                     "track1" to requestSale.data.card.track1,
@@ -510,7 +511,6 @@ suspend fun processCheckBalance(
                     "expiryDate" to requestSale.data.card.expiryDate,
                     "holderName" to requestSale.data.card.holderName,
                     "issuerName" to requestSale.data.card.issuerName,
-                    "mode" to CardHelper.getCardMode(requestSale.data.card.mode),
                 ),
                 "device" to mapOf(
                     "posEntryMode" to requestSale.data.device.posEntryMode,

@@ -679,6 +679,7 @@ suspend fun processPayment(apiService: ApiService, requestSale: RequestSale): Re
                     "ksn" to requestSale.data.card.ksn,
                     "pin" to requestSale.data.card.pin,
                     "type" to requestSale.data.card.type,
+                    "mode" to requestSale.data.card.mode,
                     "newPin" to requestSale.data.card.newPin,
                     "track1" to requestSale.data.card.track1,
                     "track2" to requestSale.data.card.track2,
@@ -688,8 +689,7 @@ suspend fun processPayment(apiService: ApiService, requestSale: RequestSale): Re
                     "expiryDate" to requestSale.data.card.expiryDate,
                     "holderName" to requestSale.data.card.holderName,
                     "issuerName" to requestSale.data.card.issuerName,
-                    "mode" to CardHelper.getCardMode(requestSale.data.card.mode),
-                ),
+                    ),
                 "device" to mapOf(
                     "posEntryMode" to requestSale.data.device.posEntryMode,
                     "posConditionCode" to requestSale.data.device.posConditionCode
@@ -707,8 +707,7 @@ suspend fun processPayment(apiService: ApiService, requestSale: RequestSale): Re
             ),
             "requestId" to requestSale.requestId,
         )
-
-        val resultApi = apiService.post("/api/card/sale", requestBody) as ResultApi<*>
+        val resultApi = apiService.post("/api/card/sale1", requestBody) as ResultApi<*>
         if (resultApi.isSuccess()) {
             val saleResultData = gson.fromJson(gson.toJson(resultApi.data), SaleResultData::class.java)
             if (saleResultData != null) {

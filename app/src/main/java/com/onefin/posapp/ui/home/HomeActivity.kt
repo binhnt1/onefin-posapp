@@ -439,13 +439,17 @@ fun HomeContent(
     // save driverInfo
     if (driverInfo == null) {
         storageService.clearDriverInfo()
-        storageService.saveDriverInfo(DriverInfoEntity(
-            tid = merchantConfig["tid"]!!,
-            mid = merchantConfig["mid"]!!,
-            serial = storageService.getSerial()!!,
-            driverNumber = merchantConfig["driver"]!!,
-            employeeCode = merchantConfig["employee"]!!,
-        ))
+        if (merchantConfig.containsKey("driver")) {
+            storageService.saveDriverInfo(
+                DriverInfoEntity(
+                    tid = merchantConfig["tid"]!!,
+                    mid = merchantConfig["mid"]!!,
+                    serial = storageService.getSerial()!!,
+                    driverNumber = merchantConfig["driver"]!!,
+                    employeeCode = merchantConfig["employee"]!!,
+                )
+            )
+        }
     } else {}
 
     var showAmountSheet by remember { mutableStateOf(false) }

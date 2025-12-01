@@ -134,16 +134,14 @@ class PosApplication : Application() {
 
             // Wave 2: 1500ms - PAYMENT SDK
             val sdkType = BuildConfig.SDK_TYPE
-            if (sdkType == "onefin") {
-                launch(Dispatchers.IO) {
-                    try {
-                        val startTime = System.currentTimeMillis()
-                        paymentHelper.initSDK(this@PosApplication)
-                        val duration = System.currentTimeMillis() - startTime
-                        Timber.tag("Performance").d("✅ Payment SDK: ${duration}ms")
-                    } catch (e: Exception) {
-                        Timber.tag("PosApp").e(e, "❌ Payment SDK failed")
-                    }
+            launch(Dispatchers.IO) {
+                try {
+                    val startTime = System.currentTimeMillis()
+                    paymentHelper.initSDK(this@PosApplication)
+                    val duration = System.currentTimeMillis() - startTime
+                    Timber.tag("Performance").d("✅ Payment SDK: ${duration}ms")
+                } catch (e: Exception) {
+                    Timber.tag("PosApp").e(e, "❌ Payment SDK failed")
                 }
             }
 

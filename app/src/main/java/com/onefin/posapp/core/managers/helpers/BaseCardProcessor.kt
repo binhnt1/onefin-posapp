@@ -2,13 +2,17 @@ package com.onefin.posapp.core.managers.helpers
 
 import android.content.Context
 import android.os.Bundle
+import com.atg.pos.domain.entities.payment.ByteUtil
 import com.atg.pos.domain.entities.payment.TLVUtil
+import com.google.gson.GsonBuilder
 import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.models.data.RequestSale
-import com.onefin.posapp.core.models.enums.CardType
+import com.onefin.posapp.core.models.enums.CardProviderType
 import com.onefin.posapp.core.utils.CardHelper
+import com.onefin.posapp.core.utils.EMVTag
+import com.onefin.posapp.core.utils.F55Manager
 import com.sunmi.pay.hardware.aidl.AidlConstants
 import com.sunmi.pay.hardware.aidlv2.bean.EMVCandidateV2
 import com.sunmi.pay.hardware.aidlv2.bean.PinPadConfigV2
@@ -19,6 +23,7 @@ import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadOptV2
 import com.sunmi.pay.hardware.aidlv2.readcard.ReadCardOptV2
 import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
 import timber.log.Timber
+
 
 abstract class BaseCardProcessor(
     protected val context: Context,
@@ -34,6 +39,7 @@ abstract class BaseCardProcessor(
     protected var isProcessingStarted = false
     protected var cardPanForPin: String? = null
     protected var currentAmount: String = "000000000000"
+    protected var detectedCardType: CardProviderType? = null
     protected var currentPaymentAppRequest: PaymentAppRequest? = null
     protected lateinit var processingComplete: ((PaymentResult) -> Unit)
 
@@ -72,7 +78,6 @@ abstract class BaseCardProcessor(
         processingComplete = onProcessingComplete
         currentPaymentAppRequest = paymentRequest
         currentAmount = amount.padStart(12, '0')
-        Timber.d("🚀 Starting transaction processing (card already detected)...")
         try {
             processTransaction(info)
         } catch (e: Exception) {
@@ -89,9 +94,7 @@ abstract class BaseCardProcessor(
         try {
             isProcessingStarted = false
             emvOpt.abortTransactProcess()
-            Timber.d("   ✅ Cancelled successfully")
-        } catch (e: Exception) {
-            Timber.e(e, "⚠️ Error during cancellation")
+        } catch (_: Exception) {
         }
     }
 
@@ -104,60 +107,100 @@ abstract class BaseCardProcessor(
                 return
             }
 
-            val tagsToRead = arrayOf(
-                "5A", "56", "57", "5F24", "5F34", "9F06", "9F26", "9F27",
-                "9F10", "9F37", "9F36", "95", "9A", "9C", "9F02", "9F03",
-                "5F2A", "82", "9F1A", "9F33", "9F34", "9F35", "9F09",
-                "9F1E", "84", "9F41", "50", "5F20", "9F0B", "5F2D"
+            val outData = ByteArray(2048)
+            val f55Tags = F55Manager.getF55TagsRequired(detectedCardType, cardType)
+            val length = emvOpt.getTlvList(2, f55Tags, outData)
+
+            val f55Hex = if (length > 0) {
+                val copy = outData.copyOf(length)
+                ByteUtil.bytes2HexStr(copy) + "9F0306000000000000"
+            } else {
+                ""
+            }
+
+            // 2. Get Additional Tags (for card details) ⭐ QUAN TRỌNG
+            val additionalTags = arrayOf(
+                EMVTag.CARD_NO,   // PAN
+                EMVTag.NAME_HOLDER, // Cardholder Name
+                EMVTag.CHIP_EXPIRY_DATE, // Expiry Date
+                EMVTag.TRACK_1_DATA,   // Track 1
+                EMVTag.TRACK_2_DATA,   // Track 2
+                EMVTag.TRACK_3_DATA,   // Track 2
+                EMVTag.CHIP_APP_NAME,   // App Label
+                EMVTag.CHIP_APP_ID_84,   // AID
+                EMVTag.CHIP_APP_ID,   // AID fallback
+                EMVTag.CHIP_TC, // TC
+                EMVTag.POS_ENTRY_MODE  // POS Entry Mode
             )
+            val additionalData = ByteArray(2048)
+            val additionalLength = emvOpt.getTlvList(0, additionalTags, additionalData)
 
-            val emvTagsHex = readEmvTags(tagsToRead) ?: run {
+            val cardDetailsHex = if (additionalLength > 0) {
+                ByteUtil.bytes2HexStr(additionalData.copyOf(additionalLength))
+            } else {
+                ""
+            }
+
+            // 3. Parse Card Details từ cardDetailsHex (KHÔNG phải f55Hex)
+            val tagsMap = TLVUtil.buildTLVMap(cardDetailsHex)
+
+            val track1 = tagsMap[EMVTag.TRACK_1_DATA]?.value ?: ""
+            val track3 = tagsMap[EMVTag.TRACK_3_DATA]?.value ?: ""
+            var track2 = tagsMap[EMVTag.TRACK_2_DATA]?.value ?: ""
+            if (track2.isNotEmpty()) {
+                track2 = track2
+                    .replace("D", "=", ignoreCase = true)
+                    .replace("d", "=")
+                    .removeSuffix("F")
+                    .removeSuffix("f")
+            }
+
+            // Parse card data
+            val cardData = CardHelper.parseEmvData(
+                cardDetailsHex,
+                track1,
+                track2
+            ) ?: run {
                 processingComplete(PaymentResult.Error.from(
                     errorType = PaymentErrorHandler.ErrorType.EMV_DATA_INVALID
                 ))
                 return
             }
-            val tagsMap = TLVUtil.buildTLVMap(emvTagsHex)
 
-            val tc = tagsMap["9F26"]?.value ?: ""
-            val track1 = tagsMap["56"]?.value ?: ""
-            val track2 = tagsMap["57"]?.value ?: ""
-            val aid = tagsMap["9F06"]?.value ?: tagsMap["84"]?.value ?: ""
-            val cardData = CardHelper.parseEmvData(emvTagsHex, track1, track2) ?: run {
-                processingComplete(PaymentResult.Error.from(
-                    errorType = PaymentErrorHandler.ErrorType.EMV_DATA_INVALID
-                ))
-                return
-            }
+            // 4. Extract other fields
+            val tc = tagsMap[EMVTag.CHIP_TC]?.value ?: ""
+            val transactionHasPin = !currentPinBlock.isNullOrEmpty()
+            val aid = tagsMap[EMVTag.CHIP_APP_ID]?.value ?: tagsMap[EMVTag.CHIP_APP_ID_84]?.value ?: ""
+            val posEntryMode = CardHelper.parsePosEntryMode(tagsMap[EMVTag.POS_ENTRY_MODE]?.value ?: "", cardType, transactionHasPin)
 
-            val mode = when (cardType) {
-                AidlConstants.CardType.IC -> CardType.CHIP.displayName
-                AidlConstants.CardType.MIFARE -> CardType.MIFARE.displayName
-                AidlConstants.CardType.NFC -> CardType.CONTACTLESS.displayName
-                AidlConstants.CardType.MAGNETIC -> CardType.MAGNETIC.displayName
-                else -> CardType.CHIP.displayName
-            }
+            // 5. Build request với F55 Data
             val requestSale = CardHelper.buildRequestSale(
                 request,
                 RequestSale.Data.Card(
                     tc = tc,
                     aid = aid,
-                    mode = mode,
-                    track2 = track2,
                     track1 = track1,
-                    emvData = emvTagsHex,
+                    track2 = track2,
+                    track3 = track3,
+                    emvData = f55Hex,
                     pin = currentPinBlock,
                     ksn = currentKsn ?: "",
                     clearPan = cardData.pan,
                     expiryDate = cardData.expiry,
+                    mode = cardType.value.toString(),
                     holderName = cardData.holderName,
                     issuerName = cardData.issuerName,
                     type = CardHelper.detectBrand(cardData.pan),
+                ),
+                RequestSale.Data.Device(
+                    posEntryMode = posEntryMode,
+                    posConditionCode = "00"
                 )
             )
             processingComplete(PaymentResult.Success(requestSale))
 
         } catch (e: Exception) {
+            Timber.e(e, "Exception in handleSuccessResult")
             handleError(PaymentResult.Error.from(
                 PaymentErrorHandler.ErrorType.UNKNOWN_ERROR,
                 "Exception: ${e.message}"
@@ -183,83 +226,60 @@ abstract class BaseCardProcessor(
     }
     // Trong createEmvListener()
     protected fun createEmvListener(): EMVListenerV2 {
-        Timber.d("🎧 Creating EMV Listener...")
         return object : EMVListenerV2.Stub() {
             override fun onWaitAppSelect(candidates: MutableList<EMVCandidateV2>?, isFirstSelect: Boolean) {
-                Timber.d("🔔 EMV Callback: onWaitAppSelect")
-                Timber.d("   candidates: ${candidates?.size ?: 0}")
-                Timber.d("   isFirstSelect: $isFirstSelect")
                 onEmvWaitAppSelect(candidates, isFirstSelect)
             }
 
             override fun onAppFinalSelect(tag9F06Value: String?) {
-                Timber.d("🔔 EMV Callback: onAppFinalSelect")
-                Timber.d("   AID: $tag9F06Value")
                 onEmvAppFinalSelect(tag9F06Value)
             }
 
             override fun onConfirmCardNo(cardNo: String?) {
-                Timber.d("🔔 EMV Callback: onConfirmCardNo")
-                Timber.d("   Card: $cardNo")
                 onEmvConfirmCardNo(cardNo)
             }
 
             override fun onRequestShowPinPad(pinType: Int, remainTime: Int) {
-                Timber.d("🔔 EMV Callback: onRequestShowPinPad")
-                Timber.d("   pinType: $pinType, remainTime: $remainTime")
                 onEmvRequestShowPinPad(pinType, remainTime)
             }
 
             override fun onCardDataExchangeComplete() {
-                Timber.d("🔔 EMV Callback: onCardDataExchangeComplete")
                 onEmvCardDataExchangeComplete()
             }
 
             override fun onOnlineProc() {
-                Timber.d("🔔 EMV Callback: onOnlineProc")
                 onEmvOnlineProc()
             }
 
             override fun onTransResult(resultCode: Int, msg: String?) {
-                Timber.d("🔔 EMV Callback: onTransResult")
-                Timber.d("   resultCode: $resultCode")
-                Timber.d("   message: $msg")
                 onEmvTransResult(resultCode, msg)
             }
 
             override fun onConfirmationCodeVerified() {
-                Timber.d("🔔 EMV Callback: onConfirmationCodeVerified")
                 onEmvConfirmationCodeVerified()
             }
 
             override fun onRequestDataExchange(data: String?) {
-                Timber.d("🔔 EMV Callback: onRequestDataExchange")
                 onEmvRequestDataExchange(data)
             }
 
             override fun onTermRiskManagement() {
-                Timber.d("🔔 EMV Callback: onTermRiskManagement")
                 onEmvTermRiskManagement()
             }
 
             override fun onPreFirstGenAC() {
-                Timber.d("🔔 EMV Callback: onPreFirstGenAC")
                 onEmvPreFirstGenAC()
             }
 
             override fun onDataStorageProc(tags: Array<out String?>?, values: Array<out String?>?) {
-                Timber.d("🔔 EMV Callback: onDataStorageProc")
                 onEmvDataStorageProc(tags, values)
             }
 
             override fun onCertVerify(certType: Int, certInfo: String?) {
-                Timber.d("🔔 EMV Callback: onCertVerify")
-                Timber.d("   certType: $certType")
                 onEmvCertVerify(certType, certInfo)
             }
 
             override fun onRequestSignature() {
-                Timber.d("🔔 EMV Callback: onRequestSignature")
                 onEmvRequestSignature()
             }
         }
@@ -278,13 +298,11 @@ abstract class BaseCardProcessor(
                 null
             }
         } catch (e: Exception) {
-            Timber.e(e, "❌ Exception reading tags")
             null
         }
     }
 
     private fun onEmvOnlineProc() {
-        Timber.d("⌨️ Emv Online Proc")
         try {
             val onlineResultStatus = AidlConstants.EMV.OnlineResult.ONLINE_APPROVAL
             val importResult = emvOpt.importOnlineProcStatus(onlineResultStatus, null, null, ByteArray(1))
@@ -300,37 +318,28 @@ abstract class BaseCardProcessor(
         }
     }
     private fun onEmvPreFirstGenAC() {
-        Timber.d("⏳ onPreFirstGenAC")
         try {
             emvOpt.importPreFirstGenACStatus(0)
-        } catch (e: Exception) {
-            Timber.e(e, "Lỗi importPreFirstGenACStatus")
+        } catch (_: Exception) {
         }
     }
     private fun onEmvRequestSignature() {
-        Timber.d("⌨️ Emv Request Signature")
         try {
             emvOpt.importSignatureStatus(0)
-        } catch (e: Exception) {
-            Timber.w(e, "Lỗi importSignatureStatus (thường bỏ qua)")
+        } catch (_: Exception) {
         }
     }
     private fun onEmvTermRiskManagement() {
-        Timber.d("🛡️ onTermRiskManagement")
         try {
             emvOpt.importTermRiskManagementStatus(0)
-        } catch (e: Exception) {
-            Timber.e(e, "Lỗi importTermRiskManagementStatus")
+        } catch (_: Exception) {
         }
     }
     private fun onEmvCardDataExchangeComplete() {
-        Timber.d("🔄 onCardDataExchangeComplete")
     }
     private fun onEmvConfirmationCodeVerified() {
-        Timber.d("✔️ onConfirmationCodeVerified")
     }
     private fun onEmvConfirmCardNo(cardNo: String?) {
-        Timber.d("📊 onConfirmCardNo: $cardNo")
         if (!cardNo.isNullOrEmpty()) {
             cardPanForPin = cardNo
         }
@@ -343,16 +352,14 @@ abstract class BaseCardProcessor(
         }
     }
     private fun onEmvRequestDataExchange(data: String?) {
-        Timber.d("📊 onRequestDataExchange")
         try {
             emvOpt.importDataExchangeStatus(0)
-        } catch (e: Exception) {
-            Timber.e(e, "Lỗi importDataExchangeStatus")
+        } catch (_: Exception) {
         }
     }
     private fun onEmvAppFinalSelect(tag9F06Value: String?) {
-        Timber.d("📊 onAppFinalSelect")
         try {
+            detectedCardType = CardProviderType.fromAid(tag9F06Value)
             emvOpt.importAppFinalSelectStatus(0)
         } catch (e: Exception) {
             handleError(PaymentResult.Error.from(
@@ -376,7 +383,6 @@ abstract class BaseCardProcessor(
         }
     }
     private fun onEmvCertVerify(certType: Int, certInfo: String?) {
-        Timber.d("📊 onCertVerify")
         try {
             emvOpt.importCertStatus(0)
         } catch (e: Exception) {
@@ -401,13 +407,11 @@ abstract class BaseCardProcessor(
             override fun onConfirm(resultCode: Int, pinBlock: ByteArray?) {
                 if (resultCode == 0 && pinBlock != null && pinBlock.isNotEmpty()) {
                     val blockHex = pinBlock.joinToString("") { "%02X".format(it) }
-                    Timber.d("✅ PIN Block: $blockHex")
 
                     // 🔥 LẤY KSN SAU KHI CONFIRM
                     val ksnBytes = ByteArray(10)
                     securityOpt.dukptCurrentKSN(1, ksnBytes)
                     val ksnHex = ksnBytes.joinToString("") { "%02X".format(it) }
-                    Timber.d("✅ KSN: $ksnHex")
 
                     currentKsn = ksnHex
                     currentPinBlock = blockHex
@@ -441,10 +445,8 @@ abstract class BaseCardProcessor(
         }
     }
     private fun onEmvDataStorageProc(tags: Array<out String?>?, values: Array<out String?>?) {
-        Timber.d("💾 onDataStorageProc")
     }
     private fun onEmvWaitAppSelect(candidates: MutableList<EMVCandidateV2>?, isFirstSelect: Boolean) {
-        Timber.d("💾 onWaitAppSelect")
         try {
             emvOpt.importAppSelect(0)
         } catch (e: Exception) {

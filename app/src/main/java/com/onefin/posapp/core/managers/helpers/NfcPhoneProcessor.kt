@@ -9,9 +9,9 @@ import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.models.data.RequestSale
-import com.onefin.posapp.core.models.enums.CardType
 import com.onefin.posapp.core.utils.CardHelper
 import com.onefin.posapp.core.utils.UtilHelper
+import com.sunmi.pay.hardware.aidl.AidlConstants
 import timber.log.Timber
 import java.io.IOException
 
@@ -177,6 +177,10 @@ class NfcPhoneProcessor(
                 )
                 return
             }
+            val posEntryMode = CardHelper.parsePosEntryMode(null, AidlConstants.CardType.NFC,
+                transactionHasPin = false,
+                deviceHasPinPad = false
+            )
             val requestSale = CardHelper.buildRequestSale(
                 request,
                 RequestSale.Data.Card(
@@ -191,8 +195,12 @@ class NfcPhoneProcessor(
                     expiryDate = cardData.expiry,
                     holderName = cardData.holderName,
                     issuerName = cardData.issuerName,
-                    mode = CardType.CONTACTLESS.displayName,
                     type = CardHelper.detectBrand(cardData.pan),
+                    mode = AidlConstants.CardType.NFC.value.toString(),
+                ),
+                RequestSale.Data.Device(
+                    posEntryMode = posEntryMode,
+                    posConditionCode = "00"
                 )
             )
 

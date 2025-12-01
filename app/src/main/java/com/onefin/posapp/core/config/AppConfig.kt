@@ -9,7 +9,7 @@ object AppConfig {
         DEV, STG, PROD
     }
     
-    private val CURRENT_ENV = Environment.STG
+    private val CURRENT_ENV = Environment.PROD
     
     val baseUrl: String
         get() = when (CURRENT_ENV) {

@@ -37,7 +37,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideGson(): Gson {
-        return GsonBuilder().create()
+        return GsonBuilder().disableHtmlEscaping().create()
     }
 
     /**
