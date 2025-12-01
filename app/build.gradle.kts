@@ -126,6 +126,16 @@ android {
             buildConfigField("String", "APP_KEY", "\"909c326357b74a36a9dafadfdf6cb5bf\"")
         }
 
+        // Flavor cho khách hàng B
+        create("pilot") {
+            dimension = "customer"
+            versionNameSuffix = "-pilot"
+            resValue("string", "app_name", "Onefin Pilot")
+            buildConfigField("String", "SDK_TYPE", "\"onefin\"")
+            buildConfigField("String", "USERNAME", "\"anhchu@onefin.vn\"")
+            buildConfigField("String", "APP_KEY", "\"2cc3ec327ce34f0ba4488071d356baf0\"")
+        }
+
         // Flavor mặc định (không có APP_KEY - phải login thủ công)
         create("default") {
             dimension = "customer"
