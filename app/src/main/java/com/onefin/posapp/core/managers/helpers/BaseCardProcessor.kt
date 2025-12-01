@@ -4,7 +4,6 @@ import android.content.Context
 import android.os.Bundle
 import com.atg.pos.domain.entities.payment.ByteUtil
 import com.atg.pos.domain.entities.payment.TLVUtil
-import com.google.gson.GsonBuilder
 import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.PaymentAppRequest
 import com.onefin.posapp.core.models.data.PaymentResult
@@ -109,7 +108,8 @@ abstract class BaseCardProcessor(
 
             val outData = ByteArray(2048)
             val f55Tags = F55Manager.getF55TagsRequired(detectedCardType, cardType)
-            val length = emvOpt.getTlvList(2, f55Tags, outData)
+            val tvlOpCode = F55Manager.getTLVOpCode(detectedCardType, cardType)
+            val length = emvOpt.getTlvList(tvlOpCode, f55Tags, outData)
 
             val f55Hex = if (length > 0) {
                 val copy = outData.copyOf(length)
@@ -133,8 +133,7 @@ abstract class BaseCardProcessor(
                 EMVTag.POS_ENTRY_MODE  // POS Entry Mode
             )
             val additionalData = ByteArray(2048)
-            val additionalLength = emvOpt.getTlvList(0, additionalTags, additionalData)
-
+            val additionalLength = emvOpt.getTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, additionalTags, additionalData)
             val cardDetailsHex = if (additionalLength > 0) {
                 ByteUtil.bytes2HexStr(additionalData.copyOf(additionalLength))
             } else {
@@ -282,23 +281,6 @@ abstract class BaseCardProcessor(
             override fun onRequestSignature() {
                 onEmvRequestSignature()
             }
-        }
-    }
-    protected fun readEmvTags(tags: Array<String>): String? {
-        return try {
-            val outData = ByteArray(4096)
-            val len = emvOpt.getTlvList(
-                AidlConstants.EMV.TLVOpCode.OP_NORMAL,
-                tags,
-                outData
-            )
-            if (len > 0) {
-                outData.copyOf(len).joinToString("") { "%02X".format(it) }
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            null
         }
     }
 

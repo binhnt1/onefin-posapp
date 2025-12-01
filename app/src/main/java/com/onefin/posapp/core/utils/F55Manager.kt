@@ -51,6 +51,35 @@ object F55Manager {
         "9F36", "9F37", "9F6E", "9F7C", EMVTag.CHIP_APP_ID
     )
 
+    fun getTLVOpCode(cardType: CardProviderType?, cardInterface: AidlConstants.CardType): Int {
+        return when (cardType) {
+            CardProviderType.VISA if cardInterface == AidlConstants.CardType.IC ->
+                AidlConstants.EMV.TLVOpCode.OP_PAYWAVE
+
+            CardProviderType.VISA if cardInterface == AidlConstants.CardType.NFC ->
+                AidlConstants.EMV.TLVOpCode.OP_PAYWAVE
+
+            CardProviderType.MASTER if cardInterface == AidlConstants.CardType.IC ->
+                AidlConstants.EMV.TLVOpCode.OP_PAYPASS
+
+            CardProviderType.MASTER if cardInterface == AidlConstants.CardType.NFC ->
+                AidlConstants.EMV.TLVOpCode.OP_PAYPASS
+
+            CardProviderType.NAPAS if cardInterface == AidlConstants.CardType.IC ->
+                AidlConstants.EMV.TLVOpCode.OP_PURE
+
+            CardProviderType.NAPAS if cardInterface == AidlConstants.CardType.NFC ->
+                AidlConstants.EMV.TLVOpCode.OP_PURE
+
+            CardProviderType.JCB if cardInterface == AidlConstants.CardType.IC ->
+                AidlConstants.EMV.TLVOpCode.OP_JCB
+
+            CardProviderType.JCB if cardInterface == AidlConstants.CardType.NFC ->
+                AidlConstants.EMV.TLVOpCode.OP_JCB
+
+            else -> AidlConstants.EMV.TLVOpCode.OP_PAYWAVE
+        }
+    }
     fun getF55TagsRequired(cardType: CardProviderType?, cardInterface: AidlConstants.CardType): Array<String> {
         return when (cardType) {
             CardProviderType.VISA if cardInterface == AidlConstants.CardType.IC ->
