@@ -12,7 +12,6 @@ import com.onefin.posapp.core.models.data.RequestSale
 import com.onefin.posapp.core.utils.CardHelper
 import com.onefin.posapp.core.utils.UtilHelper
 import com.sunmi.pay.hardware.aidl.AidlConstants
-import timber.log.Timber
 import java.io.IOException
 
 class NfcPhoneProcessor(
@@ -56,9 +55,7 @@ class NfcPhoneProcessor(
             isProcessingStarted = false
             isoDep?.close()
             isoDep = null
-            Timber.d("✅ Cancelled successfully")
-        } catch (e: Exception) {
-            Timber.e(e, "⚠️ Error during cancellation")
+        } catch (_: Exception) {
         }
     }
 
@@ -78,7 +75,6 @@ class NfcPhoneProcessor(
 
             // Connect
             isoDep!!.connect()
-            Timber.d("✅ IsoDep connected")
 
             // Create provider for emvnfccard library
             val provider = createProvider(isoDep!!)
@@ -95,8 +91,6 @@ class NfcPhoneProcessor(
                 .setProvider(provider)
                 .setConfig(config)
                 .build()
-
-            Timber.d("📖 Reading EMV card data...")
             val emvCard = parser.readEmvCard()
 
             if (emvCard == null) {
@@ -108,8 +102,6 @@ class NfcPhoneProcessor(
                 )
                 return
             }
-
-            Timber.d("✅ Card read successfully: ${emvCard.cardNumber}")
 
             // Parse EMV data
             parseAndBuildResult(emvCard)
@@ -131,8 +123,7 @@ class NfcPhoneProcessor(
         } finally {
             try {
                 isoDep?.close()
-            } catch (e: Exception) {
-                Timber.e(e, "Error closing IsoDep")
+            } catch (_: Exception) {
             }
         }
     }
@@ -203,8 +194,6 @@ class NfcPhoneProcessor(
                     posConditionCode = "00"
                 )
             )
-
-            Timber.d("✅ Payment data prepared successfully")
             processingComplete(PaymentResult.Success(requestSale))
 
         } catch (e: Exception) {

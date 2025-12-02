@@ -37,7 +37,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -107,8 +106,7 @@ class RabbitMQManager @Inject constructor(
                 val intent = Intent(context, LoginActivity::class.java)
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 context.startActivity(intent)
-            } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Error during logout")
+            } catch (_: Exception) {
             }
         }, 5000)
     }
@@ -148,8 +146,7 @@ class RabbitMQManager @Inject constructor(
                 }
             }
 
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error handling rabbit message")
+        } catch (_: Exception) {
         }
     }
 
@@ -226,8 +223,7 @@ class RabbitMQManager @Inject constructor(
                 PaymentSuccessActivity.start(context, paymentData)
                 return
             }
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error parsing QR success data")
+        } catch (_: Exception) {
         }
     }
 
@@ -249,8 +245,7 @@ class RabbitMQManager @Inject constructor(
                     handleCardMemberPayment(paymentRequest)
                 }
             }
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error parsing payment request")
+        } catch (_: Exception) {
         }
     }
 
@@ -385,8 +380,7 @@ class RabbitMQManager @Inject constructor(
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error handling QR payment")
+        } catch (_: Exception) {
         }
     }
 
@@ -403,8 +397,7 @@ class RabbitMQManager @Inject constructor(
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error handling card payment")
+        } catch (_: Exception) {
         }
     }
 
@@ -421,8 +414,7 @@ class RabbitMQManager @Inject constructor(
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error handling card member payment")
+        } catch (_: Exception) {
         }
     }
 }

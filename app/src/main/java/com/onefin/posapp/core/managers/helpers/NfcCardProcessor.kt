@@ -11,7 +11,6 @@ import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadOptV2
 import com.sunmi.pay.hardware.aidlv2.readcard.ReadCardOptV2
 import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
 import kotlinx.coroutines.*
-import timber.log.Timber
 
 class NfcCardProcessor(
     context: Context,

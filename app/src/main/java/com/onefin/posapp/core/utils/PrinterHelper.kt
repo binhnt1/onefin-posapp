@@ -6,14 +6,11 @@ import android.os.RemoteException
 import com.onefin.posapp.PosApplication
 import com.sunmi.peripheral.printer.InnerResultCallback
 import com.sunmi.peripheral.printer.SunmiPrinterService
-import timber.log.Timber
 import kotlinx.coroutines.delay
 
 class PrinterHelper(private val context: Context) {
 
     companion object {
-        private const val TAG = "PrinterHelper"
-
         const val ALIGN_LEFT = 0
         const val ALIGN_CENTER = 1
         const val ALIGN_RIGHT = 2
@@ -29,9 +26,6 @@ class PrinterHelper(private val context: Context) {
 
     fun isReady(): Boolean {
         val ready = printerService != null
-        if (!ready) {
-            Timber.tag(TAG).w("Printer not ready - Service: ${printerService != null}")
-        }
         return ready
     }
 
@@ -47,18 +41,14 @@ class PrinterHelper(private val context: Context) {
     fun enterPrinterBuffer(clear: Boolean) {
         try {
             printerService?.enterPrinterBuffer(clear)
-            Timber.tag(TAG).d("Enter printer buffer")
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error entering printer buffer")
+        } catch (_: RemoteException) {
         }
     }
 
     fun exitPrinterBuffer(commit: Boolean) {
         try {
             printerService?.exitPrinterBuffer(commit)
-            Timber.tag(TAG).d("Exit printer buffer and commit")
         } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error exiting printer buffer")
         }
     }
 
@@ -75,34 +65,28 @@ class PrinterHelper(private val context: Context) {
                 byteArrayOf(0x1B, 0x37, 0x0A, 0x64, 0x64),
                 null
             )
-
-            Timber.tag(TAG).d("Set print density: $validDensity")
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error setting print density")
+        } catch (_: RemoteException) {
         }
     }
 
     fun setAlignment(alignment: Int, callback: InnerResultCallback? = null) {
         try {
             printerService?.setAlignment(alignment, callback)
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error setting alignment")
+        } catch (_: RemoteException) {
         }
     }
 
     fun setFontSize(size: Float, callback: InnerResultCallback? = null) {
         try {
             printerService?.setFontSize(size, callback)
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error setting font size")
+        } catch (_: RemoteException) {
         }
     }
 
     fun printText(text: String, callback: InnerResultCallback? = null) {
         try {
             printerService?.printText(text, callback)
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error printing text")
+        } catch (_: RemoteException) {
         }
     }
 
@@ -129,16 +113,14 @@ class PrinterHelper(private val context: Context) {
 
             setAlignment(ALIGN_LEFT)
             setFontSize(TEXT_SIZE_NORMAL)
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error printing formatted text")
+        } catch (_: RemoteException) {
         }
     }
 
     fun printNewLine(lines: Int = 1) {
         try {
             printerService?.lineWrap(lines, null)
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error printing new line")
+        } catch (_: RemoteException) {
         }
     }
 
@@ -146,8 +128,7 @@ class PrinterHelper(private val context: Context) {
         try {
             val divider = char.repeat(length)
             printTextWithFormat(divider, ALIGN_CENTER)
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error printing divider")
+        } catch (_: Exception) {
         }
     }
 
@@ -184,8 +165,7 @@ class PrinterHelper(private val context: Context) {
                 printText(spaces + right)
                 printNewLine()
             }
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error printing two columns")
+        } catch (_: Exception) {
         }
     }
 
@@ -197,14 +177,14 @@ class PrinterHelper(private val context: Context) {
 
         while (remaining.length > maxWidth) {
             var cutPos = maxWidth
-            val lastSpace = remaining.substring(0, maxWidth).lastIndexOf(' ')
+            val lastSpace = remaining.take(maxWidth).lastIndexOf(' ')
 
             // Ưu tiên cắt tại space
             if (lastSpace > 0) {
                 cutPos = lastSpace
             }
 
-            lines.add(remaining.substring(0, cutPos).trim())
+            lines.add(remaining.take(cutPos).trim())
             remaining = remaining.substring(cutPos).trim()
         }
 
@@ -238,8 +218,7 @@ class PrinterHelper(private val context: Context) {
             setAlignment(ALIGN_LEFT)
             printText(line)
             printNewLine()
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error printing three columns")
+        } catch (_: Exception) {
         }
     }
 
@@ -251,8 +230,7 @@ class PrinterHelper(private val context: Context) {
     ) {
         try {
             printerService?.printColumnsText(texts, widths, aligns, callback)
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error printing columns")
+        } catch (_: RemoteException) {
         }
     }
 
@@ -262,8 +240,7 @@ class PrinterHelper(private val context: Context) {
             printerService?.printQRCode(data, size, 0, callback)
             printNewLine(1)
             setAlignment(ALIGN_LEFT)
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error printing QR code")
+        } catch (_: RemoteException) {
         }
     }
 
@@ -279,8 +256,7 @@ class PrinterHelper(private val context: Context) {
             printerService?.printBarCode(data, barcodeType, height, width, 0, callback)
             printNewLine(1)
             setAlignment(ALIGN_LEFT)
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error printing barcode")
+        } catch (_: RemoteException) {
         }
     }
 
@@ -290,40 +266,35 @@ class PrinterHelper(private val context: Context) {
             printerService?.printBitmap(bitmap, callback)
             printNewLine(1)
             setAlignment(ALIGN_LEFT)
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error printing bitmap")
+        } catch (_: RemoteException) {
         }
     }
 
     fun feedPaper(lines: Int = 3) {
         try {
             printerService?.lineWrap(lines, null)
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error feeding paper")
+        } catch (_: RemoteException) {
         }
     }
 
     fun cutPaper() {
         try {
             printerService?.sendRAWData(byteArrayOf(0x1D, 0x56, 0x00), null)
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error cutting paper")
+        } catch (_: RemoteException) {
         }
     }
 
     fun openCashDrawer(callback: InnerResultCallback? = null) {
         try {
             printerService?.openDrawer(callback)
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error opening cash drawer")
+        } catch (_: RemoteException) {
         }
     }
 
     fun getPrinterStatus(): Int {
         return try {
             printerService?.updatePrinterState() ?: -1
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error getting printer status")
+        } catch (_: RemoteException) {
             -1
         }
     }
@@ -336,8 +307,7 @@ class PrinterHelper(private val context: Context) {
     fun getSerialNumber(): String? {
         return try {
             printerService?.printerSerialNo
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error getting serial number")
+        } catch (_: RemoteException) {
             null
         }
     }
@@ -345,8 +315,7 @@ class PrinterHelper(private val context: Context) {
     fun getPrinterVersion(): String? {
         return try {
             printerService?.printerVersion
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error getting printer version")
+        } catch (_: RemoteException) {
             null
         }
     }
@@ -359,8 +328,7 @@ class PrinterHelper(private val context: Context) {
     fun initPrinter(callback: InnerResultCallback? = null) {
         try {
             printerService?.printerInit(callback)
-        } catch (e: RemoteException) {
-            Timber.tag(TAG).e(e, "Error initializing printer")
+        } catch (_: RemoteException) {
         }
     }
 }

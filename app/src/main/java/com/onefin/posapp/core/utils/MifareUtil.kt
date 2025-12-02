@@ -5,7 +5,6 @@ import android.text.TextUtils
 import com.onefin.posapp.core.config.MifareConstants
 import com.onefin.posapp.core.models.data.MifareData
 import com.sunmi.pay.hardware.aidlv2.readcard.ReadCardOptV2
-import timber.log.Timber
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 
@@ -15,17 +14,14 @@ object MifareUtil {
         return try {
             // Validate inputs
             if (pin.length !in 4..12) {
-                Timber.e("❌ Invalid PIN length: ${pin.length}, must be 4-12 digits")
                 return null
             }
 
             if (!pin.all { it.isDigit() }) {
-                Timber.e("❌ PIN must contain only digits")
                 return null
             }
 
             if (pkeyHex.length != 32) {
-                Timber.e("❌ Invalid pkey length: ${pkeyHex.length}, expected 32 hex chars")
                 return null
             }
 
@@ -38,7 +34,6 @@ object MifareUtil {
             // Format: 0000 + last 12 digits of PAN (excluding check digit)
             val panDigits = pan.filter { it.isDigit() }
             if (panDigits.length < 13) {
-                Timber.e("❌ PAN too short: ${panDigits.length}, need at least 13 digits")
                 return null
             }
 
@@ -57,86 +52,51 @@ object MifareUtil {
             // Step 5: Convert to hex string
             encrypted.joinToString("") { "%02X".format(it) }
 
-        } catch (e: Exception) {
-            Timber.e(e, "❌ Exception building PIN block")
+        } catch (_: Exception) {
             null
         }
     }
 
     fun readMifareCard(readCardOpt: ReadCardOptV2, keyHex: String): MifareData? {
         try {
-            Timber.d("🔑 Starting Mifare read with key: ${keyHex.take(4)}...")
-
-            Timber.d("📖 Reading Sector 0...")
-            val sector0 = readMifareSector(readCardOpt, 0, keyHex)
-            if (sector0 == null) {
-                Timber.e("❌ Failed to read Sector 0")
-                return null
-            }
-            Timber.d("✅ Sector 0 read successfully")
-
-            Timber.d("📖 Reading Sector 1...")
-            val sector1 = readMifareSector(readCardOpt, 1, keyHex)
-            if (sector1 == null) {
-                Timber.e("❌ Failed to read Sector 1")
-                return null
-            }
-            Timber.d("✅ Sector 1 read successfully")
-
-            Timber.d("📖 Reading Sector 2 (optional)...")
+            val sector0 = readMifareSector(readCardOpt, 0, keyHex) ?: return null
+            val sector1 = readMifareSector(readCardOpt, 1, keyHex) ?: return null
             val sector2 = readMifareSector(readCardOpt, 2, keyHex)
-            if (sector2 == null) {
-                Timber.w("⚠️ Sector 2 not available (optional)")
-            }
-
             return MifareData(
                 sector0 = sector0,
                 sector1 = sector1,
                 sector2 = sector2
             )
 
-        } catch (e: Exception) {
-            Timber.e(e, "❌ Exception reading Mifare card")
+        } catch (_: Exception) {
         }
         return null
     }
 
     fun readMifareSector(readCardOpt: ReadCardOptV2, sector: Int, keyHex: String): MifareData.SectorData? {
         return try {
-            Timber.d("   🔐 Auth sector $sector with key: ${keyHex.take(4)}...")
-
             val keyBytes = hexStr2Bytes(keyHex)
-            Timber.d("   🔑 Key bytes length: ${keyBytes.size}")
-
             if (keyBytes.size != 6) {
-                Timber.e("   ❌ Invalid key length: ${keyBytes.size}, expected 6")
                 return null
             }
 
             val startBlock = sector * MifareConstants.BLOCKS_PER_SECTOR
-            Timber.d("   📍 Start block: $startBlock")
-
             val authResult = readCardOpt.mifareAuth(
                 MifareConstants.KEY_TYPE_A,
                 startBlock,
                 keyBytes
             )
 
-            Timber.d("   🔓 Auth result: $authResult")
-
             if (authResult != 0) {
-                Timber.e("   ❌ Authentication failed: code=$authResult")
                 return null
             }
 
             // Read 3 blocks
-            Timber.d("   📖 Reading blocks...")
             val block0 = readMifareBlock(readCardOpt, startBlock + 0)
             val block1 = readMifareBlock(readCardOpt, startBlock + 1)
             val block2 = readMifareBlock(readCardOpt, startBlock + 2)
 
             if (block0 == null || block1 == null || block2 == null) {
-                Timber.e("   ❌ Failed to read blocks (0:${block0 != null}, 1:${block1 != null}, 2:${block2 != null})")
                 return null
             }
             MifareData.SectorData(
@@ -145,8 +105,7 @@ object MifareUtil {
                 block2 = block2
             )
 
-        } catch (e: Exception) {
-            Timber.e(e, "   ❌ Exception reading sector $sector")
+        } catch (_: Exception) {
             null
         }
     }
@@ -207,7 +166,6 @@ object MifareUtil {
             cipher.doFinal(data)
 
         } catch (e: Exception) {
-            Timber.e(e, "❌ 3DES encryption failed")
             throw e
         }
     }
@@ -217,15 +175,13 @@ object MifareUtil {
             val result = readCardOpt.mifareReadBlock(block, outData)
 
             if (result != 16) {
-                Timber.e("❌ Failed to read block $block: result=$result")
                 return null
             }
 
             // Convert to hex string (uppercase)
             outData.joinToString("") { "%02X".format(it) }
 
-        } catch (e: Exception) {
-            Timber.e(e, "❌ Exception reading block $block")
+        } catch (_: Exception) {
             null
         }
     }

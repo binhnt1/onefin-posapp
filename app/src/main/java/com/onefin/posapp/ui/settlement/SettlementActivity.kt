@@ -1,6 +1,5 @@
 package com.onefin.posapp.ui.settlement
 
-import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -51,7 +50,6 @@ import com.onefin.posapp.ui.transaction.components.TransactionList
 import com.google.gson.Gson
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -93,7 +91,6 @@ data class SettlementStatistic(
     val settledAmount: Long = 0L
 )
 
-@SuppressLint("TimberArgCount")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettlementScreen(
@@ -105,13 +102,11 @@ fun SettlementScreen(
     val context = LocalContext.current
     var transactions by remember { mutableStateOf<List<Transaction>>(emptyList()) }
     var stats by remember { mutableStateOf(SettlementStatistic()) }
-    var totalAmount by remember { mutableLongStateOf(0L) }
     var unSettleTotalAmount by remember { mutableLongStateOf(0L) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isSettling by remember { mutableStateOf(false) }
     var isPrinting by remember { mutableStateOf(false) }
-    var resumeCount by remember { mutableIntStateOf(0) }
     var showSettleDialog by remember { mutableStateOf(false) }
 
     var selectedDateRange by remember { mutableStateOf(DateRangeType.TODAY) }
@@ -144,8 +139,6 @@ fun SettlementScreen(
                 val type = object : com.google.gson.reflect.TypeToken<List<Transaction>>() {}.type
                 transactions = gson.fromJson(jsonString, type) ?: emptyList()
 
-                totalAmount = (transactionsResult.total as? Number)?.toLong() ?: 0L
-
                 // Load unsettled stats (status=1 - Chưa kết toán)
                 val unsettledResult = apiService.get(
                     "/api/transaction/items?status=1",
@@ -177,7 +170,6 @@ fun SettlementScreen(
                 )
 
             } catch (e: Exception) {
-                Timber.tag("SettlementActivity").e(e, "Error loading data: ${e.message}")
                 errorMessage = e.message ?: "Unknown error"
             } finally {
                 isLoading = false
@@ -192,7 +184,6 @@ fun SettlementScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                resumeCount++
                 if (SettlementActivity.shouldRefresh) {
                     SettlementActivity.shouldRefresh = false
                     scope.launch {
@@ -216,7 +207,6 @@ fun SettlementScreen(
         AlertDialog(
             onDismissRequest = {
                 if (!isSettling && !isPrinting) {
-                    showSettleDialog = false
                 }
             },
             title = {
@@ -245,7 +235,6 @@ fun SettlementScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        showSettleDialog = false
                         scope.launch {
                             val gson = Gson()
                             isSettling = true
@@ -285,13 +274,12 @@ fun SettlementScreen(
                                     val printResult = receiptPrinter.printSettlementReceipt(settleData)
                                     if (printResult.isSuccess) {
                                         snackbarHostState.showSnackbar("✅ Đã in đối soát")
-                                    } else {0
+                                    } else {
                                         snackbarHostState.showSnackbar(
                                             "⚠️ Đối soát thành công nhưng không thể in"
                                         )
                                     }
                                 } catch (e: Exception) {
-                                    Timber.e(e, "Print error")
                                     snackbarHostState.showSnackbar("❌ Lỗi in: ${e.message}")
                                 } finally {
                                     isPrinting = false
@@ -314,7 +302,7 @@ fun SettlementScreen(
             },
             dismissButton = {
                 OutlinedButton(
-                    onClick = { showSettleDialog = false },
+                    onClick = {  },
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.height(48.dp),
                     enabled = !isSettling && !isPrinting
@@ -414,7 +402,7 @@ fun SettlementScreen(
                 SettlementBottomBar(
                     totalAmount = unSettleTotalAmount,
                     isSettling = isSettling || isPrinting,
-                    onSettleClick = { showSettleDialog = true }
+                    onSettleClick = {  }
                 )
             }
         }

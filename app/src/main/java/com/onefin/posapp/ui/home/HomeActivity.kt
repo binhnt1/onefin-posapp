@@ -251,42 +251,6 @@ fun HomeScreen(
         }
     }
 
-    // EMV pre-initialization
-    LaunchedEffect(cachedAccount, deviceType) {
-        if (cachedAccount != null && !emvInitialized && !isInitializingEMV) {
-            isInitializingEMV = true
-
-            // Init EMV manager in background using suspend coroutine
-            try {
-                val (success) = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
-                    when (deviceType) {
-                        "sunmi" -> {
-                            cardProcessorManager.initialize { success, error ->
-                                if (continuation.isActive) {
-                                    continuation.resume(Pair(success, error)) {}
-                                }
-                            }
-                        }
-                        "phone" -> {
-                            nfcPhoneReaderManager.initialize { success, error ->
-                                if (continuation.isActive) {
-                                    continuation.resume(Pair(success, error)) {}
-                                }
-                            }
-                        }
-                    }
-                }
-
-                isInitializingEMV = false
-                if (success) {
-                    showSuccessMessage = true
-                }
-            } catch (e: Exception) {
-                isInitializingEMV = false
-            }
-        }
-    }
-
     // Auto-dismiss success message after 5 seconds
     LaunchedEffect(showSuccessMessage) {
         if (showSuccessMessage) {

@@ -18,7 +18,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import timber.log.Timber
 
 interface PinInputCallback {
     fun requestPinInput(onPinEntered: (String) -> Unit, onCancelled: () -> Unit)
@@ -48,14 +47,10 @@ class MifareCardProcessor(
     override fun processTransaction(info: Bundle) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                Timber.d("🎴 ====== MIFARE CARD PROCESSING START ======")
-
-                // Step 2: Read Mifare card data
                 if (!readMifareCardData()) {
                     return@launch
                 }
 
-                // Step 4: Check if PIN is required
                 val nfcConfig = storageService.getNfcConfig()
                 if (nfcConfig?.isPinRequired() == true) {
                     withContext(Dispatchers.Main) {
@@ -66,7 +61,6 @@ class MifareCardProcessor(
                 }
 
             } catch (e: Exception) {
-                Timber.e(e, "❌ Exception in processTransaction")
                 handleError(
                     PaymentResult.Error.from(
                         PaymentErrorHandler.ErrorType.CARD_READ_FAILED,
@@ -79,10 +73,7 @@ class MifareCardProcessor(
 
     private fun promptPinInput() {
         try {
-            Timber.d("🔔 === PROMPT PIN INPUT ===")
-
             val pan = mifareData?.getPanFromTrack2() ?: run {
-                Timber.e("❌ PAN not available")
                 handleError(
                     PaymentResult.Error.from(
                         PaymentErrorHandler.ErrorType.CARD_READ_FAILED,
@@ -92,10 +83,7 @@ class MifareCardProcessor(
                 return
             }
 
-            Timber.d("   📌 PAN: ${pan.take(6)}...${pan.takeLast(4)}")
-
             if (pinInputCallback == null) {
-                Timber.e("❌ PinInputCallback is NULL")
                 handleError(
                     PaymentResult.Error.from(
                         PaymentErrorHandler.ErrorType.PIN_INPUT_FAILED,
@@ -105,15 +93,11 @@ class MifareCardProcessor(
                 return
             }
 
-            Timber.d("   ✅ Requesting PIN input from UI...")
-
             pinInputCallback.requestPinInput(
                 onPinEntered = { clearPin ->
-                    Timber.d("   ✅ PIN entered from UI: $clearPin")
                     handleCustomPinInput(clearPin)
                 },
                 onCancelled = {
-                    Timber.w("   ⚠️ PIN entry cancelled by user")
                     handleError(
                         PaymentResult.Error.from(
                             PaymentErrorHandler.ErrorType.USER_CANCELLED,
@@ -123,10 +107,7 @@ class MifareCardProcessor(
                 }
             )
 
-            Timber.d("🔔 === PROMPT PIN INPUT END ===")
-
         } catch (e: Exception) {
-            Timber.e(e, "❌ Exception in promptPinInput")
             handleError(
                 PaymentResult.Error.from(
                     PaymentErrorHandler.ErrorType.PIN_INPUT_FAILED,
@@ -149,14 +130,11 @@ class MifareCardProcessor(
             return false
         }
 
-        Timber.d("📖 Starting Mifare card read...")
         mifareData = withContext(Dispatchers.IO) {
             MifareUtil.readMifareCard(readCardOpt, nfcKey)
         }
-        Timber.d("📊 Mifare data result: ${mifareData != null}")
 
         if (mifareData == null) {
-            Timber.e("❌ Failed to read Mifare card")
             handleError(
                 PaymentResult.Error.from(
                     PaymentErrorHandler.ErrorType.CARD_READ_FAILED,
@@ -229,13 +207,7 @@ class MifareCardProcessor(
     private fun handleCustomPinInput(clearPin: String) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                Timber.d("🔐 === HANDLE CUSTOM PIN INPUT ===")
-                Timber.d("   📌 Clear PIN received: $clearPin")
-                Timber.d("   📏 PIN length: ${clearPin.length}")
-
-                // ✅ Validate: PIN must be exactly 6 digits
                 if (clearPin.length != 6) {
-                    Timber.e("❌ Invalid PIN length")
                     handleError(
                         PaymentResult.Error.from(
                             PaymentErrorHandler.ErrorType.PIN_INPUT_FAILED,
@@ -245,9 +217,7 @@ class MifareCardProcessor(
                     return@launch
                 }
 
-                // ✅ Validate: PIN must be all digits
                 if (!clearPin.all { it.isDigit() }) {
-                    Timber.e("❌ PIN contains non-digits")
                     handleError(
                         PaymentResult.Error.from(
                             PaymentErrorHandler.ErrorType.PIN_INPUT_FAILED,
@@ -257,16 +227,9 @@ class MifareCardProcessor(
                     return@launch
                 }
 
-                Timber.d("   ✅ PIN validation passed")
-                Timber.d("   🚀 Calling completeTransaction with PIN: $clearPin")
-
-                // ✅ Gửi PIN thô cho MIFARE
                 completeTransaction(clearPin)
 
-                Timber.d("🔐 === HANDLE CUSTOM PIN INPUT END ===")
-
             } catch (e: Exception) {
-                Timber.e(e, "❌ Exception in handleCustomPinInput")
                 handleError(
                     PaymentResult.Error.from(
                         PaymentErrorHandler.ErrorType.PIN_INPUT_FAILED,

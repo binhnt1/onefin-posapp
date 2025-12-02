@@ -96,7 +96,6 @@ class TransparentPaymentActivity : AppCompatActivity() {
         paymentHelper.handleActivityResult(
             requestCode, resultCode, data,
             onSuccess = { response ->
-                // Timber.tag("PAYMENT").d(response)
             },
             onError = { code, message ->
                 val errorMessage = getString(R.string.error_generic_format, message)

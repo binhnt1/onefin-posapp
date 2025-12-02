@@ -1,7 +1,6 @@
 package com.onefin.posapp.core.models.data
 
 import com.google.gson.annotations.SerializedName
-import timber.log.Timber
 import java.io.Serializable
 
 data class MifareData(
@@ -46,47 +45,11 @@ data class MifareData(
     }
     fun getCardHolderName(icData: String): String? {
         try {
-            Timber.d("🔍 === PARSING CARDHOLDER NAME ===")
-
             val blocks = icData.split("|")
-            Timber.d("   Total blocks: ${blocks.size}")
-
             for (i in blocks.indices) {
                 val blockHex = blocks[i]
-                Timber.d("   📦 Block $i:")
-                Timber.d("      Hex: $blockHex")
-
                 if (blockHex.isEmpty() || blockHex.matches(Regex("^[0F]+$"))) {
-                    Timber.d("      ⏭️  Skip (empty/padding)")
                     continue
-                }
-
-                try {
-                    val bytes = hexToBytes(blockHex)
-                    Timber.d("      Raw bytes: ${bytes.contentToString()}")
-
-                    // Thử nhiều encoding
-                    val utf8 = String(bytes, Charsets.UTF_8)
-                    val ascii = String(bytes, Charsets.US_ASCII)
-                    val iso = String(bytes, Charsets.ISO_8859_1)
-
-                    Timber.d("      UTF-8: [$utf8]")
-                    Timber.d("      ASCII: [$ascii]")
-                    Timber.d("      ISO-8859-1: [$iso]")
-
-                    // Kiểm tra xem có phải là text không
-                    val cleanUtf8 = utf8.replace(Regex("[\\x00-\\x1F\\x7F-\\x9F]"), "").trim()
-                    if (cleanUtf8.length >= 2 && cleanUtf8.any { it.isLetter() }) {
-                        Timber.d("      ✅ Found potential name in UTF-8: [$cleanUtf8]")
-                    }
-
-                    val cleanAscii = ascii.replace(Regex("[\\x00-\\x1F\\x7F-\\x9F]"), "").trim()
-                    if (cleanAscii.length >= 2 && cleanAscii.any { it.isLetter() }) {
-                        Timber.d("      ✅ Found potential name in ASCII: [$cleanAscii]")
-                    }
-
-                } catch (e: Exception) {
-                    Timber.e(e, "      ❌ Error parsing block $i")
                 }
             }
 
@@ -95,16 +58,11 @@ data class MifareData(
                 val blockData = blocks[i]
                 val name = parseNameFromBlock(blockData)
                 if (!name.isNullOrEmpty()) {
-                    Timber.d("   ✅ FINAL NAME FOUND: [$name]")
                     return name.trim()
                 }
             }
-
-            Timber.d("   ❌ No name found in any block")
             return null
-
         } catch (e: Exception) {
-            Timber.e(e, "❌ Exception parsing cardholder name")
             return null
         }
     }

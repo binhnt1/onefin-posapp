@@ -21,8 +21,6 @@ import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadListenerV2
 import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadOptV2
 import com.sunmi.pay.hardware.aidlv2.readcard.ReadCardOptV2
 import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
-import timber.log.Timber
-
 
 abstract class BaseCardProcessor(
     protected val context: Context,
@@ -56,7 +54,6 @@ abstract class BaseCardProcessor(
     ) {
         // Validate kernel initialized
         if (!isKernelInitialized) {
-            Timber.e("❌ Kernel chưa được khởi tạo!")
             onProcessingComplete(
                 PaymentResult.Error.from(
                     PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
@@ -67,7 +64,6 @@ abstract class BaseCardProcessor(
         }
 
         if (isProcessingStarted) {
-            Timber.w("⚠️ Already processing, ignoring duplicate call")
             return
         }
 
@@ -199,7 +195,6 @@ abstract class BaseCardProcessor(
             processingComplete(PaymentResult.Success(requestSale))
 
         } catch (e: Exception) {
-            Timber.e(e, "Exception in handleSuccessResult")
             handleError(PaymentResult.Error.from(
                 PaymentErrorHandler.ErrorType.UNKNOWN_ERROR,
                 "Exception: ${e.message}"

@@ -27,7 +27,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import sunmi.paylib.SunmiPayKernel
-import timber.log.Timber
 import com.onefin.posapp.core.managers.helpers.PinInputCallback
 
 @Singleton
@@ -69,7 +68,6 @@ class CardProcessorManager(
                 connectSdk(onComplete)
             } catch (e: Exception) {
                 val error = "Initialize failed: ${e.message}"
-                Timber.tag("Initialize").e("❌ $error")
                 onComplete(false, error)
             }
         }
@@ -210,65 +208,44 @@ class CardProcessorManager(
     }
     private fun initializeKernelData(): Boolean {
         if (emvOpt == null) {
-            Timber.tag("KernelInit").e("❌ EMV Option is null")
             return false
         }
-
         if (securityOpt == null) {
-            Timber.tag("KernelInit").e("❌ Security Option is null")
             return false
         }
-
         if (terminal == null) {
-            Timber.tag("KernelInit").e("❌ Terminal is null")
             return false
         }
-
         return try {
-            Timber.tag("KernelInit").d("🔧 ====== KERNEL INITIALIZATION START ======")
-
             // Step 1: Inject AIDs
             EmvUtil.injectAids(context, emvOpt!!)
-            Timber.tag("KernelInit").d("✅ AIDs injected successfully")
 
             // Step 2: Inject CAPKs
             EmvUtil.injectCapks(context, emvOpt!!)
-            Timber.tag("KernelInit").d("✅ CAPKs injected successfully")
 
             // Step 3: Set EMV TLVs
             EmvUtil.setEmvTlvs(context, emvOpt!!, terminal!!)
-            Timber.tag("KernelInit").d("✅ EMV TLVs set successfully")
 
             // Step 4: Set Terminal Parameters
             EmvUtil.setTerminalParam(emvOpt!!, terminal!!)
-            Timber.tag("KernelInit").d("✅ Terminal Parameters set successfully")
 
             // Step 5: Inject Keys (CRITICAL)
-            Timber.tag("KernelInit").d("📌 Step 5: Injecting Security Keys...")
             if (!EmvUtil.injectKeys(securityOpt!!, terminal!!)) {
                 return false
             }
-            Timber.tag("KernelInit").d("✅ Security Keys injected successfully")
 
             // Step 6: Set additional TLV (optional)
             try {
-                Timber.tag("" +
-                        "KernelInit").d("📌 Step 6: Setting additional TLV 9F40...")
                 emvOpt!!.setTlv(
                     AidlConstants.EMV.TLVOpCode.OP_NORMAL,
                     "9F40",
                     "6000F0A001"
                 )
-                Timber.tag("KernelInit").d("✅ TLV 9F40 set successfully")
-            } catch (e: Exception) {
-                Timber.tag("KernelInit").w("⚠️ Could not set TLV 9F40: ${e.message}")
+            } catch (_: Exception) {
             }
-
-            Timber.tag("KernelInit").d("🎉 ====== KERNEL INITIALIZATION COMPLETED ======")
             true
 
         } catch (e: Exception) {
-            Timber.tag("KernelInit").e("❌ Exception during kernel initialization: ${e.message}")
             e.printStackTrace()
             false
         }
@@ -307,8 +284,7 @@ class CardProcessorManager(
                 storageService.saveNfcConfig(config)
                 config
             } else null
-        } catch (e: Exception) {
-            Timber.e(e, "❌ Failed to load NFC config")
+        } catch (_: Exception) {
             null
         }
     }
@@ -359,13 +335,9 @@ class CardProcessorManager(
                 return
             }
 
-            Timber.tag("SDKConnect").d("🔌 Connecting to Sunmi Pay SDK...")
-
             sunmiPayKernel = SunmiPayKernel.getInstance()
             sunmiPayKernel?.initPaySDK(context, object : SunmiPayKernel.ConnectCallback {
                 override fun onConnectPaySDK() {
-                    Timber.tag("SDKConnect").d("✅ SDK Connected")
-
                     // Run initialization on IO thread to avoid blocking UI
                     CoroutineScope(Dispatchers.IO).launch {
                         try {
@@ -387,11 +359,8 @@ class CardProcessorManager(
                             }
 
                             isSdkConnected = true
-                            Timber.tag("SDKConnect").d("📦 Initializing kernel data...")
-
                             if (!initializeKernelData()) {
                                 val error = "Failed to initialize kernel data"
-                                Timber.tag("SDKConnect").e("❌ $error")
                                 handleError(
                                     PaymentResult.Error.from(
                                         errorType = PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
@@ -403,12 +372,10 @@ class CardProcessorManager(
                             }
 
                             isKernelInitialized = true
-                            Timber.tag("SDKConnect").d("🎉 SDK initialization completed successfully")
                             onComplete(true, null)
 
                         } catch (e: Exception) {
                             val error = "Error in onConnectPaySDK: ${e.message}"
-                            Timber.tag("SDKConnect").e("❌ $error")
                             e.printStackTrace()
                             handleError(
                                 PaymentResult.Error.from(
@@ -422,7 +389,6 @@ class CardProcessorManager(
                 }
 
                 override fun onDisconnectPaySDK() {
-                    Timber.tag("SDKConnect").w("⚠️ SDK Disconnected")
                     isSdkConnected = false
                     isKernelInitialized = false
                 }
@@ -430,7 +396,6 @@ class CardProcessorManager(
 
         } catch (e: Exception) {
             val error = "Failed to init PaySDK: ${e.message}"
-            Timber.tag("SDKConnect").e("❌ $error")
             e.printStackTrace()
             handleError(
                 PaymentResult.Error.from(
@@ -442,18 +407,12 @@ class CardProcessorManager(
         }
     }
     private fun onCardDetected(cardType: AidlConstants.CardType, info: Bundle) {
-        Timber.d("🎯 ====== CARD DETECTED ======")
-        Timber.d("   Card Type: $cardType")
-        Timber.d("   Bundle keys: ${info.keySet().joinToString()}")
-
         // Log bundle contents
         info.keySet().forEach { key ->
             @Suppress("DEPRECATION") val value = info.get(key)
-            Timber.d("   - $key: $value")
         }
 
         if (currentProcessor != null) {
-            Timber.w("⚠️ Processor already exists, ignoring")
             return
         }
 

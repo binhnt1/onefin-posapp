@@ -10,7 +10,6 @@ import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.Transaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import timber.log.Timber
 import java.net.URL
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
@@ -55,7 +54,6 @@ class ReceiptPrinter(
             printerHelper.exitPrinterBuffer(true)
             Result.success(Unit)
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error printing receipt")
             Result.failure(e)
         }
     }
@@ -93,7 +91,6 @@ class ReceiptPrinter(
             printerHelper.exitPrinterBuffer(true)
             Result.success(Unit)
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error printing receipt")
             Result.failure(e)
         }
     }
@@ -123,7 +120,6 @@ class ReceiptPrinter(
 
             Result.success(Unit)
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error printing settlement receipt")
             Result.failure(e)
         }
     }
@@ -457,8 +453,7 @@ class ReceiptPrinter(
             resizedBitmap.recycle()
 
             printerHelper.printDivider("-", PAPER_WIDTH)
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error printing signature")
+        } catch (_: Exception) {
         }
     }
 
@@ -652,8 +647,7 @@ class ReceiptPrinter(
             val bitmap = BitmapFactory.decodeStream(url.openConnection().getInputStream())
 
             resizeBitmap(bitmap, 150, 80)
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error loading merchant logo")
+        } catch (_: Exception) {
             null
         }
     }
@@ -668,8 +662,7 @@ class ReceiptPrinter(
             drawable.draw(canvas)
 
             resizeBitmap(bitmap, 150, 80)
-        } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error loading drawable bitmap")
+        } catch (_: Exception) {
             null
         }
     }

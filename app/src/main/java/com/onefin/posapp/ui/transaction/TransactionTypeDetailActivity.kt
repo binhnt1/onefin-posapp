@@ -45,7 +45,6 @@ import com.onefin.posapp.ui.theme.PosAppTheme
 import com.onefin.posapp.ui.transaction.components.TransactionList
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 
 enum class TransactionType(val value: Int, val endpoint: String, val titleRes: Int, val icon: String) {
@@ -337,7 +336,6 @@ fun TransactionTypeDetailScreen(
                                         )
                                     }
                                 } catch (e: Exception) {
-                                    Timber.e(e, "Print error")
                                     snackbarHostState.showSnackbar("❌ Lỗi in: ${e.message}")
                                 } finally {
                                     isPrinting = false

@@ -1,10 +1,14 @@
 package com.onefin.posapp
 
+import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.app.Application
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.util.Log
 import com.onefin.posapp.core.managers.ActivityTracker
 import com.onefin.posapp.core.managers.RabbitMQManager
 import com.onefin.posapp.core.services.StorageService
@@ -17,9 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.job
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import timber.log.Timber
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -40,9 +42,10 @@ class PosApplication : Application() {
     @Inject
     lateinit var activityTracker: ActivityTracker
 
-    // THÊM PRINTER SERVICE
     var sunmiPrinterService: SunmiPrinterService? = null
         private set
+
+    private var isInitialize = false
 
     @Volatile
     private var isPrinterServiceBound = false
@@ -51,29 +54,52 @@ class PosApplication : Application() {
     private val printerServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             sunmiPrinterService = SunmiPrinterService.Stub.asInterface(service)
-            Timber.tag("PosApplication").d("Sunmi Printer service connected")
+            Log.d("PosApplication", "Sunmi Printer service connected")
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             sunmiPrinterService = null
-            Timber.tag("PosApplication").d("Sunmi Printer service disconnected")
+            Log.d("PosApplication", "Sunmi Printer service disconnected")
         }
     }
 
+    private var isPaymentSDKLogged = false
+
     override fun onCreate() {
         super.onCreate()
-        val appStartTime = System.currentTimeMillis()
-        if (BuildConfig.DEBUG) {
-            Timber.plant(Timber.DebugTree())
+
+        if (!isMainProcess()) {
+            Log.d("PosApp", "➡️ Skip initialization: not main process")
+            return
         }
 
+        Log.d("PosApp", "🚀 Initializing PosApplication in main process")
         registerActivityLifecycleCallbacks(activityTracker)
 
-        val criticalPathDuration = System.currentTimeMillis() - appStartTime
-        Timber.tag("Performance").d("🚀 Critical path: ${criticalPathDuration}ms")
+        val criticalPathDuration = System.currentTimeMillis() - System.currentTimeMillis()
+        Log.d("Performance", "🚀 Critical path: ${criticalPathDuration}ms")
 
-        // Background init
+        try {
+            val startTime = System.currentTimeMillis()
+            paymentHelper.initSDK(this@PosApplication)
+            val duration = System.currentTimeMillis() - startTime
+            if (!isPaymentSDKLogged) {
+                isPaymentSDKLogged = true
+                Log.d("Performance", "✅ Payment SDK: ${duration}ms")
+            }
+        } catch (e: Exception) {
+            Log.e("PosApp", "❌ Payment SDK failed", e)
+        }
+
         initializeBackgroundServices()
+    }
+
+    @SuppressLint("ServiceCast")
+    private fun isMainProcess(): Boolean {
+        val pid = android.os.Process.myPid()
+        val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val process = manager.runningAppProcesses.firstOrNull { it.pid == pid }
+        return process?.processName == packageName
     }
 
     private fun bindSerial() {
@@ -84,8 +110,6 @@ class PosApplication : Application() {
 
     override fun onTerminate() {
         super.onTerminate()
-
-        // Cleanup
         runBlocking {
             applicationScope.cancel()
             applicationScope.coroutineContext.job.join()
@@ -95,12 +119,11 @@ class PosApplication : Application() {
             try {
                 unbindService(printerServiceConnection)
                 isPrinterServiceBound = false
-                Timber.tag("PosApp").d("✅ Printer service unbound")
-            } catch (e: Exception) {
-                Timber.tag("PosApp").e(e, "❌ Unbind error")
-            }
+                Log.d("PosApp", "✅ Printer service unbound")
+            } catch (_: Exception) {}
         }
     }
+
     private fun bindPrinterService() {
         try {
             val intent = Intent()
@@ -108,49 +131,36 @@ class PosApplication : Application() {
             intent.action = "woyou.aidlservice.jiuiv5.IWoyouService"
 
             var bound = bindService(intent, printerServiceConnection, BIND_AUTO_CREATE)
-            Timber.tag("PosApplication").d("Binding Woyou printer service: $bound")
+            Log.d("PosApplication", "Binding Woyou printer service: $bound")
 
             if (!bound) {
                 val intent2 = Intent()
                 intent2.setPackage("com.sunmi.peripheral")
                 intent2.action = "com.sunmi.peripheral.printer.SunmiPrinterService"
                 bound = bindService(intent2, printerServiceConnection, BIND_AUTO_CREATE)
-                Timber.tag("PosApplication").d("Binding Sunmi printer service: $bound")
+                Log.d("PosApplication", "Binding Sunmi printer service: $bound")
             }
 
-            if (!bound) {
-                Timber.tag("PosApplication").e("Failed to bind printer service")
+            if (bound) {
+                isPrinterServiceBound = true
+            } else {
+                Log.e("PosApplication", "Failed to bind printer service")
             }
         } catch (e: Exception) {
-            Timber.tag("PosApplication").e(e, "Error binding printer service")
+            Log.e("PosApplication", "Error binding printer service", e)
         }
     }
+
+    private val initLock = Any()
     private fun initializeBackgroundServices() {
-        applicationScope.launch {
-            // Wave 1: 500ms
-            launch(Dispatchers.IO) {
-                bindPrinterService()
-            }
+        synchronized(initLock) {
+            if (isInitialize) return
+            isInitialize = true
+        }
 
-            // Wave 2: 1500ms - PAYMENT SDK
-            val sdkType = BuildConfig.SDK_TYPE
-            launch(Dispatchers.IO) {
-                try {
-                    val startTime = System.currentTimeMillis()
-                    paymentHelper.initSDK(this@PosApplication)
-                    val duration = System.currentTimeMillis() - startTime
-                    Timber.tag("Performance").d("✅ Payment SDK: ${duration}ms")
-                } catch (e: Exception) {
-                    Timber.tag("PosApp").e(e, "❌ Payment SDK failed")
-                }
-            }
-
-            // Wave 3: 2500ms - RabbitMQ
-            launch(Dispatchers.IO) {
-                if (storageService.isLoggedIn()) {
-                    rabbitMQManager.startAfterLogin()
-                }
-            }
+        bindPrinterService()
+        if (storageService.isLoggedIn()) {
+            rabbitMQManager.startAfterLogin()
         }
     }
 }

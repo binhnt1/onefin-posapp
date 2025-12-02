@@ -10,7 +10,6 @@ import com.onefin.posapp.core.models.data.CvmConfig
 import com.onefin.posapp.core.models.data.CvmTlvValues
 import com.sunmi.pay.hardware.aidlv2.bean.AidV2
 import com.sunmi.pay.hardware.aidlv2.bean.CapkV2
-import timber.log.Timber
 
 object ResourceHelper {
     fun loadCvmFromAssets(context: Context): CvmConfig? {
@@ -20,8 +19,7 @@ object ResourceHelper {
             val cvmConfig: CvmConfig = Gson().fromJson(jsonString, CvmConfig::class.java)
             return cvmConfig
 
-        } catch (e: Exception) {
-            Timber.e(e, "❌ Lỗi khi load CVM từ JSON")
+        } catch (_: Exception) {
             return null
         }
     }
@@ -36,8 +34,7 @@ object ResourceHelper {
             val aidList: List<AidData> = gson.fromJson(jsonString, listType)
             return aidList
 
-        } catch (e: Exception) {
-            Timber.e(e, "❌ Lỗi khi load AID từ JSON")
+        } catch (_: Exception) {
             return null
         }
     }
@@ -51,8 +48,7 @@ object ResourceHelper {
             val capkList: List<CapkData> = gson.fromJson(jsonString, listType)
             return capkList
 
-        } catch (e: Exception) {
-            Timber.e(e, "❌ Lỗi khi load CAPK từ JSON")
+        } catch (_: Exception) {
             return null
         }
     }
