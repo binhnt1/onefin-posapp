@@ -22,15 +22,13 @@ object EmvUtil {
 
     fun injectAids(context: Context, emvOptV2: EMVOptV2) {
         try {
-            // emvOptV2.deleteAid(null)
-            val jsonAidsCount = injectAidsFromJson(context, emvOptV2)
+            injectAidsFromJson(context, emvOptV2)
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
     fun injectCapks(context: Context, emvOptV2: EMVOptV2) {
         try {
-            // emvOptV2.deleteCapk(null, null)
             injectCapksFromJson(context, emvOptV2)
         } catch (e: Exception) {
             e.printStackTrace()
@@ -653,7 +651,6 @@ object EmvUtil {
             for ((index, aidData) in aidList.withIndex()) {
                 val entry = aidData.getEntry() ?: continue
                 val (type, aidEntry) = entry
-                val aidValue = aidEntry.baseAid.aid
 
                 try {
                     val aidV2 = ResourceHelper.convertToAidV2(aidEntry, type)
@@ -695,8 +692,8 @@ object EmvUtil {
     }
 
     fun removePaddingCard(card: Card): Card {
-        val pan = card.clearPan;
-        val track2 = card.track2;
+        val pan = card.clearPan
+        val track2 = card.track2
         if (pan.endsWith("F", ignoreCase = true)) {
             card.clearPan = pan.dropLast(1)
             if (card.emvData != null)

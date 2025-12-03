@@ -207,7 +207,7 @@ abstract class BaseCardProcessor(
     }
 
     protected fun createBundle(): Bundle {
-        var flowType: Int = AidlConstants.EMV.FlowType.TYPE_EMV_STANDARD
+        val flowType: Int = AidlConstants.EMV.FlowType.TYPE_EMV_STANDARD
         return Bundle().apply {
             putInt("flowType", flowType)
             putString("transType", "00")

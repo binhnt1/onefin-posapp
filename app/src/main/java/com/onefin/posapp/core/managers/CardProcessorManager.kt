@@ -407,15 +407,6 @@ class CardProcessorManager(
         }
     }
     private fun onCardDetected(cardType: AidlConstants.CardType, info: Bundle) {
-        // Log bundle contents
-        info.keySet().forEach { key ->
-            @Suppress("DEPRECATION") val value = info.get(key)
-        }
-
-        if (currentProcessor != null) {
-            return
-        }
-
         if (currentProcessor != null) {
             return
         }

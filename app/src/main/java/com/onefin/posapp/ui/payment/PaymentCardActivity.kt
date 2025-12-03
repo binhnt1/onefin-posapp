@@ -707,7 +707,7 @@ suspend fun processPayment(apiService: ApiService, requestSale: RequestSale): Re
             ),
             "requestId" to requestSale.requestId,
         )
-        val resultApi = apiService.post("/api/card/sale1", requestBody) as ResultApi<*>
+        val resultApi = apiService.post("/api/card/sale", requestBody) as ResultApi<*>
         if (resultApi.isSuccess()) {
             val saleResultData = gson.fromJson(gson.toJson(resultApi.data), SaleResultData::class.java)
             if (saleResultData != null) {
