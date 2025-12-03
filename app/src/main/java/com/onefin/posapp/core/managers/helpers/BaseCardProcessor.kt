@@ -349,6 +349,24 @@ abstract class BaseCardProcessor(
     }
     private fun onEmvTransResult(resultCode: Int, msg: String?) {
         Timber.d("🔵 [EMV] onTransResult - resultCode: $resultCode, msg: $msg")
+
+        // Read critical EMV tags for debugging
+        try {
+            val tvr = emvOpt.getTlv("95")  // TVR - Terminal Verification Results
+            val tsi = emvOpt.getTlv("9B")  // TSI - Transaction Status Information
+            val aip = emvOpt.getTlv("82")  // AIP - Application Interchange Profile
+            val iac = emvOpt.getTlv("9F0D") // IAC - Issuer Action Code Default
+            val cvmResults = emvOpt.getTlv("9F34") // CVM Results
+
+            Timber.d("🔵 [EMV] TVR (95): $tvr")
+            Timber.d("🔵 [EMV] TSI (9B): $tsi")
+            Timber.d("🔵 [EMV] AIP (82): $aip")
+            Timber.d("🔵 [EMV] IAC Default (9F0D): $iac")
+            Timber.d("🔵 [EMV] CVM Results (9F34): $cvmResults")
+        } catch (e: Exception) {
+            Timber.w("⚠️ [EMV] Could not read EMV tags: ${e.message}")
+        }
+
         when (resultCode) {
             AidlConstants.EMV.TransResult.SUCCESS,
             AidlConstants.EMV.TransResult.OFFLINE_APPROVAL,
