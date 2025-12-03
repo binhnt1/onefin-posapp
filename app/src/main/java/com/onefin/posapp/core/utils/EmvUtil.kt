@@ -13,6 +13,7 @@ import com.sunmi.pay.hardware.aidlv2.bean.CapkV2
 import com.sunmi.pay.hardware.aidlv2.bean.EmvTermParamV2
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
 import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
+import timber.log.Timber
 import java.util.Locale
 import kotlin.text.ifEmpty
 import kotlin.text.toInt
