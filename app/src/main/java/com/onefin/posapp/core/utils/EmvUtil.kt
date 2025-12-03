@@ -281,10 +281,10 @@ object EmvUtil {
             "02",              // DF811D
             "000000000000",    // DF811E
             "08",              // DF811F
-            "FE50BCA000",      // ✅ DF8120 ClTACDefault
+            "BCF8049800",      // ✅ DF8120 ClTACDefault (force online)
             "0000000000",      // ✅ DF8121 CLTACDenial
-            "FE50BCF800",      // ✅ DF8122 CLTACOnline
-            "FE50BCA000",      // ✅ DF8123 TAC Default
+            "BCF8049800",      // ✅ DF8122 CLTACOnline (force online)
+            "BCF8049800",      // ✅ DF8123 TAC Default (force online)
             "999999999999",    // DF8124
             "999999999999",    // DF8125
             "000000000000"     // DF812C
@@ -303,10 +303,10 @@ object EmvUtil {
             "02",              // DF811D
             "000000000000",    // DF811E
             "08",              // DF811F
-            "FE50BCA000",      // ✅ DF8120 ClTACDefault
+            "BCF8049800",      // ✅ DF8120 ClTACDefault (force online)
             "0000000000",      // ✅ DF8121 CLTACDenial
-            "FE50BCF800",      // ✅ DF8122 CLTACOnline
-            "FE50BCA000",      // ✅ DF8123 TAC Default
+            "BCF8049800",      // ✅ DF8122 CLTACOnline (force online)
+            "BCF8049800",      // ✅ DF8123 TAC Default (force online)
             "000000000000",    // DF8124
             "000000000000",    // DF8125
             "08"               // DF812C
