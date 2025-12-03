@@ -85,7 +85,7 @@ object EmvUtil {
         evmConfigs?.forEach { config ->
             when (config.vendorName.uppercase(Locale.getDefault())) {
                 "JCB" -> setJcbTlvs(emv, config, cvmConfig)
-                "NAPAS" -> setNapasTlvs(emv, config, cvmConfig)
+                "NAPAS" -> setNapasTlvs(emv, config)
                 "VISA" -> setPayWaveTlvs(emv, config, cvmConfig)
                 "MASTERCARD" -> setPayPassTlvs(emv, config, cvmConfig)
                 "UNIONPAY", "UNION PAY" -> setQpbocTlvs(emv, config, cvmConfig)
@@ -208,32 +208,22 @@ object EmvUtil {
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, chipValues)
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, contactlessValues)
     }
-    private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
-        timber.log.Timber.d("🔵 [EMV] Setting NAPAS TLVs - FIXED VERSION")
+    private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig) {
+        timber.log.Timber.d("🟢 [EMV] Setting NAPAS-specific TLVs")
 
-        // 1. SET TERMINAL PARAMETERS FIRST (kernel 0)
+        // 1. SET TERMINAL CAPABILITIES FOR NAPAS KERNEL 2
         val terminalTags = arrayOf(
-            "9F1A",   // Country Code
-            "5F2A",   // Transaction Currency Code
-            "5F36",   // Transaction Currency Exponent
-            "9F33",   // Terminal Capabilities
-            "9F35",   // Terminal Type
-            "9F40",   // Additional Terminal Capabilities
-            "9F66",   // TTQ
-            "9F09",   // Application Version
-            "9F1C",   // Terminal ID
-            "9F15",   // MCC
-            "9F16",   // Merchant ID
-            "9F1E"    // IFD Serial Number
+            "9F1A", "5F2A", "5F36", "9F33", "9F35", "9F40",
+            "9F66", "9F09", "9F1C", "9F15", "9F16", "9F1E"
         )
 
         val terminalValues = arrayOf(
-            "0704",              // Country Code (Vietnam)
-            "0704",              // Currency Code (VND)
+            "0704",              // Country Code
+            "0704",              // Currency Code
             "02",                // Currency Exponent
-            "E0F8C8",            // ✅ ĐÚNG - Terminal Capabilities (CDA enabled!)
+            "E0F8C8",            // Terminal Capabilities (same as VISA)
             "22",                // Terminal Type
-            "6000F0A001",        // ✅ ĐÚNG - Additional Terminal Capabilities
+            "6000F0A001",        // ✅ NAPAS SPECIFIC! (khác VISA!)
             "26000080",          // TTQ
             "0002",              // App Version
             "R1010033",
@@ -242,81 +232,32 @@ object EmvUtil {
             "00000001"
         )
 
-        timber.log.Timber.d("🔵 [EMV] Terminal TLVs: ${terminalValues.contentToString()}")
+        timber.log.Timber.d("🟢 [EMV] NAPAS Terminal 9F40: ${terminalValues[5]}")
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, terminalTags, terminalValues)
 
-        // 2. SET NAPAS PURE KERNEL (opCode 0 và 1)
-        val napasChipTags = arrayOf(
-            "DF7F",   // AID
-            "DF8134", // NAPAS specific
-            "DF8133", // mCTLSAppCapa
-            "9F66",   // TTQ
-            "DF8117", // cardDataInputCap
-            "DF8118", // chipCVMCap
-            "DF8119", // chipCVMCapNoCVM
-            "DF811A", // UDOL
-            "DF811B", // kernelConfig
-            "DF811D", // statusCheck
-            "DF811E", // MSDCVMCap
-            "DF811F", // securityCap
-            "DF8120", // ClTACDefault
-            "DF8121", // CLTACDenial
-            "DF8122", // CLTACOnline
-            "DF8123", // TAC Default
-            "DF8124", // TAC Denial (unused for contactless)
-            "DF8125", // TAC Online (unused for contactless)
-            "DF812C"  // MSDCVMCapNoCVM
+        // 2. SET NAPAS KERNEL PARAMETERS (opCode 0 and 1)
+        val napasTags = arrayOf(
+            "DF7F", "DF8134", "DF8133", "9F66", "DF8117", "DF8118", "DF8119",
+            "DF811A", "DF811B", "DF811D", "DF811E", "DF811F",
+            "DF8120", "DF8121", "DF8122", "DF8123", "DF8124", "DF8125", "DF812C"
         )
 
         val napasChipValues = arrayOf(
-            "A0000007271010",
-            "D9",              // DF8134
-            "3200E043F9",      // DF8133
-            "26000080",        // 9F66 TTQ
-            "E0",              // DF8117
-            "08",              // DF8118
-            "F0",              // DF8119
-            "9F6A04",          // DF811A
-            "30",              // DF811B
-            "02",              // DF811D
-            "000000000000",    // DF811E
-            "08",              // DF811F
-            "BCF8049800",      // ✅ DF8120 ClTACDefault (force online)
-            "0000000000",      // ✅ DF8121 CLTACDenial
-            "BCF8049800",      // ✅ DF8122 CLTACOnline (force online)
-            "BCF8049800",      // ✅ DF8123 TAC Default (force online)
-            "999999999999",    // DF8124
-            "999999999999",    // DF8125
-            "000000000000"     // DF812C
+            "A0000007271010", "D9", "3200E043F9", "26000080",
+            "E0", "08", "F0", "9F6A04", "30", "02", "000000000000", "08",
+            "FE50BCA000", "0000000000", "FE50BCF800", "FE50BCA000",
+            "999999999999", "999999999999", "000000000000"
         )
 
         val napasContactlessValues = arrayOf(
-            "A0000007271010",
-            "D9",              // DF8134
-            "3200E043F9",      // DF8133
-            "26000080",        // 9F66 TTQ
-            "E0",              // DF8117
-            "08",              // DF8118
-            "F0",              // DF8119
-            "9F6A04",          // DF811A
-            "30",              // DF811B
-            "02",              // DF811D
-            "000000000000",    // DF811E
-            "08",              // DF811F
-            "BCF8049800",      // ✅ DF8120 ClTACDefault (force online)
-            "0000000000",      // ✅ DF8121 CLTACDenial
-            "BCF8049800",      // ✅ DF8122 CLTACOnline (force online)
-            "BCF8049800",      // ✅ DF8123 TAC Default (force online)
-            "000000000000",    // DF8124
-            "000000000000",    // DF8125
-            "08"               // DF812C
+            "A0000007271010", "D9", "3200E043F9", "26000080",
+            "E0", "08", "F0", "9F6A04", "30", "02", "000000000000", "08",
+            "FE50BCA000", "0000000000", "FE50BCF800", "FE50BCA000",
+            "000000000000", "000000000000", "08"
         )
 
-        timber.log.Timber.d("🔵 [EMV] NAPAS Chip: ${napasChipValues.contentToString()}")
-        timber.log.Timber.d("🔵 [EMV] NAPAS Contactless: ${napasContactlessValues.contentToString()}")
-
-        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, napasChipTags, napasChipValues)
-        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PAYPASS, napasChipTags, napasContactlessValues)
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, napasTags, napasChipValues)
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PAYPASS, napasTags, napasContactlessValues)
     }
     private fun setPayWaveTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
