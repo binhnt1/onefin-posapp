@@ -279,9 +279,9 @@ object EmvUtil {
             "02",                                          // DF811D
             contactlessCvm.cvmRequiredLimit,               // DF811E
             "08",                                          // DF811F
-            "0000000000",                                  // DF8120 - ClTACDefault (all 0s for approval)
+            "BCF8049800",                                  // DF8120 - ClTACDefault (force online)
             "0000000000",                                  // DF8121 - CLTACDenial
-            "0000000000",                                  // DF8122 - CLTACOnline (all 0s for offline approval)
+            "BCF8049800",                                  // DF8122 - CLTACOnline (force online)
             config.tacDefault,                             // DF8123
             contactlessCvm.contactlessTransLimit,          // DF8124
             contactlessCvm.contactlessCvmLimit,            // DF8125
