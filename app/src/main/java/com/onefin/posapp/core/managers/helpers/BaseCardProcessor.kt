@@ -352,11 +352,32 @@ abstract class BaseCardProcessor(
 
         // Read critical EMV tags for debugging
         try {
-            val tvr = emvOpt.getTlv("95")  // TVR - Terminal Verification Results
-            val tsi = emvOpt.getTlv("9B")  // TSI - Transaction Status Information
-            val aip = emvOpt.getTlv("82")  // AIP - Application Interchange Profile
-            val iac = emvOpt.getTlv("9F0D") // IAC - Issuer Action Code Default
-            val cvmResults = emvOpt.getTlv("9F34") // CVM Results
+            val opCode = F55Manager.getTLVOpCode(detectedCardType, cardType)
+
+            // Read TVR (Terminal Verification Results)
+            val tvrData = ByteArray(5)
+            val tvrLen = emvOpt.getTlv(opCode, "95", tvrData)
+            val tvr = if (tvrLen > 0) ByteUtil.bytes2HexStr(tvrData.copyOf(tvrLen)) else "N/A"
+
+            // Read TSI (Transaction Status Information)
+            val tsiData = ByteArray(2)
+            val tsiLen = emvOpt.getTlv(opCode, "9B", tsiData)
+            val tsi = if (tsiLen > 0) ByteUtil.bytes2HexStr(tsiData.copyOf(tsiLen)) else "N/A"
+
+            // Read AIP (Application Interchange Profile)
+            val aipData = ByteArray(2)
+            val aipLen = emvOpt.getTlv(opCode, "82", aipData)
+            val aip = if (aipLen > 0) ByteUtil.bytes2HexStr(aipData.copyOf(aipLen)) else "N/A"
+
+            // Read IAC Default
+            val iacData = ByteArray(5)
+            val iacLen = emvOpt.getTlv(opCode, "9F0D", iacData)
+            val iac = if (iacLen > 0) ByteUtil.bytes2HexStr(iacData.copyOf(iacLen)) else "N/A"
+
+            // Read CVM Results
+            val cvmData = ByteArray(3)
+            val cvmLen = emvOpt.getTlv(opCode, "9F34", cvmData)
+            val cvmResults = if (cvmLen > 0) ByteUtil.bytes2HexStr(cvmData.copyOf(cvmLen)) else "N/A"
 
             Timber.d("🔵 [EMV] TVR (95): $tvr")
             Timber.d("🔵 [EMV] TSI (9B): $tsi")
@@ -364,7 +385,7 @@ abstract class BaseCardProcessor(
             Timber.d("🔵 [EMV] IAC Default (9F0D): $iac")
             Timber.d("🔵 [EMV] CVM Results (9F34): $cvmResults")
         } catch (e: Exception) {
-            Timber.w("⚠️ [EMV] Could not read EMV tags: ${e.message}")
+            Timber.w(e, "⚠️ [EMV] Could not read EMV tags")
         }
 
         when (resultCode) {
