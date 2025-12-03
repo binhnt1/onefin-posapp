@@ -256,9 +256,62 @@ object EmvUtil {
             "000000000000", "000000000000", "08"
         )
 
+        timber.log.Timber.d("🔵 [EMV] NAPAS Chip: ${napasChipValues.contentToString()}")
+        timber.log.Timber.d("🔵 [EMV] NAPAS Contactless: ${napasContactlessValues.contentToString()}")
+
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, napasTags, napasChipValues)
-        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PAYPASS, napasTags, napasContactlessValues)
+        // ⭐ Use OP_PURE (6) for NAPAS Pure contactless, not OP_PAYPASS
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, napasTags, napasContactlessValues)
     }
+
+    /**
+     * Update NAPAS Pure TLV dynamically based on transaction amount.
+     * Following ATG.POS architecture: initEmvTlvNapas()
+     *
+     * @param emv EMVOptV2 instance
+     * @param terminal Terminal configuration
+     * @param amount Transaction amount in smallest currency unit (e.g., cents for VND)
+     * @param flagRc85 RC85 flag (reserved for future use)
+     */
+    fun updateNapasPureTlvForTransaction(
+        emv: EMVOptV2,
+        terminal: Terminal?,
+        amount: Long,
+        flagRc85: Boolean = false
+    ) {
+        try {
+            val config: EvmConfig = terminal?.evmConfigs?.firstOrNull() ?: EvmConfig()
+
+            // Tags specific to NAPAS Pure (following ATG.POS pattern)
+            val tags = arrayOf("DF7F", "DF8134", "DF8133")
+
+            // DF8133 value depends on amount and RC85 flag
+            // ⭐ Following ATG.POS logic:
+            // - If amount <= 1,000,000 VNĐ AND !flagRc85: use "3200E043F9"
+            // - Otherwise: use "3600E043F9"
+            val df8133 = if (!flagRc85 && amount <= 1_000_000) {
+                "3200E043F9"
+            } else {
+                "3600E043F9"
+            }
+
+            val values = arrayOf(
+                config.aid9F06.ifEmpty { "A0000007271010" },  // DF7F: NAPAS AID
+                "D9",                                           // DF8134: NAPAS specific tag
+                df8133                                          // DF8133: Dynamic based on amount
+            )
+
+            timber.log.Timber.d("🔵 [EMV] NAPAS Pure TLV Update - amount=$amount, flagRc85=$flagRc85, DF8133=$df8133")
+
+            // Set TLV with OP_PURE (OpCode 6) for NAPAS Pure contactless
+            emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, tags, values)
+
+            timber.log.Timber.d("🔵 [EMV] NAPAS Pure TLV updated successfully")
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "🔴 [EMV] Failed to update NAPAS Pure TLV")
+        }
+    }
+
     private fun setPayWaveTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
             "DF8117", "DF8118", "DF8119", "DF811B", "DF811D", "DF811E",
