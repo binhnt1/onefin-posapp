@@ -33,5 +33,5 @@ object AppConfig {
         }
     
     val enableLogging: Boolean
-        get() = CURRENT_ENV != Environment.PROD
+        get() = true
 }

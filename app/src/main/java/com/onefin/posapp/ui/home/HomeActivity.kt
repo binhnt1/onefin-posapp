@@ -42,7 +42,6 @@ import com.onefin.posapp.core.utils.PaymentHelper
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import com.google.zxing.BarcodeFormat
-import com.google.zxing.qrcode.QRCodeWriter
 import androidx.compose.ui.graphics.asImageBitmap
 import android.graphics.Bitmap
 import android.os.Build
@@ -51,6 +50,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.set
+import com.google.zxing.MultiFormatWriter
 import com.onefin.posapp.core.managers.SnackbarManager
 import com.onefin.posapp.core.managers.TTSManager
 import com.onefin.posapp.core.utils.LocaleHelper
@@ -358,7 +358,7 @@ fun HomeContent(
     val cancelButtonHeight = if (isP2) 48.dp else 56.dp
     val vietQRString = remember(account) {
         VietQRHelper.buildVietQRString(
-            bankNapasId = account.terminal.bankNapasId,
+            bankId = account.terminal.bankNapasId,
             accountNumber = account.terminal.accountNumber
         )
     }
@@ -688,8 +688,7 @@ fun QRCodeImage(
 
 fun generateQRCode(data: String, sizePx: Int): ImageBitmap? {
     return try {
-        val writer = QRCodeWriter()
-        val bitMatrix = writer.encode(data, BarcodeFormat.QR_CODE, sizePx, sizePx)
+        val bitMatrix = MultiFormatWriter().encode(data, BarcodeFormat.QR_CODE, sizePx, sizePx)
         val width = bitMatrix.width
         val height = bitMatrix.height
         val bitmap = createBitmap(width, height, Bitmap.Config.RGB_565)

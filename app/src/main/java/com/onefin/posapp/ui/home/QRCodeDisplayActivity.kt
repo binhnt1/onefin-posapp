@@ -2,7 +2,6 @@ package com.onefin.posapp.ui.home
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
@@ -32,7 +31,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import javax.inject.Inject
 import androidx.activity.OnBackPressedCallback
-import com.onefin.posapp.core.config.ResultConstants
 import com.onefin.posapp.core.utils.PaymentHelper
 
 @AndroidEntryPoint
@@ -112,9 +110,9 @@ fun QRCodeDisplayScreen(
     val vietQRString = remember {
         VietQRHelper.buildVietQRString(
             amount = amount,
-            bankNapasId = bankNapasId,
+            bankId = bankNapasId,
             accountNumber = accountNumber,
-            info = context.getString(R.string.qr_payment_description)
+            description = context.getString(R.string.qr_payment_description)
         )
     }
 

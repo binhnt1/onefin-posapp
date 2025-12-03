@@ -1,68 +1,54 @@
 package com.onefin.posapp.core.utils
 
+import android.annotation.SuppressLint
+
 object VietQRHelper {
+    @SuppressLint("DefaultLocale")
     fun buildVietQRString(
-        bankNapasId: String,
-        accountNumber: String,
+        bankId: String,
         amount: Long = 0,
-        info: String = ""
+        accountNumber: String,
+        description: String = ""
     ): String {
-        // --- Merchant Account Information (ID 38) ---
-        val f38_00_guid = "A000000727"
-        val f38_01_data = "QRIBFTTA"
-        val f38_02_bankId = bankNapasId
-        val f38_03_accountNo = accountNumber
+        val qrCode = StringBuilder()
+        qrCode.append("000201")
+        qrCode.append("010212")
 
-        val f38_01_block = "01${f38_01_data.length.toString().padStart(2, '0')}$f38_01_data"
-        val f38_02_block = "02${f38_02_bankId.length.toString().padStart(2, '0')}$f38_02_bankId"
-        val f38_03_block = "03${f38_03_accountNo.length.toString().padStart(2, '0')}$f38_03_accountNo"
+        // Consumer account info
+        val consumerAcc = StringBuilder()
+        consumerAcc.append("00").append(String.format("%02d", bankId.length)).append(bankId)
+        consumerAcc.append("01").append(String.format("%02d", accountNumber.length)).append(accountNumber)
+        val consumerAccInfo = StringBuilder()
+            .append("0010A000000727")
+            .append("01").append(String.format("%02d", consumerAcc.length)).append(consumerAcc)
+            .append("0208QRIBFTTA")
+        qrCode.append("38").append(String.format("%02d", consumerAccInfo.length)).append(consumerAccInfo)
 
-        val merchantAccountInfoData = "00${f38_00_guid.length.toString().padStart(2, '0')}$f38_00_guid$f38_01_block$f38_02_block$f38_03_block"
-        val merchantAccountInfo = "38${merchantAccountInfoData.length.toString().padStart(2, '0')}$merchantAccountInfoData"
-
-        val version = "000201"
-        val initMethod = "010212"
-        val countryCode = "5802VN"
-        val transactionCurrency = "5303704" // VND
-
-        val transactionAmount = if (amount > 0) {
-            val amountStr = amount.toString()
-            "54${amountStr.length.toString().padStart(2, '0')}$amountStr"
-        } else {
-            ""
+        qrCode.append("5303704")
+        if (amount > 0) {
+            qrCode.append("54").append(String.format("%02d", amount.toString().length)).append(amount.toString())
         }
 
-        val additionalInfo = if (info.isNotEmpty()) {
-            val purposeOfTransaction = "08${info.length.toString().padStart(2, '0')}$info"
-            "62${purposeOfTransaction.length.toString().padStart(2, '0')}$purposeOfTransaction"
-        } else {
-            ""
+        qrCode.append("5802VN")
+        if (description.isNotEmpty()) {
+            qrCode.append("62").append(String.format("%02d", description.length + 4))
+                .append("08").append(String.format("%02d", description.length)).append(description)
         }
-
-        val payloadWithoutCRC = "$version$initMethod$merchantAccountInfo$transactionCurrency$transactionAmount$countryCode$additionalInfo" +
-                "6304"
-        val crc = calculateCRC16(payloadWithoutCRC)
-        return "$payloadWithoutCRC$crc"
+        qrCode.append("6304").append(String.format("%04X", calculateCRC(qrCode.toString())))
+        return qrCode.toString()
     }
 
-    /**
-     * Tính toán CRC-16/CCITT-FALSE
-     */
-    private fun calculateCRC16(data: String): String {
+    fun calculateCRC(input: String): Int {
         var crc = 0xFFFF
-        val bytes = data.toByteArray(Charsets.UTF_8)
-
-        for (byte in bytes) {
-            crc = crc xor (byte.toInt() and 0xFF shl 8)
-            for (i in 0 until 8) {
-                crc = if ((crc and 0x8000) != 0) {
-                    (crc shl 1) xor 0x1021
-                } else {
-                    crc shl 1
-                }
+        val polynomial = 0x1021
+        input.toByteArray(Charsets.ISO_8859_1).forEach { b ->
+            for (i in 0..7) {
+                val bit = (b.toInt() shr (7 - i) and 1) == 1
+                val c15 = (crc shr 15 and 1) == 1
+                crc = crc shl 1
+                if (c15 xor bit) crc = crc xor polynomial
             }
         }
-
-        return (crc and 0xFFFF).toString(16).uppercase().padStart(4, '0')
+        return crc and 0xFFFF
     }
 }
