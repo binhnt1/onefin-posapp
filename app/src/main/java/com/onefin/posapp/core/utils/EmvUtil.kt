@@ -280,8 +280,6 @@ object EmvUtil {
         flagRc85: Boolean = false
     ) {
         try {
-            val config: EvmConfig = terminal?.evmConfigs?.firstOrNull() ?: EvmConfig()
-
             // Tags specific to NAPAS Pure (following ATG.POS pattern)
             val tags = arrayOf("DF7F", "DF8134", "DF8133")
 
@@ -296,7 +294,7 @@ object EmvUtil {
             }
 
             val values = arrayOf(
-                config.aid9F06.ifEmpty { "A0000007271010" },  // DF7F: NAPAS AID
+                "A0000007271010",  // DF7F: NAPAS AID
                 "D9",                                           // DF8134: NAPAS specific tag
                 df8133                                          // DF8133: Dynamic based on amount
             )
