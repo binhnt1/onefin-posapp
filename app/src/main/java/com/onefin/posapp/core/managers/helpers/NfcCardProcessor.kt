@@ -26,23 +26,12 @@ class NfcCardProcessor(
 
     override fun processTransaction(info: Bundle) {
         try {
-            Timber.d("🔵 [NFC] Starting NFC card transaction")
-
             // 1. Init
-            Timber.d("🔵 [NFC] Aborting previous transaction")
             emvOpt.abortTransactProcess()
-
-            // 2. Re-apply EMV TLVs after initEmvProcess (fixes NAPAS error -4125)
-            Timber.d("🔵 [NFC] Re-applying EMV TLVs (NAPAS error -4125 workaround)")
-            EmvUtil.setEmvTlvs(context, emvOpt, terminal)
-            Thread.sleep(400)
-
-            Timber.d("🔵 [NFC] Initializing EMV process")
             emvOpt.initEmvProcess()
 
-            // 3. Transaction
+            // 2. Transaction
             val bundle = createBundle()
-            Timber.d("🔵 [NFC] Starting transaction with amount: ${bundle.getString("amount")}, cardType: NFC")
             val listener = createEmvListener()
             emvOpt.transactProcessEx(bundle, listener)
         } catch (e: Exception) {
