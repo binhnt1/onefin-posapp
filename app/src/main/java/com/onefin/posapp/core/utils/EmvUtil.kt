@@ -130,9 +130,11 @@ object EmvUtil {
         val ttq = when (config.vendorName.uppercase(Locale.getDefault())) {
             "VISA" -> "26000080"
             "MASTERCARD" -> "3600C080"
-            "NAPAS" -> "26000000"  // NAPAS Pure TTQ - CRITICAL for L2 candidate list building
+            "NAPAS" -> "26000080"  // NAPAS Pure TTQ - Fixed to match AID.json and TLV config
             else -> "3600C080"
         }
+        timber.log.Timber.d("🔵 [EMV] Setting Global TLVs - vendorName=${config.vendorName}, TTQ(9F66)=$ttq")
+
         val globalValues = arrayOf(
             config.countryCode9F1A,
             config.transCurrencyCode5F2A,
@@ -207,6 +209,7 @@ object EmvUtil {
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, contactlessValues)
     }
     private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
+        timber.log.Timber.d("🔵 [EMV] Setting NAPAS Pure TLVs")
         val tags = arrayOf(
             "DF7F",   // AID - Application Identifier
             "DF8134", // NAPAS-specific tag
@@ -285,8 +288,16 @@ object EmvUtil {
             "08"                                           // DF812C
         )
 
+        timber.log.Timber.d("🔵 [EMV] NAPAS Pure OP_PURE TLVs: " +
+            "AID=${contactlessValues[0]}, " +
+            "TTQ(9F66)=${contactlessValues[3]}, " +
+            "napasTag(DF8134)=${contactlessValues[1]}, " +
+            "mCTLSAppCapa(DF8133)=${contactlessValues[2]}, " +
+            "kernelConfig(DF811B)=${contactlessValues[8]}")
+
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, chipValues)
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, tags, contactlessValues)
+        timber.log.Timber.d("🔵 [EMV] NAPAS Pure TLVs set successfully")
     }
     private fun setPayWaveTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(

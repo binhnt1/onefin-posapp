@@ -11,6 +11,7 @@ import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadOptV2
 import com.sunmi.pay.hardware.aidlv2.readcard.ReadCardOptV2
 import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
 import kotlinx.coroutines.*
+import timber.log.Timber
 
 class NfcCardProcessor(
     context: Context,
@@ -25,19 +26,27 @@ class NfcCardProcessor(
 
     override fun processTransaction(info: Bundle) {
         try {
+            Timber.d("🔵 [NFC] Starting NFC card transaction")
+
             // 1. Init
+            Timber.d("🔵 [NFC] Aborting previous transaction")
             emvOpt.abortTransactProcess()
+
+            Timber.d("🔵 [NFC] Initializing EMV process")
             emvOpt.initEmvProcess()
 
             // 2. Re-apply EMV TLVs after initEmvProcess (fixes NAPAS error -4125)
+            Timber.d("🔵 [NFC] Re-applying EMV TLVs (NAPAS error -4125 workaround)")
             EmvUtil.setEmvTlvs(context, emvOpt, terminal)
             Thread.sleep(400)
 
             // 3. Transaction
             val bundle = createBundle()
+            Timber.d("🔵 [NFC] Starting transaction with amount: ${bundle.getString("amount")}, cardType: NFC")
             val listener = createEmvListener()
             emvOpt.transactProcessEx(bundle, listener)
         } catch (e: Exception) {
+            Timber.e(e, "🔴 [NFC] Exception starting EMV transaction")
             handleError(
                 PaymentResult.Error.from(
                     PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,

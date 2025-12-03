@@ -21,6 +21,7 @@ import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadListenerV2
 import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadOptV2
 import com.sunmi.pay.hardware.aidlv2.readcard.ReadCardOptV2
 import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
+import timber.log.Timber
 
 abstract class BaseCardProcessor(
     protected val context: Context,
@@ -314,12 +315,14 @@ abstract class BaseCardProcessor(
     private fun onEmvConfirmationCodeVerified() {
     }
     private fun onEmvConfirmCardNo(cardNo: String?) {
+        Timber.d("🔵 [EMV] onConfirmCardNo - cardNo: ${cardNo?.take(6)}****${cardNo?.takeLast(4)}")
         if (!cardNo.isNullOrEmpty()) {
             cardPanForPin = cardNo
         }
         try {
             emvOpt.importCardNoStatus(0)
         } catch (e: Exception) {
+            Timber.e(e, "🔴 [EMV] importCardNoStatus failed")
             handleError(PaymentResult.Error.from(
                 PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
                 "importCardNoStatus failed: ${e.message}"))
@@ -333,27 +336,37 @@ abstract class BaseCardProcessor(
     }
     private fun onEmvAppFinalSelect(tag9F06Value: String?) {
         try {
+            Timber.d("🔵 [EMV] onAppFinalSelect - AID (9F06): $tag9F06Value")
             detectedCardType = CardProviderType.fromAid(tag9F06Value)
+            Timber.d("🔵 [EMV] Detected card type: $detectedCardType")
             emvOpt.importAppFinalSelectStatus(0)
         } catch (e: Exception) {
+            Timber.e(e, "🔴 [EMV] importAppFinalSelectStatus failed")
             handleError(PaymentResult.Error.from(
                 PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
                 "importAppFinalSelectStatus failed: ${e.message}"))
         }
     }
     private fun onEmvTransResult(resultCode: Int, msg: String?) {
+        Timber.d("🔵 [EMV] onTransResult - resultCode: $resultCode, msg: $msg")
         when (resultCode) {
             AidlConstants.EMV.TransResult.SUCCESS,
             AidlConstants.EMV.TransResult.OFFLINE_APPROVAL,
             AidlConstants.EMV.TransResult.ONLINE_APPROVAL
-                -> handleSuccessResult()
-            else -> handleError(
-                PaymentResult.Error.from(
-                    PaymentErrorHandler.mapEmvResultCode(resultCode),
-                    "EMV Final Result: ${msg ?: "Unknown"}",
-                    resultCode.toString()
+                -> {
+                Timber.d("✅ [EMV] Transaction successful (code: $resultCode)")
+                handleSuccessResult()
+            }
+            else -> {
+                Timber.e("🔴 [EMV] Transaction failed - resultCode: $resultCode, msg: $msg")
+                handleError(
+                    PaymentResult.Error.from(
+                        PaymentErrorHandler.mapEmvResultCode(resultCode),
+                        "EMV Final Result: ${msg ?: "Unknown"}",
+                        resultCode.toString()
+                    )
                 )
-            )
+            }
         }
     }
     private fun onEmvCertVerify(certType: Int, certInfo: String?) {
@@ -422,8 +435,14 @@ abstract class BaseCardProcessor(
     }
     private fun onEmvWaitAppSelect(candidates: MutableList<EMVCandidateV2>?, isFirstSelect: Boolean) {
         try {
+            Timber.d("🔵 [EMV] onWaitAppSelect - isFirstSelect: $isFirstSelect")
+            candidates?.forEachIndexed { index, candidate ->
+                Timber.d("🔵 [EMV] Candidate $index: appLabel=${candidate.appLabel}, " +
+                    "appPreName=${candidate.appPreName}, aid=${candidate.aid}")
+            }
             emvOpt.importAppSelect(0)
         } catch (e: Exception) {
+            Timber.e(e, "🔴 [EMV] importAppSelect failed")
             handleError(PaymentResult.Error.from(
                 PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,
                 "importAppSelect failed: ${e.message}"))

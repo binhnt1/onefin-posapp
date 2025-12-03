@@ -52,7 +52,7 @@ object F55Manager {
     )
 
     fun getTLVOpCode(cardType: CardProviderType?, cardInterface: AidlConstants.CardType): Int {
-        return when (cardType) {
+        val opCode = when (cardType) {
             CardProviderType.VISA if cardInterface == AidlConstants.CardType.IC ->
                 AidlConstants.EMV.TLVOpCode.OP_PAYWAVE
 
@@ -79,9 +79,11 @@ object F55Manager {
 
             else -> AidlConstants.EMV.TLVOpCode.OP_PAYWAVE
         }
+        timber.log.Timber.d("🔵 [F55] getTLVOpCode - cardType=$cardType, cardInterface=$cardInterface, opCode=$opCode")
+        return opCode
     }
     fun getF55TagsRequired(cardType: CardProviderType?, cardInterface: AidlConstants.CardType): Array<String> {
-        return when (cardType) {
+        val tags = when (cardType) {
             CardProviderType.VISA if cardInterface == AidlConstants.CardType.IC ->
                 VPB_F55_TAGS_VISA_CONTACT
 
@@ -108,6 +110,8 @@ object F55Manager {
 
             else -> emptyArray()
         }
+        timber.log.Timber.d("🔵 [F55] getF55TagsRequired - cardType=$cardType, cardInterface=$cardInterface, tags count=${tags.size}")
+        return tags
     }
 }
 
