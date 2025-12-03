@@ -135,13 +135,17 @@ object EmvUtil {
         }
         timber.log.Timber.d("🔵 [EMV] Setting Global TLVs - vendorName=${config.vendorName}, TTQ(9F66)=$ttq")
 
+        // ✅ Ensure 9F40 always has a value - critical for NAPAS Pure
+        val terminal9F40 = config.exTerminalCap9F40.ifEmpty { "0300C00000" }
+        val terminal9F33 = config.terminalCap9F33.ifEmpty { "E0F8C8" }
+
         val globalValues = arrayOf(
             config.countryCode9F1A,
             config.transCurrencyCode5F2A,
             config.transCurrencyExp,
-            config.terminalCap9F33,
+            terminal9F33,
             config.terminalType9F35,
-            config.exTerminalCap9F40,
+            terminal9F40,  // Always has fallback value
             ttq,
             config.version9F09,
             terminal?.tid ?: config.terminalId9F1C,
@@ -149,6 +153,8 @@ object EmvUtil {
             terminal?.mid ?: config.merchantId9F16,
             "00000001"
         )
+
+        timber.log.Timber.d("🔵 [EMV] Global TLVs - 9F40=$terminal9F40, 9F33=$terminal9F33")
 
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, globalTags, globalValues)
     }
