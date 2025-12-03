@@ -223,7 +223,7 @@ object EmvUtil {
             "02",                // Currency Exponent
             "E0F8C8",            // Terminal Capabilities (same as VISA)
             "22",                // Terminal Type
-            "6000F0A001",        // ✅ NAPAS SPECIFIC! (khác VISA!)
+            "0300C00000",        // ✅ FIXED: Match successful log (was "6000F0A001")
             "26000080",          // TTQ
             "0002",              // App Version
             "R1010033",
@@ -245,14 +245,14 @@ object EmvUtil {
         val napasChipValues = arrayOf(
             "A0000007271010", "D9", "3200E043F9", "26000080",
             "E0", "08", "F0", "9F6A04", "30", "02", "000000000000", "08",
-            "FE50BCA000", "0000000000", "FE50BCF800", "FE50BCA000",
+            "BCF8049800", "0000000000", "BCF8049800", "BCF8049800",  // ✅ FIXED TAC: Force online
             "999999999999", "999999999999", "000000000000"
         )
 
         val napasContactlessValues = arrayOf(
             "A0000007271010", "D9", "3200E043F9", "26000080",
             "E0", "08", "F0", "9F6A04", "30", "02", "000000000000", "08",
-            "FE50BCA000", "0000000000", "FE50BCF800", "FE50BCA000",
+            "BCF8049800", "0000000000", "BCF8049800", "BCF8049800",  // ✅ FIXED TAC: Force online
             "000000000000", "000000000000", "08"
         )
 
