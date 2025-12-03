@@ -205,6 +205,7 @@ fun PaymentCardScreen(
     var cardProcessorManager by remember { mutableStateOf<CardProcessorManager?>(null) }
     var nfcPhoneReaderManager by remember { mutableStateOf<NfcPhoneReaderManager?>(null) }
 
+    var retryTrigger by remember { mutableIntStateOf(0) }
     var isPrinting by remember { mutableStateOf(false) }
     var isInitializing by remember { mutableStateOf(true) }
     var showErrorDialog by remember { mutableStateOf(false) }
@@ -223,7 +224,6 @@ fun PaymentCardScreen(
     var pendingSaleResult by remember { mutableStateOf<SaleResultData?>(null) }
     var onPinCancelledCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
     var onPinEnteredCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
-    var retryTrigger by remember { mutableIntStateOf(0) }
 
     val amount = paymentAppRequest.merchantRequestData?.amount ?: 0
     val isMemberCard = paymentAppRequest.type.lowercase() == "member"

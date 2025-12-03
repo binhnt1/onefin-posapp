@@ -131,6 +131,11 @@ object ResourceHelper {
             zeroCheck = 0x00.toByte()
             kernelType = getKernelType(type)
 
+            paramType = when (type) {
+                "pure" -> 0x02.toByte()  // NAPAS Pure is contactless only
+                else -> 0x01.toByte()     // Others support both
+            }
+
             // TTQ - Lấy từ specific AID nếu có
             ttq = when (type) {
                 "paypass" -> hexStr2Bytes(aidEntry.paypassAid?.ttq ?: "3600C080")
