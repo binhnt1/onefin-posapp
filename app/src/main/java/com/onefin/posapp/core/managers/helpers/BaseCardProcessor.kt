@@ -471,6 +471,31 @@ abstract class BaseCardProcessor(
         }
     }
     private fun onEmvDataStorageProc(tags: Array<out String?>?, values: Array<out String?>?) {
+        // Log all EMV data storage - this happens before transaction completion
+        Timber.d("🔵 [EMV] onDataStorageProc - received ${tags?.size ?: 0} tags")
+        tags?.forEachIndexed { index, tag ->
+            val value = values?.getOrNull(index)
+            if (tag != null && value != null) {
+                // Log important tags for debugging
+                when (tag.uppercase()) {
+                    "95" -> Timber.d("🔵 [EMV] TVR (95): $value")
+                    "9B" -> Timber.d("🔵 [EMV] TSI (9B): $value")
+                    "82" -> Timber.d("🔵 [EMV] AIP (82): $value")
+                    "9F0D" -> Timber.d("🔵 [EMV] IAC Default (9F0D): $value")
+                    "9F0E" -> Timber.d("🔵 [EMV] IAC Denial (9F0E): $value")
+                    "9F0F" -> Timber.d("🔵 [EMV] IAC Online (9F0F): $value")
+                    "9F34" -> Timber.d("🔵 [EMV] CVM Results (9F34): $value")
+                    "9F26" -> Timber.d("🔵 [EMV] AC (9F26): $value")
+                    "9F27" -> Timber.d("🔵 [EMV] CID (9F27): $value")
+                    else -> {
+                        // Log all other tags at verbose level
+                        if (value.length <= 32) {
+                            Timber.v("🔵 [EMV] Tag $tag: $value")
+                        }
+                    }
+                }
+            }
+        }
     }
     private fun onEmvWaitAppSelect(candidates: MutableList<EMVCandidateV2>?, isFirstSelect: Boolean) {
         try {
