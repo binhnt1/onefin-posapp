@@ -127,34 +127,30 @@ object EmvUtil {
             "9F66", "9F09", "9F1C", "9F15", "9F16", "9F1E"
         )
 
-        val ttq = when (config.vendorName.uppercase(Locale.getDefault())) {
-            "VISA" -> "26000080"
-            "MASTERCARD" -> "3600C080"
-            "NAPAS" -> "26000080"  // NAPAS Pure TTQ - Fixed to match AID.json and TLV config
-            else -> "3600C080"
-        }
-        timber.log.Timber.d("🔵 [EMV] Setting Global TLVs - vendorName=${config.vendorName}, TTQ(9F66)=$ttq")
+        // ✅ Use fixed universal values that work for ALL card types (NAPAS, VISA, MasterCard)
+        // Don't rely on first config which might be wrong vendor
+        val terminal9F40 = "0300C00000"  // Terminal Capability - works for all
+        val terminal9F33 = "E0F8C8"      // Terminal Capabilities - includes CDA support
+        val ttq = "26000080"              // TTQ - works for NAPAS and VISA
 
-        // ✅ Ensure 9F40 always has a value - critical for NAPAS Pure
-        val terminal9F40 = config.exTerminalCap9F40.ifEmpty { "0300C00000" }
-        val terminal9F33 = config.terminalCap9F33.ifEmpty { "E0F8C8" }
+        timber.log.Timber.d("🔵 [EMV] Setting Global TLVs - Using universal values for all vendors")
 
         val globalValues = arrayOf(
-            config.countryCode9F1A,
-            config.transCurrencyCode5F2A,
-            config.transCurrencyExp,
+            config.countryCode9F1A.ifEmpty { "0704" },
+            config.transCurrencyCode5F2A.ifEmpty { "0704" },
+            config.transCurrencyExp.ifEmpty { "02" },
             terminal9F33,
-            config.terminalType9F35,
-            terminal9F40,  // Always has fallback value
+            config.terminalType9F35.ifEmpty { "22" },
+            terminal9F40,
             ttq,
-            config.version9F09,
-            terminal?.tid ?: config.terminalId9F1C,
-            config.mcc9F15,
-            terminal?.mid ?: config.merchantId9F16,
+            config.version9F09.ifEmpty { "0002" },
+            terminal?.tid ?: config.terminalId9F1C.ifEmpty { "R1010033" },
+            config.mcc9F15.ifEmpty { "9999" },
+            terminal?.mid ?: config.merchantId9F16.ifEmpty { "101234230000004" },
             "00000001"
         )
 
-        timber.log.Timber.d("🔵 [EMV] Global TLVs - 9F40=$terminal9F40, 9F33=$terminal9F33")
+        timber.log.Timber.d("🔵 [EMV] Global TLVs - 9F40=$terminal9F40, 9F33=$terminal9F33, 9F66=$ttq")
 
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, globalTags, globalValues)
     }
