@@ -210,10 +210,10 @@ class CardProcessorManager(
         if (emvOpt == null) {
             return false
         }
-        if (securityOpt == null) {
+        if (terminal == null) {
             return false
         }
-        if (terminal == null) {
+        if (securityOpt == null) {
             return false
         }
         return try {

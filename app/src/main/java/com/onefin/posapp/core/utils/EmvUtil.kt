@@ -18,7 +18,6 @@ import java.util.Locale
 import kotlin.text.ifEmpty
 import kotlin.text.toInt
 
-
 object EmvUtil {
 
     fun injectAids(context: Context, emvOptV2: EMVOptV2) {
