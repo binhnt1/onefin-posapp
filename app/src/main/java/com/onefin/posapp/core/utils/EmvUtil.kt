@@ -245,7 +245,7 @@ object EmvUtil {
         }
 
         val chipValues = arrayOf(
-            config.aid9F06.ifEmpty { "A0000007271010" },  // DF7F
+            "A0000007271010",                              // DF7F - Force NAPAS AID
             "D9",                                          // DF8134
             "3200E043F9",                                  // DF8133
             "26000080",                                    // 9F66
@@ -267,7 +267,7 @@ object EmvUtil {
         )
 
         val contactlessValues = arrayOf(
-            config.aid9F06.ifEmpty { "A0000007271010" },  // DF7F
+            "A0000007271010",                              // DF7F - Force NAPAS AID
             "D9",                                          // DF8134
             "3200E043F9",                                  // DF8133
             "26000080",                                    // 9F66
@@ -279,9 +279,9 @@ object EmvUtil {
             "02",                                          // DF811D
             contactlessCvm.cvmRequiredLimit,               // DF811E
             "08",                                          // DF811F
-            "A4D0048000",                                  // DF8120
-            "0000000000",                                  // DF8121
-            "A4D0048000",                                  // DF8122
+            "0000000000",                                  // DF8120 - ClTACDefault (all 0s for approval)
+            "0000000000",                                  // DF8121 - CLTACDenial
+            "0000000000",                                  // DF8122 - CLTACOnline (all 0s for offline approval)
             config.tacDefault,                             // DF8123
             contactlessCvm.contactlessTransLimit,          // DF8124
             contactlessCvm.contactlessCvmLimit,            // DF8125
@@ -293,7 +293,10 @@ object EmvUtil {
             "TTQ(9F66)=${contactlessValues[3]}, " +
             "napasTag(DF8134)=${contactlessValues[1]}, " +
             "mCTLSAppCapa(DF8133)=${contactlessValues[2]}, " +
-            "kernelConfig(DF811B)=${contactlessValues[8]}")
+            "kernelConfig(DF811B)=${contactlessValues[8]}, " +
+            "ClTACDefault(DF8120)=${contactlessValues[12]}, " +
+            "CLTACDenial(DF8121)=${contactlessValues[13]}, " +
+            "CLTACOnline(DF8122)=${contactlessValues[14]}")
 
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, chipValues)
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, tags, contactlessValues)
