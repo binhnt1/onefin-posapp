@@ -54,12 +54,10 @@ class PosApplication : Application() {
     private val printerServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             sunmiPrinterService = SunmiPrinterService.Stub.asInterface(service)
-            Log.d("PosApplication", "Sunmi Printer service connected")
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             sunmiPrinterService = null
-            Log.d("PosApplication", "Sunmi Printer service disconnected")
         }
     }
 
@@ -69,28 +67,20 @@ class PosApplication : Application() {
         super.onCreate()
 
         if (!isMainProcess()) {
-            Log.d("PosApp", "➡️ Skip initialization: not main process")
             return
         }
 
-        Log.d("PosApp", "🚀 Initializing PosApplication in main process")
         registerActivityLifecycleCallbacks(activityTracker)
-
-        val criticalPathDuration = System.currentTimeMillis() - System.currentTimeMillis()
-        Log.d("Performance", "🚀 Critical path: ${criticalPathDuration}ms")
-
-        try {
-            val startTime = System.currentTimeMillis()
-            paymentHelper.initSDK(this@PosApplication)
-            val duration = System.currentTimeMillis() - startTime
-            if (!isPaymentSDKLogged) {
-                isPaymentSDKLogged = true
-                Log.d("Performance", "✅ Payment SDK: ${duration}ms")
+        val sdkType = BuildConfig.SDK_TYPE
+        if (sdkType == "onefin") {
+            try {
+                paymentHelper.initSDK(this@PosApplication)
+                if (!isPaymentSDKLogged) {
+                    isPaymentSDKLogged = true
+                }
+            } catch (_: Exception) {
             }
-        } catch (e: Exception) {
-            Log.e("PosApp", "❌ Payment SDK failed", e)
         }
-
         initializeBackgroundServices()
     }
 
@@ -119,7 +109,6 @@ class PosApplication : Application() {
             try {
                 unbindService(printerServiceConnection)
                 isPrinterServiceBound = false
-                Log.d("PosApp", "✅ Printer service unbound")
             } catch (_: Exception) {}
         }
     }
@@ -131,23 +120,17 @@ class PosApplication : Application() {
             intent.action = "woyou.aidlservice.jiuiv5.IWoyouService"
 
             var bound = bindService(intent, printerServiceConnection, BIND_AUTO_CREATE)
-            Log.d("PosApplication", "Binding Woyou printer service: $bound")
-
             if (!bound) {
                 val intent2 = Intent()
                 intent2.setPackage("com.sunmi.peripheral")
                 intent2.action = "com.sunmi.peripheral.printer.SunmiPrinterService"
                 bound = bindService(intent2, printerServiceConnection, BIND_AUTO_CREATE)
-                Log.d("PosApplication", "Binding Sunmi printer service: $bound")
             }
 
             if (bound) {
                 isPrinterServiceBound = true
-            } else {
-                Log.e("PosApplication", "Failed to bind printer service")
             }
-        } catch (e: Exception) {
-            Log.e("PosApplication", "Error binding printer service", e)
+        } catch (_: Exception) {
         }
     }
 

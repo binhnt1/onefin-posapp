@@ -209,98 +209,114 @@ object EmvUtil {
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, contactlessValues)
     }
     private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
-        timber.log.Timber.d("🔵 [EMV] Setting NAPAS Pure TLVs")
-        val tags = arrayOf(
-            "DF7F",   // AID - Application Identifier
-            "DF8134", // NAPAS-specific tag
-            "DF8133", // NAPAS-specific tag (mCTLSAppCapa)
-            "9F66",   // TTQ - Terminal Transaction Qualifiers
+        timber.log.Timber.d("🔵 [EMV] Setting NAPAS TLVs - FIXED VERSION")
+
+        // 1. SET TERMINAL PARAMETERS FIRST (kernel 0)
+        val terminalTags = arrayOf(
+            "9F1A",   // Country Code
+            "5F2A",   // Transaction Currency Code
+            "5F36",   // Transaction Currency Exponent
+            "9F33",   // Terminal Capabilities
+            "9F35",   // Terminal Type
+            "9F40",   // Additional Terminal Capabilities
+            "9F66",   // TTQ
+            "9F09",   // Application Version
+            "9F1C",   // Terminal ID
+            "9F15",   // MCC
+            "9F16",   // Merchant ID
+            "9F1E"    // IFD Serial Number
+        )
+
+        val terminalValues = arrayOf(
+            "0704",              // Country Code (Vietnam)
+            "0704",              // Currency Code (VND)
+            "02",                // Currency Exponent
+            "E0F8C8",            // ✅ ĐÚNG - Terminal Capabilities (CDA enabled!)
+            "22",                // Terminal Type
+            "6000F0A001",        // ✅ ĐÚNG - Additional Terminal Capabilities
+            "26000080",          // TTQ
+            "0002",              // App Version
+            "R1010033",
+            "9999",
+            "101234230000004",
+            "00000001"
+        )
+
+        timber.log.Timber.d("🔵 [EMV] Terminal TLVs: ${terminalValues.contentToString()}")
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, terminalTags, terminalValues)
+
+        // 2. SET NAPAS PURE KERNEL (opCode 0 và 1)
+        val napasChipTags = arrayOf(
+            "DF7F",   // AID
+            "DF8134", // NAPAS specific
+            "DF8133", // mCTLSAppCapa
+            "9F66",   // TTQ
             "DF8117", // cardDataInputCap
             "DF8118", // chipCVMCap
             "DF8119", // chipCVMCapNoCVM
-            "DF811A", // UDOL - User Data Object List
+            "DF811A", // UDOL
             "DF811B", // kernelConfig
-            "DF811D", // Status check
+            "DF811D", // statusCheck
             "DF811E", // MSDCVMCap
             "DF811F", // securityCap
             "DF8120", // ClTACDefault
             "DF8121", // CLTACDenial
             "DF8122", // CLTACOnline
             "DF8123", // TAC Default
-            "DF8124", // CLTransLimitNoCDCVM
-            "DF8125", // CLTransLimitCDCVM
+            "DF8124", // TAC Denial (unused for contactless)
+            "DF8125", // TAC Online (unused for contactless)
             "DF812C"  // MSDCVMCapNoCVM
         )
 
-        val chipCvm = if (cvmConfig != null) {
-            ResourceHelper.convertToTlv(cvmConfig, "napas", "chip")
-        } else {
-            ResourceHelper.getDefaultTlvValues()
-        }
-
-        val contactlessCvm = if (cvmConfig != null) {
-            ResourceHelper.convertToTlv(cvmConfig, "napas", "contactless")
-        } else {
-            ResourceHelper.getDefaultTlvValues()
-        }
-
-        val chipValues = arrayOf(
-            "A0000007271010",                              // DF7F - Force NAPAS AID
-            "D9",                                          // DF8134
-            "3200E043F9",                                  // DF8133
-            "26000080",                                    // 9F66
-            "E0",                                          // DF8117
-            "08",                                          // DF8118
-            "F0",                                          // DF8119
-            "9F6A04",                                      // DF811A
-            "30",                                          // DF811B
-            "02",                                          // DF811D
-            chipCvm.cvmRequiredLimit,                      // DF811E
-            "08",                                          // DF811F
-            config.tacDefault,                             // DF8120
-            config.tacDenial,                              // DF8121
-            config.tacOnline,                              // DF8122
-            config.tacDefault,                             // DF8123
-            chipCvm.contactlessTransLimit,                 // DF8124
-            chipCvm.contactlessCvmLimit,                   // DF8125
-            chipCvm.readerCvmRequiredLimit                 // DF812C
+        val napasChipValues = arrayOf(
+            "A0000007271010",
+            "D9",              // DF8134
+            "3200E043F9",      // DF8133
+            "26000080",        // 9F66 TTQ
+            "E0",              // DF8117
+            "08",              // DF8118
+            "F0",              // DF8119
+            "9F6A04",          // DF811A
+            "30",              // DF811B
+            "02",              // DF811D
+            "000000000000",    // DF811E
+            "08",              // DF811F
+            "FE50BCA000",      // ✅ DF8120 ClTACDefault
+            "0000000000",      // ✅ DF8121 CLTACDenial
+            "FE50BCF800",      // ✅ DF8122 CLTACOnline
+            "FE50BCA000",      // ✅ DF8123 TAC Default
+            "999999999999",    // DF8124
+            "999999999999",    // DF8125
+            "000000000000"     // DF812C
         )
 
-        val contactlessValues = arrayOf(
-            "A0000007271010",                              // DF7F - Force NAPAS AID
-            "D9",                                          // DF8134
-            "3200E043F9",                                  // DF8133
-            "26000080",                                    // 9F66
-            "E0",                                          // DF8117
-            "08",                                          // DF8118
-            "F0",                                          // DF8119
-            "9F6A04",                                      // DF811A
-            "30",                                          // DF811B
-            "02",                                          // DF811D
-            contactlessCvm.cvmRequiredLimit,               // DF811E
-            "08",                                          // DF811F
-            "BCF8049800",                                  // DF8120 - ClTACDefault (force online)
-            "0000000000",                                  // DF8121 - CLTACDenial
-            "BCF8049800",                                  // DF8122 - CLTACOnline (force online)
-            config.tacDefault,                             // DF8123
-            contactlessCvm.contactlessTransLimit,          // DF8124
-            contactlessCvm.contactlessCvmLimit,            // DF8125
-            "08"                                           // DF812C
+        val napasContactlessValues = arrayOf(
+            "A0000007271010",
+            "D9",              // DF8134
+            "3200E043F9",      // DF8133
+            "26000080",        // 9F66 TTQ
+            "E0",              // DF8117
+            "08",              // DF8118
+            "F0",              // DF8119
+            "9F6A04",          // DF811A
+            "30",              // DF811B
+            "02",              // DF811D
+            "000000000000",    // DF811E
+            "08",              // DF811F
+            "FE50BCA000",      // ✅ DF8120 ClTACDefault
+            "0000000000",      // ✅ DF8121 CLTACDenial
+            "FE50BCF800",      // ✅ DF8122 CLTACOnline
+            "FE50BCA000",      // ✅ DF8123 TAC Default
+            "000000000000",    // DF8124
+            "000000000000",    // DF8125
+            "08"               // DF812C
         )
 
-        timber.log.Timber.d("🔵 [EMV] NAPAS Pure OP_PURE TLVs: " +
-            "AID=${contactlessValues[0]}, " +
-            "TTQ(9F66)=${contactlessValues[3]}, " +
-            "napasTag(DF8134)=${contactlessValues[1]}, " +
-            "mCTLSAppCapa(DF8133)=${contactlessValues[2]}, " +
-            "kernelConfig(DF811B)=${contactlessValues[8]}, " +
-            "ClTACDefault(DF8120)=${contactlessValues[12]}, " +
-            "CLTACDenial(DF8121)=${contactlessValues[13]}, " +
-            "CLTACOnline(DF8122)=${contactlessValues[14]}")
+        timber.log.Timber.d("🔵 [EMV] NAPAS Chip: ${napasChipValues.contentToString()}")
+        timber.log.Timber.d("🔵 [EMV] NAPAS Contactless: ${napasContactlessValues.contentToString()}")
 
-        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, chipValues)
-        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PURE, tags, contactlessValues)
-        timber.log.Timber.d("🔵 [EMV] NAPAS Pure TLVs set successfully")
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, napasChipTags, napasChipValues)
+        emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_PAYPASS, napasChipTags, napasContactlessValues)
     }
     private fun setPayWaveTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(

@@ -32,13 +32,13 @@ class NfcCardProcessor(
             Timber.d("🔵 [NFC] Aborting previous transaction")
             emvOpt.abortTransactProcess()
 
-            Timber.d("🔵 [NFC] Initializing EMV process")
-            emvOpt.initEmvProcess()
-
             // 2. Re-apply EMV TLVs after initEmvProcess (fixes NAPAS error -4125)
             Timber.d("🔵 [NFC] Re-applying EMV TLVs (NAPAS error -4125 workaround)")
             EmvUtil.setEmvTlvs(context, emvOpt, terminal)
             Thread.sleep(400)
+
+            Timber.d("🔵 [NFC] Initializing EMV process")
+            emvOpt.initEmvProcess()
 
             // 3. Transaction
             val bundle = createBundle()
