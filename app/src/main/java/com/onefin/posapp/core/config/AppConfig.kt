@@ -1,6 +1,7 @@
 package com.onefin.posapp.core.config
 
 import android.annotation.SuppressLint
+import com.onefin.posapp.BuildConfig
 
 
 object AppConfig {
@@ -8,8 +9,13 @@ object AppConfig {
     enum class Environment {
         DEV, STG, PROD
     }
-    
-    private val CURRENT_ENV = Environment.PROD
+
+    private val CURRENT_ENV: Environment
+        get() = if (BuildConfig.DEBUG) {
+            Environment.STG
+        } else {
+            Environment.PROD
+        }
     
     val baseUrl: String
         get() = when (CURRENT_ENV) {

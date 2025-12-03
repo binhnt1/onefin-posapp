@@ -254,7 +254,7 @@ fun LoginForm(
 ) {
     val context = LocalContext.current
     var username by remember { mutableStateOf(BuildConfig.USERNAME) }
-    var password by remember { mutableStateOf("A1a@a#a$") }
+    var password by remember { mutableStateOf(BuildConfig.PASSWORD) }
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }

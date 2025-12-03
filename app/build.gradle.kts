@@ -24,6 +24,26 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            keyAlias = "onefin"
+            keyPassword = "A1a@a#a$"
+            storePassword = "A1a@a#a$"
+            storeFile = file("../onefin-release.keystore")
+
+            // Bật cả V1 và V2 signing (quan trọng cho Sunmi)
+            enableV1Signing = true  // JAR Signing (cho Android < 7.0)
+            enableV2Signing = true  // APK Signature v2 (Android 7.0+)
+            enableV3Signing = true  // APK Signature v3 (Android 9.0+) - optional
+            enableV4Signing = true  // APK Signature v4 (Android 11+) - optional
+        }
+
+        getByName("debug") {
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
+
     buildTypes {
         debug {
             isDebuggable = true
@@ -96,42 +116,46 @@ android {
     flavorDimensions += "customer"
     productFlavors {
 
-        // Flavor cho khách hàng A
+        // Flavor cho khách hàng sgpt
         create("sgpt") {
             dimension = "customer"
             versionNameSuffix = "-sgpt"
             resValue("string", "app_name", "Onefin Payment")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
+            buildConfigField("String", "PASSWORD", "\"A1a@a#a$\"")
             buildConfigField("String", "USERNAME", "\"sgpt@yopmail.com\"")
             buildConfigField("String", "APP_KEY", "\"21f7d3f50ab94f23a0b0b3e081fa8ced\"")
         }
 
-        // Flavor cho khách hàng B
+        // Flavor cho khách hàng mailinh
         create("mailinh") {
             dimension = "customer"
             versionNameSuffix = "-mailinh"
             resValue("string", "app_name", "Onefin Payment")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
+            buildConfigField("String", "PASSWORD", "\"A1a@a#a$\"")
             buildConfigField("String", "USERNAME", "\"mailinh@yopmail.com\"")
             buildConfigField("String", "APP_KEY", "\"85ba2fcfe7fa4511a37a8f017a282fa8\"")
         }
 
-        // Flavor cho khách hàng C
+        // Flavor cho khách hàng megatech
         create("megatech") {
             dimension = "customer"
             versionNameSuffix = "-megatech"
             resValue("string", "app_name", "Onefin Payment")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
+            buildConfigField("String", "PASSWORD", "\"A1a@a#a$\"")
             buildConfigField("String", "USERNAME", "\"mcmegatech@yopmail.com\"")
             buildConfigField("String", "APP_KEY", "\"909c326357b74a36a9dafadfdf6cb5bf\"")
         }
 
-        // Flavor cho khách hàng B
+        // Flavor cho khách hàng pilot
         create("pilot") {
             dimension = "customer"
             versionNameSuffix = "-pilot"
             resValue("string", "app_name", "Onefin Pilot")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
+            buildConfigField("String", "PASSWORD", "\"A1a@a#a$\"")
             buildConfigField("String", "USERNAME", "\"anhchu@onefin.vn\"")
             buildConfigField("String", "APP_KEY", "\"2cc3ec327ce34f0ba4488071d356baf0\"")
         }
@@ -139,10 +163,26 @@ android {
         // Flavor mặc định (không có APP_KEY - phải login thủ công)
         create("default") {
             dimension = "customer"
-            resValue("string", "app_name", "Onefin Payment")
             buildConfigField("String", "APP_KEY", "\"\"")
-            buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "USERNAME", "\"\"")
+            buildConfigField("String", "PASSWORD", "\"\"")
+            resValue("string", "app_name", "Onefin Payment")
+            buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
+        }
+    }
+
+    applicationVariants.all {
+        outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            val buildType = buildType.name
+            val flavor = flavorName
+
+            // Nếu là default flavor thì bỏ tên flavor
+            output.outputFileName = if (flavor == "default") {
+                "onefin-payment-${buildType}-${versionName}.apk"
+            } else {
+                "onefin-payment-${flavor}-${buildType}-${versionName}.apk"
+            }
         }
     }
 }
