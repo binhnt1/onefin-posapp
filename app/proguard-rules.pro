@@ -1,21 +1,63 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Generated missing rules from R8
+-dontwarn co.paystack.android.design.widget.PinPadView$OnSubmitListener
+-dontwarn co.paystack.android.design.widget.PinPadView
+-dontwarn org.slf4j.impl.StaticLoggerBinder
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Thêm các rules bổ sung cho các thư viện bạn đang dùng
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# RabbitMQ (sử dụng SLF4J)
+-dontwarn org.slf4j.**
+-keep class org.slf4j.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Retrofit & OkHttp
+-keepattributes Signature, InnerClasses, EnclosingMethod
+-keepattributes RuntimeVisibleAnnotations, RuntimeVisibleParameterAnnotations
+-keepclassmembers,allowshrinking,allowobfuscation interface * {
+    @retrofit2.http.* <methods>;
+}
+-dontwarn okhttp3.**
+-dontwarn okio.**
+
+# Gson
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class com.google.gson.** { *; }
+-keep class * implements com.google.gson.TypeAdapter
+-keep class * implements com.google.gson.TypeAdapterFactory
+-keep class * implements com.google.gson.JsonSerializer
+-keep class * implements com.google.gson.JsonDeserializer
+
+# Keep data models
+-keep class com.onefin.posapp.data.model.** { *; }
+-keep class com.onefin.posapp.domain.model.** { *; }
+
+# OneFin SDKs
+-keep class vn.onefin.** { *; }
+-keep class com.onefin.** { *; }
+-dontwarn vn.onefin.**
+
+# PayLib (Sunmi)
+-keep class com.sunmi.pay.** { *; }
+-dontwarn com.sunmi.pay.**
+
+# BouncyCastle
+-keep class org.bouncycastle.** { *; }
+-dontwarn org.bouncycastle.**
+
+# EMV NFC Card
+-keep class com.github.devnied.emvnfccard.** { *; }
+-dontwarn com.github.devnied.emvnfccard.**
+
+# RabbitMQ
+-keep class com.rabbitmq.** { *; }
+-dontwarn com.rabbitmq.**
+
+# Coroutines
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-dontwarn kotlinx.coroutines.**
+
+# Room
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class *
+-dontwarn androidx.room.paging.**
