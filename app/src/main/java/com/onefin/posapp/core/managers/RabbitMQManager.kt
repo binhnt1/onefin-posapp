@@ -202,6 +202,12 @@ class RabbitMQManager @Inject constructor(
 
         // Flow bình thường - internal app
         try {
+            // Kiểm tra nếu đang ở HomeActivity -> Hiển thị notification với countdown
+            if (activityTracker.isActivityOfType(com.onefin.posapp.ui.home.HomeActivity::class.java)) {
+                QRSuccessNotificationActivity.show(context, notify.content)
+                return
+            }
+
             // Hiển thị màn QRSuccess
             val json = JSONObject(jsonObject)
             val amount = json.optLong("Amount", 0L)

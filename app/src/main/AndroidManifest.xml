@@ -86,6 +86,10 @@
             android:name=".ui.modals.ResultDialogActivity"
             android:theme="@style/Theme.Translucent"
             android:launchMode="singleTask" />
+        <activity
+            android:name=".ui.modals.QRSuccessNotificationActivity"
+            android:theme="@style/Theme.Translucent"
+            android:launchMode="singleTask" />
 
         <activity
             android:name=".ui.transaction.TransparentPaymentActivity"
