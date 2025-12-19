@@ -150,7 +150,7 @@ fun HomeScreen(
     // State management
     var isNetworkAvailable by remember { mutableStateOf(true) }
     var showNetworkDialog by remember { mutableStateOf(false) }
-    var countdown by remember { mutableIntStateOf(15) }
+    var countdown by remember { mutableIntStateOf(30) }
     var isAutoLoggingIn by remember { mutableStateOf(false) }
     var autoLoginAttempted by remember { mutableStateOf(false) }
     var driverInfo by remember { mutableStateOf<DriverInfoEntity?>(null) }
@@ -175,11 +175,11 @@ fun HomeScreen(
         }
     }
 
-    // Network reconnect logic
+    // Network reconnect logic with 30s interval
     LaunchedEffect(showNetworkDialog) {
         while (showNetworkDialog && isActive) {
-            countdown = 10
-            repeat(10) {
+            countdown = 30
+            repeat(30) {
                 if (!isActive || !showNetworkDialog) return@LaunchedEffect
                 delay(1000)
                 countdown--
