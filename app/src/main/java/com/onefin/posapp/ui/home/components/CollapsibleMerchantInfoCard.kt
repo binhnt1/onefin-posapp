@@ -258,7 +258,8 @@ fun CollapsibleMerchantInfoCard(
                                     backgroundColor = Color(0xFFFEE2E2),
                                     borderColor = Color(0xFFFECACA),
                                     modifier = Modifier.weight(1f),
-                                    isP2 = isP2
+                                    isP2 = isP2,
+                                    imageUrl = merchantConfig["bankLogo"]
                                 )
                             }
                         }
@@ -590,7 +591,8 @@ private fun CompactInfoCard(
     backgroundColor: Color,
     borderColor: Color,
     modifier: Modifier = Modifier,
-    isP2: Boolean
+    isP2: Boolean,
+    imageUrl: String? = null
 ) {
     Surface(
         modifier = modifier,
@@ -611,17 +613,25 @@ private fun CompactInfoCard(
                     modifier = Modifier
                         .size(if (isP2) 24.dp else 28.dp)
                         .background(
-                            color = iconColor.copy(alpha = 0.12f),
+                            color = if (imageUrl.isNullOrEmpty()) iconColor.copy(alpha = 0.12f) else Color.Transparent,
                             shape = RoundedCornerShape(6.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        painter = painterResource(id = icon),
-                        contentDescription = label,
-                        modifier = Modifier.size(if (isP2) 12.dp else 14.dp),
-                        tint = iconColor
-                    )
+                    if (!imageUrl.isNullOrEmpty()) {
+                        coil.compose.AsyncImage(
+                            model = imageUrl,
+                            contentDescription = label,
+                            modifier = Modifier.size(if (isP2) 24.dp else 28.dp)
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(id = icon),
+                            contentDescription = label,
+                            modifier = Modifier.size(if (isP2) 12.dp else 14.dp),
+                            tint = iconColor
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.width(6.dp))
