@@ -53,6 +53,7 @@ class RabbitMQManager @Inject constructor(
     private val snackbarManager: SnackbarManager,
     private val rabbitMQService: RabbitMQService,
     private val activityTracker: ActivityTracker,
+    private val qrNotificationManager: QRNotificationManager,
 ) {
 
     companion object {
@@ -202,6 +203,12 @@ class RabbitMQManager @Inject constructor(
 
         // Flow bình thường - internal app
         try {
+            // Kiểm tra nếu đang ở HomeActivity -> Hiển thị notification với countdown
+            if (activityTracker.isActivityOfType(com.onefin.posapp.ui.home.HomeActivity::class.java)) {
+                qrNotificationManager.showNotification(notify.content)
+                return
+            }
+
             // Hiển thị màn QRSuccess
             val json = JSONObject(jsonObject)
             val amount = json.optLong("Amount", 0L)

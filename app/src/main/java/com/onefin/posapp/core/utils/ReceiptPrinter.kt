@@ -460,11 +460,14 @@ class ReceiptPrinter(
     private suspend fun printHeader(terminal: Terminal) {
         printerHelper.printDoubleDivider(PAPER_WIDTH)
 
+        // Load 3 logos: Bank (left), Merchant (center), OneFin (right)
         val merchantLogoBitmap = loadMerchantLogo(terminal.logo)
-        val onefinLogoBitmap = loadDrawableBitmap(R.drawable.logo_small)
+        val bankLogoBitmap = loadBankLogo(terminal.bankLogo ?: "")
+        val onefinLogoBitmap = loadDrawableBitmap(R.drawable.logo)
 
-        if (merchantLogoBitmap != null || onefinLogoBitmap != null) {
-            val combinedBitmap = combineTwoLogos(merchantLogoBitmap, onefinLogoBitmap)
+        // Print combined logos if at least one exists
+        if (bankLogoBitmap != null || merchantLogoBitmap != null || onefinLogoBitmap != null) {
+            val combinedBitmap = combineThreeLogos(bankLogoBitmap, merchantLogoBitmap, onefinLogoBitmap)
             if (combinedBitmap != null) {
                 printerHelper.printBitmap(combinedBitmap)
             }
@@ -652,6 +655,19 @@ class ReceiptPrinter(
         }
     }
 
+    private suspend fun loadBankLogo(logoUrl: String): Bitmap? = withContext(Dispatchers.IO) {
+        try {
+            if (logoUrl.isEmpty()) return@withContext null
+
+            val url = URL(logoUrl)
+            val bitmap = BitmapFactory.decodeStream(url.openConnection().getInputStream())
+
+            resizeBitmap(bitmap, 150, 80)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     @SuppressLint("UseCompatLoadingForDrawables")
     private fun loadDrawableBitmap(@DrawableRes drawableId: Int): Bitmap? {
         return try {
@@ -704,6 +720,51 @@ class ReceiptPrinter(
         val rightX = (totalWidth - right.width).toFloat()
         val rightY = (maxHeight - marginBottom - right.height) / 2f // Trừ margin khi tính Y
         canvas.drawBitmap(right, rightX, rightY, null)
+
+        return combinedBitmap
+    }
+
+    private fun combineThreeLogos(
+        leftBitmap: Bitmap?,
+        centerBitmap: Bitmap?,
+        rightBitmap: Bitmap?
+    ): Bitmap? {
+        // If all logos are null, return null
+        if (leftBitmap == null && centerBitmap == null && rightBitmap == null) return null
+
+        val paperWidthPx = 384
+        val marginBottom = 40
+
+        // Collect non-null bitmaps
+        val logos = listOfNotNull(leftBitmap, centerBitmap, rightBitmap)
+        if (logos.isEmpty()) return null
+
+        val maxHeight = logos.maxOf { it.height } + marginBottom
+        val totalWidth = paperWidthPx
+
+        val combinedBitmap = createBitmap(totalWidth, maxHeight)
+        val canvas = android.graphics.Canvas(combinedBitmap)
+        canvas.drawColor(android.graphics.Color.WHITE)
+
+        // Draw left logo (bank)
+        leftBitmap?.let { bitmap ->
+            val y = (maxHeight - marginBottom - bitmap.height) / 2f
+            canvas.drawBitmap(bitmap, 0f, y, null)
+        }
+
+        // Draw center logo (merchant)
+        centerBitmap?.let { bitmap ->
+            val x = (totalWidth - bitmap.width) / 2f
+            val y = (maxHeight - marginBottom - bitmap.height) / 2f
+            canvas.drawBitmap(bitmap, x, y, null)
+        }
+
+        // Draw right logo (onefin)
+        rightBitmap?.let { bitmap ->
+            val x = (totalWidth - bitmap.width).toFloat()
+            val y = (maxHeight - marginBottom - bitmap.height) / 2f
+            canvas.drawBitmap(bitmap, x, y, null)
+        }
 
         return combinedBitmap
     }
