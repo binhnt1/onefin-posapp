@@ -54,6 +54,7 @@ class RabbitMQManager @Inject constructor(
     private val snackbarManager: SnackbarManager,
     private val rabbitMQService: RabbitMQService,
     private val activityTracker: ActivityTracker,
+    private val qrNotificationManager: QRNotificationManager,
 ) {
 
     companion object {
@@ -205,7 +206,7 @@ class RabbitMQManager @Inject constructor(
         try {
             // Kiểm tra nếu đang ở HomeActivity -> Hiển thị notification với countdown
             if (activityTracker.isActivityOfType(com.onefin.posapp.ui.home.HomeActivity::class.java)) {
-                QRSuccessNotificationActivity.show(context, notify.content)
+                qrNotificationManager.showNotification(notify.content)
                 return
             }
 

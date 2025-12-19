@@ -58,6 +58,7 @@ import com.onefin.posapp.ui.components.GlobalSnackbarHost
 import com.onefin.posapp.ui.login.LoginActivity
 import com.onefin.posapp.ui.modals.AutoLoginDialog
 import com.onefin.posapp.ui.modals.NoNetworkDialog
+import com.onefin.posapp.ui.modals.QRSuccessNotificationDialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import com.onefin.posapp.core.models.entity.DriverInfoEntity
@@ -88,6 +89,9 @@ class HomeActivity : BaseActivity() {
     @Inject
     lateinit var nfcPhoneReaderManager: com.onefin.posapp.core.managers.NfcPhoneReaderManager
 
+    @Inject
+    lateinit var qrNotificationManager: com.onefin.posapp.core.managers.QRNotificationManager
+
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -105,7 +109,8 @@ class HomeActivity : BaseActivity() {
                     storageService = storageService,
                     snackbarManager = snackbarManager,
                     cardProcessorManager = cardProcessorManager,
-                    nfcPhoneReaderManager = nfcPhoneReaderManager
+                    nfcPhoneReaderManager = nfcPhoneReaderManager,
+                    qrNotificationManager = qrNotificationManager
                 )
 
                 GlobalSnackbarHost(
@@ -134,7 +139,8 @@ fun HomeScreen(
     storageService: StorageService,
     snackbarManager: SnackbarManager,
     cardProcessorManager: com.onefin.posapp.core.managers.CardProcessorManager,
-    nfcPhoneReaderManager: com.onefin.posapp.core.managers.NfcPhoneReaderManager
+    nfcPhoneReaderManager: com.onefin.posapp.core.managers.NfcPhoneReaderManager,
+    qrNotificationManager: com.onefin.posapp.core.managers.QRNotificationManager
 ) {
     val context = LocalContext.current
 
@@ -298,6 +304,9 @@ fun HomeScreen(
             }
         }
     }
+
+    // QR Success Notification Dialog
+    QRSuccessNotificationDialog(qrNotificationManager = qrNotificationManager)
 }
 
 fun navigateToLogin(context: Context) {
