@@ -1,7 +1,10 @@
 package com.onefin.posapp.ui.login
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -41,8 +44,11 @@ import com.onefin.posapp.core.utils.ValidationHelper
 import com.onefin.posapp.ui.base.BaseActivity
 import com.onefin.posapp.ui.home.HomeActivity
 import com.onefin.posapp.ui.modals.AlertDialog
+import com.onefin.posapp.ui.modals.NoNetworkDialog
 import com.onefin.posapp.ui.theme.PosAppTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -99,7 +105,39 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onLanguageChange: (String) -> Unit
 ) {
+    val context = LocalContext.current
     var currentLanguage by remember { mutableStateOf(localeHelper.getLanguage()) }
+
+    // Network state management
+    var isNetworkAvailable by remember { mutableStateOf(true) }
+    var showNetworkDialog by remember { mutableStateOf(false) }
+    var countdown by remember { mutableIntStateOf(30) }
+
+    // Network check
+    LaunchedEffect(Unit) {
+        isNetworkAvailable = checkNetworkConnection(context)
+        showNetworkDialog = !isNetworkAvailable
+    }
+
+    // Network reconnect logic with 30s interval
+    LaunchedEffect(showNetworkDialog) {
+        while (showNetworkDialog && isActive) {
+            countdown = 30
+            repeat(30) {
+                if (!isActive || !showNetworkDialog) return@LaunchedEffect
+                delay(1000)
+                countdown--
+            }
+            isNetworkAvailable = checkNetworkConnection(context)
+            if (isNetworkAvailable) {
+                showNetworkDialog = false
+            }
+        }
+    }
+
+    if (showNetworkDialog) {
+        NoNetworkDialog(countdown = countdown, onDismiss = { })
+    }
 
     Column(
         modifier = Modifier
@@ -131,7 +169,8 @@ fun LoginScreen(
                 deviceHelper = deviceHelper,
                 storageService = storageService,
                 validationHelper = validationHelper,
-                onLoginSuccess = onLoginSuccess
+                onLoginSuccess = onLoginSuccess,
+                isNetworkAvailable = isNetworkAvailable
             )
         }
 
@@ -250,7 +289,8 @@ fun LoginForm(
     deviceHelper: DeviceHelper,
     storageService: StorageService,
     validationHelper: ValidationHelper,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    isNetworkAvailable: Boolean = true
 ) {
     val context = LocalContext.current
     var username by remember { mutableStateOf(BuildConfig.USERNAME) }
@@ -413,6 +453,8 @@ fun LoginForm(
         // Login Button
         Button(
             onClick = {
+                if (!isNetworkAvailable) return@Button
+
                 val emailValidation = validationHelper.validateEmail(username.trim())
                 val passwordValidation = validationHelper.validatePassword(password.trim())
 
@@ -450,7 +492,7 @@ fun LoginForm(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            enabled = !isLoading,
+            enabled = !isLoading && isNetworkAvailable,
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF4CAF50),
@@ -473,4 +515,13 @@ fun LoginForm(
             }
         }
     }
+}
+
+fun checkNetworkConnection(context: Context): Boolean {
+    val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    val network = connectivityManager.activeNetwork ?: return false
+    val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
 }

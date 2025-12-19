@@ -18,6 +18,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -61,6 +62,11 @@ class PosApplication : Application() {
         super.onCreate()
         registerActivityLifecycleCallbacks(activityTracker)
         initializeBackgroundServices()
+
+        // Init Timber
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+        }
     }
 
     override fun onTerminate() {

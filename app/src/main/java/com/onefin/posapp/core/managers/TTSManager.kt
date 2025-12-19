@@ -5,6 +5,9 @@ import android.content.pm.PackageManager
 import android.media.MediaPlayer
 import android.speech.tts.TextToSpeech
 import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.onefin.posapp.core.models.ResultApi
+import com.onefin.posapp.core.models.data.BalanceData
 import com.onefin.posapp.core.services.ApiService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
@@ -28,9 +31,8 @@ class TTSManager @Inject constructor(
 
     private var isInitialized = false
     private var isTTSAvailable = false
-    private var textToSpeech: TextToSpeech? = null
-    private val pendingSpeechQueue = mutableListOf<String>()
     private var mediaPlayer: MediaPlayer? = null
+    private var textToSpeech: TextToSpeech? = null
     private val ttsScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
 
@@ -90,6 +92,7 @@ class TTSManager @Inject constructor(
             try {
                 val audioUrl = fetchAudioUrlFromApi(text)
                 if (audioUrl.isNotEmpty()) {
+                    Timber.tag(TAG).w("Audio URL: $audioUrl")
                     playAudioFromUrl(audioUrl)
                 } else {
                     Timber.tag(TAG).w("Audio URL empty from API")
@@ -98,12 +101,6 @@ class TTSManager @Inject constructor(
                 Timber.tag(TAG).e(e, "Failed to fetch audio from API: ${e.message}")
             }
         }
-    }
-
-    fun isSpeaking(): Boolean {
-        if (!isTTSAvailable)
-            return false
-        return textToSpeech?.isSpeaking ?: false
     }
 
     private fun initializeTTS() {
@@ -178,14 +175,6 @@ class TTSManager @Inject constructor(
             false
         }
     }
-    private fun retryInitialization(retryCount: Int = 0) {
-        CoroutineScope(Dispatchers.Main).launch {
-            delay(1000L)
-            if (!isInitialized) {
-                initializeTTS()
-            }
-        }
-    }
     private suspend fun playAudioFromUrl(url: String) = withContext(Dispatchers.Main) {
         try {
             // Release MediaPlayer cũ nếu đang chạy
@@ -224,12 +213,15 @@ class TTSManager @Inject constructor(
     }
     private suspend fun fetchAudioUrlFromApi(text: String): String = withContext(Dispatchers.IO) {
         return@withContext try {
-            val endpoint = "/api/audio/text"
+            val endpoint = "/api/card/textToAudio"
             val body = mapOf(
-                "text" to text
+                "Text" to text
             )
-            val audioUrl = apiServiceProvider.get().post(endpoint, body) as String
-            audioUrl
+            val resultApi = apiServiceProvider.get().post(endpoint, body) as ResultApi<*>
+            if (resultApi.isSuccess()) {
+                resultApi.data
+            }
+            ""
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Error fetching audio URL from API")
             ""
