@@ -397,6 +397,7 @@ fun HomeContent(
             put("tid", account.terminal.tid)
             put("mid", account.terminal.mid)
             put("provider", account.terminal.provider)
+            put("bankLogo", account.terminal.bankLogo)
         }
     }
 
@@ -641,7 +642,7 @@ fun HomeContent(
             if (merchantConfig.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 CollapsibleMerchantInfoCard(
-                    merchantConfig = merchantConfig,
+                    merchantConfig = merchantConfig as Map<String, String>,
                     fieldMapping = merchantFieldMapping,
                     merchantCompany = if (account.terminal.image.isNotEmpty())
                         account.terminal.merchantCompany else null,

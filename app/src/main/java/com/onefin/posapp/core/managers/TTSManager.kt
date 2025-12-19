@@ -98,7 +98,6 @@ class TTSManager @Inject constructor(
                     Timber.tag(TAG).w("Audio URL empty from API")
                 }
             } catch (e: Exception) {
-                Timber.tag(TAG).e(e, "Failed to fetch audio from API: ${e.message}")
             }
         }
     }
@@ -189,16 +188,13 @@ class TTSManager @Inject constructor(
             mediaPlayer = MediaPlayer().apply {
                 setDataSource(url)
                 setOnPreparedListener { mp ->
-                    Timber.tag(TAG).d("MediaPlayer prepared, starting playback")
                     mp.start()
                 }
                 setOnCompletionListener {
-                    Timber.tag(TAG).d("MediaPlayer completed")
                     it.release()
                     mediaPlayer = null
                 }
                 setOnErrorListener { mp, what, extra ->
-                    Timber.tag(TAG).e("MediaPlayer error: what=$what, extra=$extra")
                     mp.release()
                     mediaPlayer = null
                     true
@@ -206,7 +202,6 @@ class TTSManager @Inject constructor(
                 prepareAsync()
             }
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error playing audio from URL: ${e.message}")
             mediaPlayer?.release()
             mediaPlayer = null
         }
@@ -218,13 +213,9 @@ class TTSManager @Inject constructor(
                 "Text" to text
             )
             val resultApi = apiServiceProvider.get().post(endpoint, body) as ResultApi<*>
-            if (resultApi.isSuccess()) {
-                resultApi.data
-            }
-            ""
+            resultApi.data?.toString()
         } catch (e: Exception) {
-            Timber.tag(TAG).e(e, "Error fetching audio URL from API")
             ""
-        }
+        } as String
     }
 }

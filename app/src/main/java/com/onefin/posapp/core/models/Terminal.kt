@@ -36,6 +36,9 @@ data class Terminal(
     
     @SerializedName("BankName")
     val bankName: String? = null,
+
+    @SerializedName("BankLogo")
+    val bankLogo: String? = null,
     
     @SerializedName("AccountName")
     val accountName: String = "",
