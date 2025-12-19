@@ -25,7 +25,6 @@ import com.onefin.posapp.ui.home.QRCodeDisplayActivity
 import com.onefin.posapp.ui.login.LoginActivity
 import com.onefin.posapp.ui.modals.LogoutDialogActivity
 import com.onefin.posapp.ui.modals.ProcessingActivity
-import com.onefin.posapp.ui.modals.QRSuccessNotificationActivity
 import com.onefin.posapp.ui.modals.ResultDialogActivity
 import com.onefin.posapp.ui.payment.PaymentCardActivity
 import com.onefin.posapp.ui.payment.PaymentSuccessActivity
