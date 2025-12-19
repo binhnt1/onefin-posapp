@@ -308,7 +308,6 @@ fun TransactionTypeDetailScreen(
                                 if (settleData?.isSuccess() == true) {
                                     isSettling = false
                                     snackbarHostState.showSnackbar(successMessage)
-                                    // Set flag để SettlementActivity refresh
                                     SettlementActivity.shouldRefresh = true
                                     handleRefresh()
                                 } else {

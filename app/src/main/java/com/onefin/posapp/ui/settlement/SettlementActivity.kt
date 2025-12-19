@@ -207,6 +207,7 @@ fun SettlementScreen(
         AlertDialog(
             onDismissRequest = {
                 if (!isSettling && !isPrinting) {
+                    showSettleDialog = false
                 }
             },
             title = {
@@ -235,6 +236,7 @@ fun SettlementScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        showSettleDialog = false
                         scope.launch {
                             val gson = Gson()
                             isSettling = true
@@ -254,18 +256,23 @@ fun SettlementScreen(
                                 if (settleData?.isSuccess() == true) {
                                     isSettling = false
                                     snackbarHostState.showSnackbar(successMessage)
+                                    // Load lại data sau khi settlement thành công
                                     loadData()
                                 } else {
                                     isSettling = false
                                     snackbarHostState.showSnackbar(
                                         failedMessage.format(settleData?.status?.message ?: "Unknown")
                                     )
+                                    // Load lại data khi settlement thất bại
+                                    loadData()
                                 }
                             } catch (e: Exception) {
                                 isSettling = false
                                 snackbarHostState.showSnackbar(
                                     failedMessage.format(e.message ?: unknownError)
                                 )
+                                // Load lại data khi có exception
+                                loadData()
                             }
 
                             if (settleData?.isSuccess() == true) {
@@ -283,6 +290,8 @@ fun SettlementScreen(
                                     snackbarHostState.showSnackbar("❌ Lỗi in: ${e.message}")
                                 } finally {
                                     isPrinting = false
+                                    // Load lại data sau khi in xong
+                                    loadData()
                                 }
                             }
                         }
@@ -302,7 +311,7 @@ fun SettlementScreen(
             },
             dismissButton = {
                 OutlinedButton(
-                    onClick = {  },
+                    onClick = { showSettleDialog = false },
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.height(48.dp),
                     enabled = !isSettling && !isPrinting
@@ -402,7 +411,7 @@ fun SettlementScreen(
                 SettlementBottomBar(
                     totalAmount = unSettleTotalAmount,
                     isSettling = isSettling || isPrinting,
-                    onSettleClick = {  }
+                    onSettleClick = { showSettleDialog = true }
                 )
             }
         }

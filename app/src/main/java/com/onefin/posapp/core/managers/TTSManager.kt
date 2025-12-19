@@ -2,17 +2,25 @@ package com.onefin.posapp.core.managers
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.media.MediaPlayer
 import android.speech.tts.TextToSpeech
+import com.google.gson.Gson
+import com.onefin.posapp.core.services.ApiService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
+import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 @Singleton
 class TTSManager @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
+    private val apiServiceProvider: Provider<ApiService>,
+    private val gson: Gson
 ) {
+
 
     companion object {
         private const val TAG = "TTSManager"
@@ -22,6 +30,9 @@ class TTSManager @Inject constructor(
     private var isTTSAvailable = false
     private var textToSpeech: TextToSpeech? = null
     private val pendingSpeechQueue = mutableListOf<String>()
+    private var mediaPlayer: MediaPlayer? = null
+    private val ttsScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
 
     init {
         if (checkTTSAvailability()) {
@@ -49,25 +60,43 @@ class TTSManager @Inject constructor(
             isTTSAvailable = false
         } catch (_: Exception) {
         }
+
+        // Release MediaPlayer
+        try {
+            mediaPlayer?.stop()
+            mediaPlayer?.release()
+            mediaPlayer = null
+        } catch (_: Exception) {
+        }
+
+        // Cancel coroutine scope
+        ttsScope.cancel()
     }
 
     fun speak(text: String) {
         if (text.isEmpty()) return
-        if (!isTTSAvailable) {
-            return
-        }
 
-        if (!isInitialized || textToSpeech == null) {
-            if (textToSpeech != null) {
-                pendingSpeechQueue.add(text)
-                retryInitialization()
+        // Nếu TTS sẵn sàng thì dùng TTS
+        if (isTTSAvailable && isInitialized && textToSpeech != null) {
+            try {
+                textToSpeech?.speak(text, TextToSpeech.QUEUE_ADD, null, null)
+            } catch (_: Exception) {
             }
             return
         }
 
-        try {
-            textToSpeech?.speak(text, TextToSpeech.QUEUE_ADD, null, null)
-        } catch (_: Exception) {
+        // Nếu TTS không sẵn sàng thì thử gọi API để lấy audio URL
+        ttsScope.launch {
+            try {
+                val audioUrl = fetchAudioUrlFromApi(text)
+                if (audioUrl.isNotEmpty()) {
+                    playAudioFromUrl(audioUrl)
+                } else {
+                    Timber.tag(TAG).w("Audio URL empty from API")
+                }
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Failed to fetch audio from API: ${e.message}")
+            }
         }
     }
 
@@ -155,6 +184,55 @@ class TTSManager @Inject constructor(
             if (!isInitialized) {
                 initializeTTS()
             }
+        }
+    }
+    private suspend fun playAudioFromUrl(url: String) = withContext(Dispatchers.Main) {
+        try {
+            // Release MediaPlayer cũ nếu đang chạy
+            mediaPlayer?.let {
+                if (it.isPlaying) {
+                    it.stop()
+                }
+                it.release()
+            }
+
+            // Tạo MediaPlayer mới
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(url)
+                setOnPreparedListener { mp ->
+                    Timber.tag(TAG).d("MediaPlayer prepared, starting playback")
+                    mp.start()
+                }
+                setOnCompletionListener {
+                    Timber.tag(TAG).d("MediaPlayer completed")
+                    it.release()
+                    mediaPlayer = null
+                }
+                setOnErrorListener { mp, what, extra ->
+                    Timber.tag(TAG).e("MediaPlayer error: what=$what, extra=$extra")
+                    mp.release()
+                    mediaPlayer = null
+                    true
+                }
+                prepareAsync()
+            }
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Error playing audio from URL: ${e.message}")
+            mediaPlayer?.release()
+            mediaPlayer = null
+        }
+    }
+    private suspend fun fetchAudioUrlFromApi(text: String): String = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val endpoint = "/api/audio/text"
+            val body = mapOf(
+                "text" to text
+            )
+            val audioUrl = apiServiceProvider.get().post(endpoint, body) as String
+            audioUrl
+        } catch (e: Exception) {
+            Timber.tag(TAG).e(e, "Error fetching audio URL from API")
+            ""
         }
     }
 }

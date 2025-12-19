@@ -369,10 +369,7 @@ class RabbitMQManager @Inject constructor(
 
     private fun handleQrPayment(paymentRequest: PaymentAppRequest) {
         try {
-            val account = storageService.getAccount()
-            if (account == null) {
-                return
-            }
+            storageService.getAccount() ?: return
             val driverInfo = storageService.getDriverInfo()
             val paymentRequestData = paymentHelper.createPaymentAppRequest(paymentRequest, driverInfo)
             val intent = Intent(context, QRCodeDisplayActivity::class.java).apply {
@@ -386,10 +383,7 @@ class RabbitMQManager @Inject constructor(
 
     private fun handleCardPayment(paymentRequest: PaymentAppRequest) {
         try {
-            val account = storageService.getAccount()
-            if (account == null) {
-                return
-            }
+            storageService.getAccount() ?: return
             val driverInfo = storageService.getDriverInfo()
             val paymentRequestData = paymentHelper.createPaymentAppRequest(paymentRequest, driverInfo)
             val intent = Intent(context, PaymentCardActivity::class.java).apply {
@@ -403,10 +397,7 @@ class RabbitMQManager @Inject constructor(
 
     private fun handleCardMemberPayment(paymentRequest: PaymentAppRequest) {
         try {
-            val account = storageService.getAccount()
-            if (account == null) {
-                return
-            }
+            storageService.getAccount() ?: return
             val driverInfo = storageService.getDriverInfo()
             val paymentRequestData = paymentHelper.createPaymentAppRequest(paymentRequest, driverInfo)
             val intent = Intent(context, TransparentPaymentActivity::class.java).apply {

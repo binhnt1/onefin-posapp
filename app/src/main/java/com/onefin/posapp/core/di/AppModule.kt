@@ -118,9 +118,11 @@ object AppModule {
     @Provides
     @Singleton
     fun provideTTSManager(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        apiService: javax.inject.Provider<ApiService>,
+        gson: Gson
     ): com.onefin.posapp.core.managers.TTSManager {
-        return com.onefin.posapp.core.managers.TTSManager(context)
+        return com.onefin.posapp.core.managers.TTSManager(context, apiService, gson)
     }
 
     /**
