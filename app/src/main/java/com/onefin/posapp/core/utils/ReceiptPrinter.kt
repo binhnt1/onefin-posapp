@@ -461,9 +461,9 @@ class ReceiptPrinter(
         printerHelper.printDoubleDivider(PAPER_WIDTH)
 
         // Load 3 logos: Bank (left), Merchant (center), OneFin (right)
-        val bankLogoBitmap = loadBankLogo(terminal.bankLogo)
         val merchantLogoBitmap = loadMerchantLogo(terminal.logo)
-        val onefinLogoBitmap = loadDrawableBitmap(R.drawable.logo_small)
+        val bankLogoBitmap = loadBankLogo(terminal.bankLogo ?: "")
+        val onefinLogoBitmap = loadDrawableBitmap(R.drawable.logo)
 
         // Print combined logos if at least one exists
         if (bankLogoBitmap != null || merchantLogoBitmap != null || onefinLogoBitmap != null) {
