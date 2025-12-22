@@ -9,6 +9,9 @@ data class AidData(
     @SerializedName("paywave")
     val paywave: AidEntry? = null,
 
+    @SerializedName("amex")
+    val amex: AidEntry? = null,
+
     @SerializedName("pure")
     val pure: AidEntry? = null,
 
@@ -22,6 +25,7 @@ data class AidData(
         return when {
             paypass != null -> "paypass" to paypass
             paywave != null -> "paywave" to paywave
+            amex != null -> "amex" to amex
             pure != null -> "pure" to pure
             jcb != null -> "jcb" to jcb
             qpboc != null -> "qpboc" to qpboc
@@ -39,6 +43,9 @@ data class AidEntry(
 
     @SerializedName("paywaveAID")
     val paywaveAid: PaywaveAid? = null,
+
+    @SerializedName("amexAID")
+    val amexAid: AmexAid? = null,
 
     @SerializedName("pureAID")
     val pureAid: PureAid? = null,
@@ -233,6 +240,29 @@ data class JcbAid(
 
     @SerializedName("CLTransLimit")
     val clTransLimit: String? = null,
+
+    @SerializedName("transType_9C")
+    val transType: String? = null
+)
+
+/**
+ * Amex specific AID (American Express Express Pay)
+ */
+data class AmexAid(
+    @SerializedName("CLCVMLimit")
+    val clCvmLimit: String? = null,
+
+    @SerializedName("CLFloorLimit")
+    val clFloorLimit: String? = null,
+
+    @SerializedName("CLTransLimitCDCVM_DF8125")
+    val clTransLimitCdcvm: String? = null,
+
+    @SerializedName("CLTransLimitNoCDCVM_DF8124")
+    val clTransLimitNoCdcvm: String? = null,
+
+    @SerializedName("TTQ_9F66")
+    val ttq: String? = null,
 
     @SerializedName("transType_9C")
     val transType: String? = null

@@ -679,6 +679,67 @@
                 "enableTransLimit": "1"
             }
         }
+    },
+    {
+        "amex": {
+            "baseAID": {
+                "AID_9F06": "A0000000041010",
+                "AppName": "American Express",
+                "MCC_9F15": "9999",
+                "TACDefault": "FE50BCA000",
+                "TACDenial": "0000000000",
+                "TACOnline": "FE50BCF800",
+                "acquierId_9F01": "",
+                "countryCode_9F1A": "0704",
+                "defaultDDOL": "9F3704",
+                "defaultTDOL": "",
+                "displayOfflinePINRetryTime": "1",
+                "enableFloorLimitCheck": "1",
+                "enableRandomTransSel": "1",
+                "enableTerminalInfo": "1",
+                "enableVelocityCheck": "",
+                "exTerminalCap_9F40": "",
+                "floorLimit_9F1B": "000000000000",
+                "isFullMatch": "0",
+                "maxTargetPercent": "99",
+                "merchantId_9F16": "",
+                "merchantName": "",
+                "referCurrencyCode_9F3C": "",
+                "referCurrencyExp_9F3D": "",
+                "riskManagementData_9F1D": "6C00800000000000",
+                "targetPercent": "",
+                "terminalCap_9F33": "E0F8C8",
+                "terminalId_9F1C": "",
+                "terminalType_9F35": "22",
+                "threshold": "",
+                "transCurrencyCode_5F2A": "0704",
+                "transCurrencyExp": "",
+                "vendorName": "American Express",
+                "version_9F09": "0002"
+            },
+            "amexAID": {
+                "CLCVMLimit": "1000000",
+                "CLFloorLimit": "0",
+                "CLTACDenial_DF8121": "0000000000",
+                "CLTACOnline_DF8122": "F45084800C",
+                "CLTransLimitCDCVM_DF8125": "999999999999",
+                "CLTransLimitNoCDCVM_DF8124": "999999999999",
+                "ClTACDefault_DF8120": "F45084800C",
+                "cardDataInputCap_DF8117": "E0",
+                "chipCVMCapNoCVM_DF8119": "F8",
+                "chipCVMCap_DF8118": "F8",
+                "kernelConfig_DF811B": "20",
+                "MSDCVMCap_DF811E": "E8",
+                "securityCap_DF811F": "E8",
+                "transType_9C": "00",
+                "enableCLFloorLimit": "1",
+                "enableCVMLimit": "1",
+                "enableFloorLimit": "1",
+                "enableTransLimit": "1",
+                "enableTransLimitNoONdevice": "1",
+                "enableTransLimitONdevice": "1"
+            }
+        }
     }
 
 ]

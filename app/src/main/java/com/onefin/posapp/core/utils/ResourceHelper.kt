@@ -135,6 +135,7 @@ object ResourceHelper {
             ttq = when (type) {
                 "paypass" -> hexStr2Bytes(aidEntry.paypassAid?.ttq ?: "3600C080")
                 "paywave" -> hexStr2Bytes(aidEntry.paywaveAid?.ttq ?: "3600C080")
+                "amex" -> hexStr2Bytes(aidEntry.amexAid?.ttq ?: "")
                 "qpboc" -> hexStr2Bytes(aidEntry.qpbocAid?.ttq ?: "3600C080")
                 "pure" -> hexStr2Bytes(aidEntry.pureAid?.ttq ?: "26000080")
                 else -> hexStr2Bytes("")
@@ -144,8 +145,9 @@ object ResourceHelper {
             kernelID = when (type) {
                 "paypass" -> hexStr2Bytes("02") // OP_PAYPASS + 1
                 "paywave" -> hexStr2Bytes("03") // OP_PAYWAVE + 1
+                "amex" -> hexStr2Bytes("04")     // Amex Express Pay
                 "pure" -> hexStr2Bytes("00")     // NAPAS Pure - kernelID=00, kernelType=09
-                "jcb" -> hexStr2Bytes("05")      // OP_JCB
+                "jcb" -> hexStr2Bytes("06")      // JCB J/Speedy
                 "qpboc" -> hexStr2Bytes("03")    // QuickPass uses 03
                 else -> hexStr2Bytes("")
             }
@@ -164,6 +166,12 @@ object ResourceHelper {
                     cvmLmt = hexStr2Bytes(paywaveAid?.clCvmLimit ?: "000000000000")
                     termClssLmt = hexStr2Bytes(paywaveAid?.clTransLimit ?: "999999999999")
                     termClssOfflineFloorLmt = hexStr2Bytes(paywaveAid?.clFloorLimit ?: "000000000000")
+                }
+                "amex" -> {
+                    val amexAid = aidEntry.amexAid
+                    cvmLmt = hexStr2Bytes(amexAid?.clCvmLimit ?: "000000000000")
+                    termClssLmt = hexStr2Bytes(amexAid?.clTransLimitNoCdcvm ?: "999999999999")
+                    termClssOfflineFloorLmt = hexStr2Bytes(amexAid?.clFloorLimit ?: "000000000000")
                 }
                 "pure" -> {
                     val pureAid = aidEntry.pureAid
@@ -279,9 +287,10 @@ object ResourceHelper {
         return when (type) {
             "paypass" -> 0x02.toByte() // MasterCard Contactless
             "paywave" -> 0x03.toByte() // Visa Contactless
+            "amex" -> 0x04.toByte()    // Amex Express Pay (AEIPS)
+            "jcb" -> 0x06.toByte()     // JCB J/Speedy
+            "qpboc" -> 0x07.toByte()   // UnionPay QuickPass
             "pure" -> 0x09.toByte()    // NAPAS Pure - Java ref uses kernelType=9
-            "jcb" -> 0x04.toByte()     // JCB
-            "qpboc" -> 0x07.toByte()   // UnionPay
             else -> 0x00.toByte()      // Standard EMV
         }
     }
