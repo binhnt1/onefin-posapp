@@ -490,7 +490,11 @@ class ReceiptPrinter(
             )
         }
 
-        printerHelper.printTwoColumns("MID: ${terminal.mid}", "TID: ${terminal.tid}")
+        printerHelper.printTextWithFormat(
+            text = "MID: ${terminal.mid}  TID: ${terminal.tid}",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+        )
 
         printerHelper.printDoubleDivider(PAPER_WIDTH)
     }
