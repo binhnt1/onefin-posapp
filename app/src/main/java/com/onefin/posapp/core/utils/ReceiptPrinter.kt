@@ -631,6 +631,29 @@ class ReceiptPrinter(
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_NORMAL
         )
+
+        printerHelper.printDivider("-", PAPER_WIDTH)
+
+        // Footer terms
+        printerHelper.printTextWithFormat(
+            text = "NO REFUND/KHÔNG HOÀN TRẢ",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+        )
+
+        printerHelper.printTextWithFormat(
+            text = "NO SIGNATURE REQUIRED/KHÔNG YÊU CẦU KHÁCH HÀNG KÝ",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+        )
+
+        printerHelper.printNewLine(1)
+        printerHelper.printTextWithFormat(
+            text = "CARDHOLDER'S SIGNATURE/CHỮ KÝ CỦA CHỦ THẺ",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+        )
+
         printerHelper.printDivider("-", PAPER_WIDTH)
 
         printerHelper.printTextWithFormat(
