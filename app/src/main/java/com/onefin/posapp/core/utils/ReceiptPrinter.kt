@@ -460,18 +460,25 @@ class ReceiptPrinter(
     private suspend fun printHeader(terminal: Terminal) {
         printerHelper.printDoubleDivider(PAPER_WIDTH)
 
-        // Load 3 logos: Bank (left), Merchant (center), OneFin (right)
+        // Load 2 logos: Bank (left), Merchant (center)
         val merchantLogoBitmap = loadMerchantLogo(terminal.logo)
         val bankLogoBitmap = loadBankLogo(terminal.bankLogo ?: "")
-        val onefinLogoBitmap = loadDrawableBitmap(R.drawable.logo)
 
         // Print combined logos if at least one exists
-        if (bankLogoBitmap != null || merchantLogoBitmap != null || onefinLogoBitmap != null) {
-            val combinedBitmap = combineThreeLogos(bankLogoBitmap, merchantLogoBitmap, onefinLogoBitmap)
+        if (bankLogoBitmap != null || merchantLogoBitmap != null) {
+            val combinedBitmap = combineTwoLogos(bankLogoBitmap, merchantLogoBitmap)
             if (combinedBitmap != null) {
                 printerHelper.printBitmap(combinedBitmap)
             }
         }
+
+        // Print OneFin text instead of logo
+        printerHelper.printTextWithFormat(
+            text = "OneFin",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
+            isBold = true
+        )
 
         printerHelper.printTextWithFormat(
             text = terminal.name,
@@ -491,7 +498,13 @@ class ReceiptPrinter(
         }
 
         printerHelper.printTextWithFormat(
-            text = "MID: ${terminal.mid}  TID: ${terminal.tid}",
+            text = "MID: ${terminal.mid}",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+        )
+
+        printerHelper.printTextWithFormat(
+            text = "TID: ${terminal.tid}",
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_NORMAL
         )
