@@ -40,6 +40,15 @@ data class Transaction(
     @SerializedName("TransactionId")
     val transactionId: String = "",
 
+    @SerializedName("TraceNo")
+    val traceNo: String = "",
+
+    @SerializedName("Tc")
+    val tc: String = "",
+
+    @SerializedName("Aid")
+    val aid: String = "",
+
     @SerializedName("TotalTransAmt")
     val totalTransAmt: Long = 0L,
 
