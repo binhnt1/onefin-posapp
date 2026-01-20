@@ -144,15 +144,6 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
 
-    // Detect device type
-    val deviceType = remember {
-        val manufacturer = Build.MANUFACTURER.lowercase()
-        val model = Build.MODEL.lowercase()
-        val isSunmi = manufacturer.contains("sunmi") ||
-                model.contains("p2") || model.contains("v2") || model.contains("p1")
-        if (isSunmi) "sunmi" else "phone"
-    }
-
     // State management
     var isNetworkAvailable by remember { mutableStateOf(true) }
     var showNetworkDialog by remember { mutableStateOf(false) }
@@ -166,7 +157,6 @@ fun HomeScreen(
 
     // EMV initialization states
     var isInitializingEMV by remember { mutableStateOf(false) }
-    var emvInitialized by remember { mutableStateOf(false) }
     var showSuccessMessage by remember { mutableStateOf(false) }
 
     val networkErrorMessage = stringResource(R.string.network_dialog_message)
@@ -203,7 +193,6 @@ fun HomeScreen(
     // Login logic
     LaunchedEffect(Unit) {
         if (!autoLoginAttempted) {
-            autoLoginAttempted = true
             val currentAccount = storageService.getAccount()
             if (currentAccount != null) {
                 cachedAccount = currentAccount
@@ -651,7 +640,7 @@ fun HomeContent(
             if (merchantConfig.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 CollapsibleMerchantInfoCard(
-                    merchantConfig = merchantConfig as Map<String, String>,
+                    merchantConfig = merchantConfig,
                     fieldMapping = merchantFieldMapping,
                     merchantCompany = if (account.terminal.image.isNotEmpty())
                         account.terminal.merchantCompany else null,
@@ -670,9 +659,9 @@ fun HomeContent(
 
     if (showAmountSheet) {
         AmountEntrySheet(
+            onDismiss = { },
             paymentHelper = paymentHelper,
             storageService = storageService,
-            onDismiss = { showAmountSheet = false }
         )
     }
 }
