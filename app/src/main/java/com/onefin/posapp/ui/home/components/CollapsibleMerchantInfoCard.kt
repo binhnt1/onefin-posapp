@@ -30,7 +30,7 @@ import com.onefin.posapp.core.utils.DeviceHelper
 
 @Composable
 fun CollapsibleMerchantInfoCard(
-    merchantConfig: Map<String, String>,
+    merchantConfig: Map<String, String?>,
     fieldMapping: Map<String, String>,
     deviceHelper: DeviceHelper,
     storageService: StorageService,

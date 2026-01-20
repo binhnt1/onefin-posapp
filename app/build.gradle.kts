@@ -16,8 +16,8 @@ android {
     defaultConfig {
         applicationId = "com.onefin.posapp"
         minSdk = 26
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.3"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -123,7 +123,7 @@ android {
         create("sgpt") {
             dimension = "customer"
             versionNameSuffix = "-sgpt"
-            resValue("string", "app_name", "Onefin Payment")
+            resValue("string", "app_name", "Onefin Payment (Dev)")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "PASSWORD", "\"A1a@a#a$\"")
             buildConfigField("String", "USERNAME", "\"sgpt@yopmail.com\"")
@@ -134,7 +134,7 @@ android {
         create("mailinh") {
             dimension = "customer"
             versionNameSuffix = "-mailinh"
-            resValue("string", "app_name", "Onefin Payment")
+            resValue("string", "app_name", "Onefin Payment (Dev)")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "PASSWORD", "\"A1a@a#a$\"")
             buildConfigField("String", "USERNAME", "\"mailinh@yopmail.com\"")
@@ -145,7 +145,7 @@ android {
         create("megatech") {
             dimension = "customer"
             versionNameSuffix = "-megatech"
-            resValue("string", "app_name", "Onefin Payment")
+            resValue("string", "app_name", "Onefin Payment (Dev)")
             buildConfigField("String", "SDK_TYPE", "\"sunmi\"")
             buildConfigField("String", "PASSWORD", "\"A1a@a#a$\"")
             buildConfigField("String", "USERNAME", "\"mcmegatech@yopmail.com\"")

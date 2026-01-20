@@ -156,7 +156,7 @@ class ReceiptPrinter(
     private fun createTextBitmap(text: String): Bitmap {
         val paint = android.graphics.Paint().apply {
             color = android.graphics.Color.BLACK
-            textSize = 24f
+            textSize = 28f
             textAlign = android.graphics.Paint.Align.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             isAntiAlias = true
@@ -458,7 +458,7 @@ class ReceiptPrinter(
         val onefinTextBitmap = createTextBitmap("OneFin")
 
         // Print combined logos if at least one exists
-        if (bankLogoBitmap != null || merchantLogoBitmap != null || onefinTextBitmap != null) {
+        if (bankLogoBitmap != null || merchantLogoBitmap != null) {
             val combinedBitmap = combineThreeLogos(bankLogoBitmap, merchantLogoBitmap, onefinTextBitmap)
             if (combinedBitmap != null) {
                 printerHelper.printBitmap(combinedBitmap)
@@ -768,10 +768,9 @@ class ReceiptPrinter(
         // THÊM MARGIN BOTTOM
         val marginBottom = 40
 
-        val totalWidth = paperWidthPx
         val maxHeight = maxOf(left.height, right.height) + marginBottom // Thêm margin vào height
 
-        val combinedBitmap = createBitmap(totalWidth, maxHeight)
+        val combinedBitmap = createBitmap(paperWidthPx, maxHeight)
         val canvas = android.graphics.Canvas(combinedBitmap)
 
         canvas.drawColor(android.graphics.Color.WHITE)
@@ -780,7 +779,7 @@ class ReceiptPrinter(
         canvas.drawBitmap(left, 0f, leftY, null)
 
         // Logo bên phải - căn sát mép phải
-        val rightX = (totalWidth - right.width).toFloat()
+        val rightX = (paperWidthPx - right.width).toFloat()
         val rightY = (maxHeight - marginBottom - right.height) / 2f // Trừ margin khi tính Y
         canvas.drawBitmap(right, rightX, rightY, null)
 
@@ -803,9 +802,8 @@ class ReceiptPrinter(
         if (logos.isEmpty()) return null
 
         val maxHeight = logos.maxOf { it.height } + marginBottom
-        val totalWidth = paperWidthPx
 
-        val combinedBitmap = createBitmap(totalWidth, maxHeight)
+        val combinedBitmap = createBitmap(paperWidthPx, maxHeight)
         val canvas = android.graphics.Canvas(combinedBitmap)
         canvas.drawColor(android.graphics.Color.WHITE)
 
@@ -817,14 +815,14 @@ class ReceiptPrinter(
 
         // Draw center logo (merchant)
         centerBitmap?.let { bitmap ->
-            val x = (totalWidth - bitmap.width) / 2f
+            val x = (paperWidthPx - bitmap.width) / 2f
             val y = (maxHeight - marginBottom - bitmap.height) / 2f
             canvas.drawBitmap(bitmap, x, y, null)
         }
 
         // Draw right logo (onefin)
         rightBitmap?.let { bitmap ->
-            val x = (totalWidth - bitmap.width).toFloat()
+            val x = (paperWidthPx - bitmap.width).toFloat()
             val y = (maxHeight - marginBottom - bitmap.height) / 2f
             canvas.drawBitmap(bitmap, x, y, null)
         }
