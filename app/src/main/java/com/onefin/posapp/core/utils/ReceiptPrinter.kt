@@ -452,25 +452,18 @@ class ReceiptPrinter(
     private suspend fun printHeader(terminal: Terminal) {
         printerHelper.printDoubleDivider(PAPER_WIDTH)
 
-        // Load 2 logos: Bank (left), Merchant (center)
-        val merchantLogoBitmap = loadMerchantLogo(terminal.logo)
+        // Load 3 logos: Bank (left), Merchant (center), OneFin text (right)
         val bankLogoBitmap = loadBankLogo(terminal.bankLogo ?: "")
+        val merchantLogoBitmap = loadMerchantLogo(terminal.logo)
+        val onefinTextBitmap = createTextBitmap("OneFin")
 
         // Print combined logos if at least one exists
-        if (bankLogoBitmap != null || merchantLogoBitmap != null) {
-            val combinedBitmap = combineTwoLogos(bankLogoBitmap, merchantLogoBitmap)
+        if (bankLogoBitmap != null || merchantLogoBitmap != null || onefinTextBitmap != null) {
+            val combinedBitmap = combineThreeLogos(bankLogoBitmap, merchantLogoBitmap, onefinTextBitmap)
             if (combinedBitmap != null) {
                 printerHelper.printBitmap(combinedBitmap)
             }
         }
-
-        // Print OneFin text instead of logo
-        printerHelper.printTextWithFormat(
-            text = "OneFin",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
-            isBold = true
-        )
 
         printerHelper.printTextWithFormat(
             text = terminal.name,
