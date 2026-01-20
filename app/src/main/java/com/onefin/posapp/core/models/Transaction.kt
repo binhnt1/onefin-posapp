@@ -49,12 +49,6 @@ data class Transaction(
     @SerializedName("Aid")
     val aid: String = "",
 
-    @SerializedName("CardExpiry")
-    val cardExpiry: String = "",
-
-    @SerializedName("AppLabel")
-    val appLabel: String = "",
-
     @SerializedName("TotalTransAmt")
     val totalTransAmt: Long = 0L,
 

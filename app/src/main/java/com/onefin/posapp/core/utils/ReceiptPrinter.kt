@@ -584,11 +584,6 @@ class ReceiptPrinter(
                 )
             }
 
-            // Ngày hết hạn
-            if (transaction.cardExpiry.isNotEmpty()) {
-                printerHelper.printTwoColumns("NGÀY HẾT HẠN:", transaction.cardExpiry)
-            }
-
             // Số tham chiếu (refno)
             if (transaction.refno.isNotEmpty()) {
                 printerHelper.printTwoColumns("SỐ THAM CHIẾU:", transaction.refno)
@@ -604,9 +599,9 @@ class ReceiptPrinter(
                 printerHelper.printTwoColumns("AID:", transaction.aid)
             }
 
-            // APP LABEL
-            if (transaction.appLabel.isNotEmpty()) {
-                printerHelper.printTwoColumns("APP LABEL:", transaction.appLabel)
+            // APP LABEL (using Source field)
+            if (transaction.source.isNotEmpty()) {
+                printerHelper.printTwoColumns("APP LABEL:", transaction.getCardTypeText(context))
             }
 
             // TC/ARQC
