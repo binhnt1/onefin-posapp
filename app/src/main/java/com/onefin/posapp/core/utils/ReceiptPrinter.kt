@@ -45,14 +45,6 @@ class ReceiptPrinter(
             printAmountSection(transaction)
             printStatusSection(transaction)
 
-            if (transaction.formType == 1) {
-                printPinVerificationAndAgreement(transaction)
-            }
-
-            if (transaction.remark.isNotEmpty()) {
-                printNotesSection(transaction.remark)
-            }
-
             printFooter()
             printerHelper.feedPaper(4)
             printerHelper.exitPrinterBuffer(true)
@@ -82,17 +74,9 @@ class ReceiptPrinter(
             printAmountSection(transaction)
             printStatusSection(transaction)
 
-            if (transaction.formType == 1) {
-                printPinVerificationAndAgreement(transaction)
-            }
-
             // 🔥 IN CHỮ KÝ
             if (signatureBitmap != null) {
                 printSignatureSection(signatureBitmap)
-            }
-
-            if (transaction.remark.isNotEmpty()) {
-                printNotesSection(transaction.remark)
             }
             printFooter()
             printerHelper.feedPaper(4)
@@ -669,67 +653,6 @@ class ReceiptPrinter(
             text = notes,
             alignment = PrinterHelper.ALIGN_LEFT,
             fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-        )
-    }
-
-    private fun printPinVerificationAndAgreement(transaction: Transaction) {
-        printerHelper.printDoubleDivider(PAPER_WIDTH)
-
-        // ĐÃ XÁC NHẬN PIN
-        printerHelper.printTextWithFormat(
-            text = "ĐÃ XÁC NHẬN PIN",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL,
-            isBold = true
-        )
-
-        printerHelper.printNewLine(1)
-
-        // KÝ TÊN: _________________
-        printerHelper.printTextWithFormat(
-            text = "KÝ TÊN:______________________",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-        )
-
-        // Tên chủ thẻ
-        if (transaction.accountName.isNotEmpty()) {
-            printerHelper.printTextWithFormat(
-                text = transaction.accountName,
-                alignment = PrinterHelper.ALIGN_CENTER,
-                fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-            )
-        }
-
-        printerHelper.printNewLine(1)
-
-        // Phần đồng ý thanh toán
-        printerHelper.printTextWithFormat(
-            text = "TÔI ĐỒNG Ý THANH TOÁN",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL,
-            isBold = true
-        )
-
-        printerHelper.printTextWithFormat(
-            text = "SỐ TIỀN TRÊN THEO SỰ CHẤP THUẬN",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-        )
-
-        printerHelper.printTextWithFormat(
-            text = "CỦA NGÂN HÀNG PHÁT HÀNH THẺ",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-        )
-
-        printerHelper.printNewLine(1)
-
-        printerHelper.printTextWithFormat(
-            text = "***** LIÊN KHÁCH HÀNG *****",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL,
-            isBold = true
         )
     }
 
