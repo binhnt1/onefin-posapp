@@ -35,9 +35,9 @@ class ApiService @Inject constructor(
     // OkHttpClient với logging (nếu enable)
     private val client: OkHttpClient by lazy {
         val builder = OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .writeTimeout(15, TimeUnit.SECONDS)
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
 
         // Thêm logging interceptor nếu enable
         if (AppConfig.enableLogging) {
