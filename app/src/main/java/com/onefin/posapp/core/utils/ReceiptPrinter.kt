@@ -45,6 +45,10 @@ class ReceiptPrinter(
             printAmountSection(transaction)
             printStatusSection(transaction)
 
+            if (transaction.formType == 1) {
+                printPinVerificationAndAgreement(transaction)
+            }
+
             if (transaction.remark.isNotEmpty()) {
                 printNotesSection(transaction.remark)
             }
@@ -77,6 +81,10 @@ class ReceiptPrinter(
             printTransactionInfo(transaction)
             printAmountSection(transaction)
             printStatusSection(transaction)
+
+            if (transaction.formType == 1) {
+                printPinVerificationAndAgreement(transaction)
+            }
 
             // 🔥 IN CHỮ KÝ
             if (signatureBitmap != null) {
@@ -530,27 +538,39 @@ class ReceiptPrinter(
     }
 
     private fun printTransactionInfo(transaction: Transaction) {
+        // Ngày và giờ tách riêng
+        val dateTime = transaction.getFormattedTransactionDateTime()
+        if (dateTime.isNotEmpty()) {
+            val parts = dateTime.split(" ")
+            if (parts.size == 2) {
+                printerHelper.printTwoColumns("NGÀY: ${parts[0]}", "GIỜ: ${parts[1]}")
+            } else {
+                printerHelper.printTwoColumns("Ngày GD:", dateTime)
+            }
+        }
+
+        // Số lô và số hóa đơn
+        if (transaction.batchNumber.isNotEmpty() || transaction.invoiceNumber.isNotEmpty()) {
+            printerHelper.printTwoColumns(
+                "SỐ LÔ: ${transaction.batchNumber}",
+                "SỐ HÓA ĐƠN: ${transaction.invoiceNumber}"
+            )
+        }
+
         printerHelper.printTwoColumns("Mã GD:", transaction.transactionId)
-
-        if (transaction.invoiceNumber.isNotEmpty()) {
-            printerHelper.printTwoColumns("Hóa đơn:", transaction.invoiceNumber)
-        }
-
-        if (transaction.batchNumber.isNotEmpty()) {
-            printerHelper.printTwoColumns("Batch:", transaction.batchNumber)
-        }
-
-        printerHelper.printTwoColumns("Ngày GD:", transaction.getFormattedTransactionDateTime())
 
         printerHelper.printDivider("-", PAPER_WIDTH)
 
         if (transaction.formType == 1) {
+            // Loại thẻ - Source
             printerHelper.printTwoColumns("Loại thẻ:", transaction.getCardTypeText(context))
 
+            // Số thẻ
             if (transaction.accountNumber.isNotEmpty()) {
                 printerHelper.printTwoColumns("Số thẻ:", transaction.getMaskedNumber())
             }
 
+            // Tên chủ thẻ
             if (transaction.accountName.isNotEmpty()) {
                 printerHelper.printTextWithFormat(
                     text = "Tên chủ thẻ:",
@@ -564,6 +584,37 @@ class ReceiptPrinter(
                 )
             }
 
+            // Ngày hết hạn
+            if (transaction.cardExpiry.isNotEmpty()) {
+                printerHelper.printTwoColumns("NGÀY HẾT HẠN:", transaction.cardExpiry)
+            }
+
+            // Số tham chiếu (refno)
+            if (transaction.refno.isNotEmpty()) {
+                printerHelper.printTwoColumns("SỐ THAM CHIẾU:", transaction.refno)
+            }
+
+            // Mã chuẩn chi (traceNo/Stan)
+            if (transaction.traceNo.isNotEmpty()) {
+                printerHelper.printTwoColumns("MÃ CHUẨN CHI:", transaction.traceNo)
+            }
+
+            // AID
+            if (transaction.aid.isNotEmpty()) {
+                printerHelper.printTwoColumns("AID:", transaction.aid)
+            }
+
+            // APP LABEL
+            if (transaction.appLabel.isNotEmpty()) {
+                printerHelper.printTwoColumns("APP LABEL:", transaction.appLabel)
+            }
+
+            // TC/ARQC
+            if (transaction.tc.isNotEmpty()) {
+                printerHelper.printTwoColumns("TC/ARQC:", transaction.tc)
+            }
+
+            // Mã phê duyệt
             if (transaction.approvedCode.isNotEmpty()) {
                 printerHelper.printTwoColumns("Mã phê duyệt:", transaction.approvedCode)
             }
@@ -623,6 +674,67 @@ class ReceiptPrinter(
             text = notes,
             alignment = PrinterHelper.ALIGN_LEFT,
             fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+        )
+    }
+
+    private fun printPinVerificationAndAgreement(transaction: Transaction) {
+        printerHelper.printDoubleDivider(PAPER_WIDTH)
+
+        // ĐÃ XÁC NHẬN PIN
+        printerHelper.printTextWithFormat(
+            text = "ĐÃ XÁC NHẬN PIN",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL,
+            isBold = true
+        )
+
+        printerHelper.printNewLine(1)
+
+        // KÝ TÊN: _________________
+        printerHelper.printTextWithFormat(
+            text = "KÝ TÊN:______________________",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+        )
+
+        // Tên chủ thẻ
+        if (transaction.accountName.isNotEmpty()) {
+            printerHelper.printTextWithFormat(
+                text = transaction.accountName,
+                alignment = PrinterHelper.ALIGN_CENTER,
+                fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+            )
+        }
+
+        printerHelper.printNewLine(1)
+
+        // Phần đồng ý thanh toán
+        printerHelper.printTextWithFormat(
+            text = "TÔI ĐỒNG Ý THANH TOÁN",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL,
+            isBold = true
+        )
+
+        printerHelper.printTextWithFormat(
+            text = "SỐ TIỀN TRÊN THEO SỰ CHẤP THUẬN",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+        )
+
+        printerHelper.printTextWithFormat(
+            text = "CỦA NGÂN HÀNG PHÁT HÀNH THẺ",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+        )
+
+        printerHelper.printNewLine(1)
+
+        printerHelper.printTextWithFormat(
+            text = "***** LIÊN KHÁCH HÀNG *****",
+            alignment = PrinterHelper.ALIGN_CENTER,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL,
+            isBold = true
         )
     }
 
