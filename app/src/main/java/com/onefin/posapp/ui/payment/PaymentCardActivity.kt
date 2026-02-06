@@ -194,8 +194,8 @@ fun PaymentCardScreen(
     paymentAppRequest: PaymentAppRequest,
 ) {
     val context = LocalContext.current
-    val activityScope = rememberCoroutineScope()
     val activity = context as PaymentCardActivity
+    val activityScope = rememberCoroutineScope()
 
     // 🔥 KHÔNG ACCESS MANAGERS NGAY!
     val ttsManager = remember { activity.ttsManager }
@@ -224,6 +224,7 @@ fun PaymentCardScreen(
     var pendingSaleResult by remember { mutableStateOf<SaleResultData?>(null) }
     var onPinCancelledCallback by remember { mutableStateOf<(() -> Unit)?>(null) }
     var onPinEnteredCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
+    var showSecondCopyDialog by remember { mutableStateOf(false) }
 
     val amount = paymentAppRequest.merchantRequestData?.amount ?: 0
     val isMemberCard = paymentAppRequest.type.lowercase() == "member"
@@ -531,45 +532,73 @@ fun PaymentCardScreen(
                 } else null,
                 onPrint = if (paymentState == PaymentState.SUCCESS && customerSignature != null) {
                     {
-                        activityScope.launch {
-                            isPrinting = true
-                            statusMessage = context.getString(R.string.payment_printing)
+                        // Tắt countdown tự động để không bị đóng màn hình
+                        isSuccessCountdownActive = false
+
+                        activityScope.launch(Dispatchers.IO) {
+                            withContext(Dispatchers.Main) {
+                                isPrinting = true
+                                statusMessage = context.getString(R.string.payment_printing)
+                            }
+
                             try {
                                 val account = storageService.getAccount()
                                 if (account == null) {
-                                    ttsManager.speak(context.getString(R.string.payment_no_account))
-                                    isPrinting = false
+                                    withContext(Dispatchers.Main) {
+                                        ttsManager.speak(context.getString(R.string.payment_no_account))
+                                        isPrinting = false
+                                    }
                                     return@launch
                                 }
 
                                 if (deviceType == DeviceType.SUNMI_P2 || deviceType == DeviceType.SUNMI_P3) {
                                     if (!printerHelper.waitForReady(timeoutMs = 3000)) {
-                                        ttsManager.speak(context.getString(R.string.payment_printer_not_ready))
-                                        isPrinting = false
+                                        withContext(Dispatchers.Main) {
+                                            ttsManager.speak(context.getString(R.string.payment_printer_not_ready))
+                                            isPrinting = false
+                                        }
                                         return@launch
                                     }
                                 } else {
-                                    ttsManager.speak(context.getString(R.string.payment_printer_not_supported))
-                                    isPrinting = false
+                                    withContext(Dispatchers.Main) {
+                                        ttsManager.speak(context.getString(R.string.payment_printer_not_supported))
+                                        isPrinting = false
+                                    }
                                     return@launch
                                 }
 
                                 pendingSaleResult?.let { saleResult ->
                                     val transaction = saleResult.toTransaction()
-                                    receiptPrinter.printReceiptWithSignature(
+                                    // In liên số 1 và đợi in xong
+                                    val printResult = receiptPrinter.printReceiptWithSignature(
                                         transaction = transaction,
                                         terminal = account.terminal,
                                         signatureBitmap = customerSignature
                                     )
-                                    statusMessage = context.getString(R.string.payment_print_success)
-                                    ttsManager.speak(context.getString(R.string.payment_print_success))
-                                    onSuccess(saleResult)
+
+                                    if (printResult.isSuccess) {
+                                        withContext(Dispatchers.Main) {
+                                            statusMessage = context.getString(R.string.payment_print_success)
+                                            ttsManager.speak(context.getString(R.string.payment_print_success))
+
+                                            // In xong liên số 1, hiện dialog hỏi in liên số 2
+                                            isPrinting = false
+                                            showSecondCopyDialog = true
+                                        }
+                                    } else {
+                                        withContext(Dispatchers.Main) {
+                                            statusMessage = context.getString(R.string.payment_print_failed)
+                                            ttsManager.speak(context.getString(R.string.payment_print_failed))
+                                            isPrinting = false
+                                        }
+                                    }
                                 }
                             } catch (e: Exception) {
-                                statusMessage = context.getString(R.string.payment_print_failed)
-                                ttsManager.speak(context.getString(R.string.payment_print_failed))
-                            } finally {
-                                isPrinting = false
+                                withContext(Dispatchers.Main) {
+                                    statusMessage = context.getString(R.string.payment_print_failed)
+                                    ttsManager.speak(context.getString(R.string.payment_print_failed))
+                                    isPrinting = false
+                                }
                             }
                         }
                     }
@@ -615,6 +644,118 @@ fun PaymentCardScreen(
                     statusMessage = context.getString(R.string.payment_signature_confirmed)
                     isSuccessCountdownActive = true
                 }
+            )
+        }
+
+        // Dialog hỏi in liên số 2
+        if (showSecondCopyDialog) {
+            AlertDialog(
+                onDismissRequest = {
+                    showSecondCopyDialog = false
+                    isPrinting = false
+                    pendingSaleResult?.let { onSuccess(it) }
+                },
+                title = {
+                    Text(
+                        text = "In liên số 2",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111827)
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Bạn có muốn in thêm một liên hóa đơn khác không?",
+                        fontSize = 16.sp,
+                        color = Color(0xFF6B7280)
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showSecondCopyDialog = false
+
+                            // In liên số 2
+                            activityScope.launch(Dispatchers.IO) {
+                                try {
+                                    val account = storageService.getAccount()
+                                    if (account == null) {
+                                        isPrinting = false
+                                        pendingSaleResult?.let { onSuccess(it) }
+                                        return@launch
+                                    }
+
+                                    pendingSaleResult?.let { saleResult ->
+                                        val transaction = saleResult.toTransaction()
+                                        transaction.remark = "Liên số 2"
+                                        receiptPrinter.printReceiptWithSignature(
+                                            transaction = transaction,
+                                            terminal = account.terminal,
+                                            signatureBitmap = customerSignature
+                                        )
+
+                                        withContext(Dispatchers.Main) {
+                                            ttsManager.speak("In liên số 2 thành công")
+                                            isPrinting = false
+                                            onSuccess(saleResult)
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        ttsManager.speak("In liên số 2 thất bại")
+                                        isPrinting = false
+                                        pendingSaleResult?.let { onSuccess(it) }
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF10B981),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 0.dp,
+                            pressedElevation = 0.dp
+                        )
+                    ) {
+                        Text(
+                            text = "Đồng ý",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                },
+                dismissButton = {
+                    Button(
+                        onClick = {
+                            showSecondCopyDialog = false
+                            isPrinting = false
+                            pendingSaleResult?.let { onSuccess(it) }
+                        },
+                        modifier = Modifier
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF3B82F6),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 0.dp,
+                            pressedElevation = 0.dp
+                        )
+                    ) {
+                        Text(
+                            text = "Không",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                },
+                shape = RoundedCornerShape(12.dp),
+                containerColor = Color.White
             )
         }
     }

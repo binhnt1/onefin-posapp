@@ -14,7 +14,7 @@ import java.util.*
  */
 data class Transaction(
     @SerializedName("Remark")
-    val remark: String = "",
+    var remark: String = "",
 
     @SerializedName("FormType")
     val formType: Int = 0, // 1: Card, 2: QR, 3: Member
@@ -67,6 +67,9 @@ data class Transaction(
     @SerializedName("TransactionDate")
     val transactionDate: String = "",
 
+    @SerializedName("CardMode")
+    val cardMode: Int = 0, // 1: MAGNETIC, 2: IC, 4: CONTACTLESS
+
     @SerializedName("ProcessStatus")
     val processStatus: Int = 0 // -1: Hủy, 0: Khởi tạo, 1: Đã tính phí, 2: Đã kết toán
 ) {
@@ -86,6 +89,15 @@ data class Transaction(
             "member" -> context.getString(R.string.card_type_member)
             "vietqr" -> context.getString(R.string.card_type_vietqr)
             else -> context.getString(R.string.card_type_default)
+        }
+    }
+
+    fun getCardModeText(): String {
+        return when (cardMode) {
+            1 -> "MAGNETIC"
+            2 -> "IC"
+            4 -> "CONTACTLESS"
+            else -> ""
         }
     }
 

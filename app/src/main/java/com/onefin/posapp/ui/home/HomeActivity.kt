@@ -659,7 +659,7 @@ fun HomeContent(
 
     if (showAmountSheet) {
         AmountEntrySheet(
-            onDismiss = { },
+            onDismiss = { showAmountSheet = false },
             paymentHelper = paymentHelper,
             storageService = storageService,
         )

@@ -41,6 +41,18 @@ class ReceiptPrinter(
 
             printHeader(terminal)
             printTransactionType(transaction)
+
+            // In remark nếu có (ghi chú người dùng nhập)
+            if (transaction.remark.isNotEmpty()) {
+                printerHelper.printTextWithFormat(
+                    text = transaction.remark,
+                    alignment = PrinterHelper.ALIGN_CENTER,
+                    fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
+                    isBold = true
+                )
+                printerHelper.printDivider("-", PAPER_WIDTH)
+            }
+
             printTransactionInfo(transaction)
             printAmountSection(transaction)
             printStatusSection(transaction)
@@ -70,6 +82,18 @@ class ReceiptPrinter(
 
             printHeader(terminal)
             printTransactionType(transaction)
+
+            // In remark nếu có (VD: "Liên số 2")
+            if (transaction.remark.isNotEmpty()) {
+                printerHelper.printTextWithFormat(
+                    isBold = true,
+                    text = transaction.remark,
+                    alignment = PrinterHelper.ALIGN_CENTER,
+                    fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
+                )
+                printerHelper.printDivider("-", PAPER_WIDTH)
+            }
+
             printTransactionInfo(transaction)
             printAmountSection(transaction)
             printStatusSection(transaction)
@@ -530,7 +554,7 @@ class ReceiptPrinter(
         if (transaction.batchNumber.isNotEmpty() || transaction.invoiceNumber.isNotEmpty()) {
             printerHelper.printTwoColumns(
                 "SỐ LÔ: ${transaction.batchNumber}",
-                "SỐ HÓA ĐƠN: ${transaction.invoiceNumber}"
+                "HĐ: ${transaction.invoiceNumber}"
             )
         }
 
@@ -542,10 +566,19 @@ class ReceiptPrinter(
             // Loại thẻ - Source
             printerHelper.printTwoColumns("Loại thẻ:", transaction.getCardTypeText(context))
 
+            // Phương thức (Card Mode)
+            val cardModeText = transaction.getCardModeText()
+            if (cardModeText.isNotEmpty()) {
+                printerHelper.printTwoColumns("Phương thức:", cardModeText)
+            }
+
             // Số thẻ
             if (transaction.accountNumber.isNotEmpty()) {
                 printerHelper.printTwoColumns("Số thẻ:", transaction.getMaskedNumber())
             }
+
+            // Ngày hết hạn
+            printerHelper.printTwoColumns("Ngày hết hạn:", "**/**")
 
             // Tên chủ thẻ
             if (transaction.accountName.isNotEmpty()) {
@@ -563,12 +596,12 @@ class ReceiptPrinter(
 
             // Số tham chiếu (refno)
             if (transaction.refno.isNotEmpty()) {
-                printerHelper.printTwoColumns("SỐ THAM CHIẾU:", transaction.refno)
+                printerHelper.printTwoColumns("Số tham chiếu:", transaction.refno)
             }
 
             // Mã chuẩn chi (traceNo/Stan)
             if (transaction.traceNo.isNotEmpty()) {
-                printerHelper.printTwoColumns("MÃ CHUẨN CHI:", transaction.traceNo)
+                printerHelper.printTwoColumns("Mã chuẩn chi:", transaction.traceNo)
             }
 
             // AID

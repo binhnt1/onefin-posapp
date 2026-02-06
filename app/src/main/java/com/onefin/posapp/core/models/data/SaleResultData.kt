@@ -4,6 +4,8 @@ import com.google.gson.annotations.SerializedName
 import com.onefin.posapp.core.models.Transaction
 import com.onefin.posapp.core.utils.UtilHelper
 import java.io.Serializable
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 data class SaleResultData(
 
@@ -25,6 +27,12 @@ data class SaleResultData(
 ) : Serializable {
 
     data class Data(
+        @SerializedName("tc")
+        val tc: String? = null,
+
+        @SerializedName("aid")
+        val aid: String? = null,
+
         @SerializedName("emv")
         val emv: String? = null,
 
@@ -56,7 +64,10 @@ data class SaleResultData(
         val approveCode: String? = null,
 
         @SerializedName("isoResponseCode")
-        val isoResponseCode: String? = null
+        val isoResponseCode: String? = null,
+
+        @SerializedName("cardMode")
+        val cardMode: Int = 0, // 1: MAGNETIC, 2: IC, 4: CONTACTLESS
     ) : Serializable
 
     data class Header(
@@ -90,6 +101,25 @@ data class SaleResultData(
         val message: String? = null
     ) : Serializable
 
+    /**
+     * Parse transmitsDateTime from yyMMddHHmmss format to yyyy-MM-dd'T'HH:mm:ss format
+     * Example: "260206080921" -> "2026-02-06T08:09:21"
+     */
+    private fun parseTransmitsDateTime(transmitsDateTime: String?): String {
+        if (transmitsDateTime.isNullOrEmpty() || transmitsDateTime.length != 12) {
+            return ""
+        }
+
+        return try {
+            val inputFormat = SimpleDateFormat("yyMMddHHmmss", Locale.getDefault())
+            val outputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            val date = inputFormat.parse(transmitsDateTime)
+            date?.let { outputFormat.format(it) } ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
     fun toTransaction(): Transaction {
         val requestData = UtilHelper.toMapOrNull(this.requestData)
 
@@ -106,17 +136,21 @@ data class SaleResultData(
             feeTransAmt = 0L,
             settledDate = null,
             formType = formType,
+            tc = this.data?.tc ?: "",
+            aid = this.data?.aid ?: "",
             invoiceNumber = billNumber,
             refno = this.data?.refNo ?: "",
+            traceNo = this.data?.traceNo ?: "",
             remark = this.status?.message ?: "",
             source = this.data?.cardBrand ?: "",
+            cardMode = this.data?.cardMode ?: 4,
             batchNumber = this.data?.batchNo ?: "",
             accountName = this.data?.cardHolder ?: "",
             transactionId = this.header?.transId ?: "",
             accountNumber = this.data?.cardNumber ?: "",
             approvedCode = this.data?.approveCode ?: "",
-            transactionDate = this.header?.transmitsDateTime ?: "",
             totalTransAmt = this.data?.totalAmount?.toLongOrNull() ?: 0L,
+            transactionDate = parseTransmitsDateTime(this.header?.transmitsDateTime),
             processStatus = when (this.status?.code) {
                 "00", "0000" -> 0
                 else -> -1

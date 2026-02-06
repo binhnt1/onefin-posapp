@@ -92,7 +92,6 @@ fun TransactionDetailScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var notes by remember { mutableStateOf("") }
-    var isEnabled by remember { mutableStateOf(true) }
     var showEmailSheet by remember { mutableStateOf(false) }
     var showPinSheet by remember { mutableStateOf(false) }
     var showProcessingDialog by remember { mutableStateOf(false) }
@@ -339,8 +338,7 @@ fun TransactionDetailScreen(
                                     colors = ButtonDefaults.outlinedButtonColors(
                                         contentColor = customGreenColor
                                     ),
-                                    enabled = isEnabled,
-                                    border = ButtonDefaults.outlinedButtonBorder(enabled = isEnabled)
+                                    border = ButtonDefaults.outlinedButtonBorder(enabled = true)
                                         .copy(
                                             width = 1.dp
                                         )
@@ -368,6 +366,9 @@ fun TransactionDetailScreen(
                                                 snackbarHostState.showSnackbar(errorPrinterNotReady)
                                                 return@launch
                                             }
+
+                                            // Gán notes vào remark trước khi in
+                                            transaction?.remark = notes
 
                                             val result = receiptPrinter.printReceipt(
                                                 transaction = transaction!!,
@@ -533,7 +534,6 @@ fun TransactionDetailScreen(
             message = successMessage,
             countdownSeconds = 3,
             onCountdownComplete = {
-                showSuccessDialog = false
                 SettlementActivity.shouldRefresh = true
                 TransactionActivity.shouldRefresh = true
                 onBackPressed()
@@ -547,11 +547,9 @@ fun TransactionDetailScreen(
             message = errorDialogMessage,
             errorCode = apiErrorCode,
             onRetry = {
-                showErrorDialog = false
                 showPinSheet = true
             },
             onCancel = {
-                showErrorDialog = false
             }
         )
     }
@@ -568,22 +566,17 @@ fun TransactionDetailScreen(
             apiService = apiService,
             storageService = storageService,
             onDismiss = {
-                showEmailSheet = false
             },
             onProcessingStart = {
-                showProcessingDialog = true
             },
             onProcessingEnd = {
-                showProcessingDialog = false
             },
             onSuccess = {
-                showEmailSheet = false
                 scope.launch {
                     snackbarHostState.showSnackbar(successEmailMessage)
                 }
             },
             onError = { error ->
-                showEmailSheet = false
                 scope.launch {
                     snackbarHostState.showSnackbar(failedEmailMessage.format(error))
                 }

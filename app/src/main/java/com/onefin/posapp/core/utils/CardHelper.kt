@@ -319,6 +319,8 @@ object CardHelper {
             requestId = requestId,
             data = RequestSale.Data(
                 card = RequestSale.Data.Card(
+                    tc = card.tc,           // 🔥 Thêm TC
+                    aid = card.aid,         // 🔥 Thêm AID
                     ksn = card.ksn,
                     pin = card.pin,
                     type = card.type,

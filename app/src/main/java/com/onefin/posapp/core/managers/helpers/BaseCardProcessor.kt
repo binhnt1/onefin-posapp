@@ -139,6 +139,9 @@ abstract class BaseCardProcessor(
             // 3. Parse Card Details từ cardDetailsHex (KHÔNG phải f55Hex)
             val tagsMap = TLVUtil.buildTLVMap(cardDetailsHex)
 
+            // ALSO parse f55Hex để lấy TC và AID (chúng thường nằm trong F55)
+            val f55TagsMap = TLVUtil.buildTLVMap(f55Hex)
+
             val track1 = tagsMap[EMVTag.TRACK_1_DATA]?.value ?: ""
             val track3 = tagsMap[EMVTag.TRACK_3_DATA]?.value ?: ""
             var track2 = tagsMap[EMVTag.TRACK_2_DATA]?.value ?: ""
@@ -163,9 +166,21 @@ abstract class BaseCardProcessor(
             }
 
             // 4. Extract other fields
-            val tc = tagsMap[EMVTag.CHIP_TC]?.value ?: ""
+            // Lấy TC từ f55 trước, fallback sang cardDetailsHex
+            val tc = f55TagsMap[EMVTag.CHIP_TC]?.value
+                ?: tagsMap[EMVTag.CHIP_TC]?.value
+                ?: ""
+
             val transactionHasPin = !currentPinBlock.isNullOrEmpty()
-            val aid = tagsMap[EMVTag.CHIP_APP_ID]?.value ?: tagsMap[EMVTag.CHIP_APP_ID_84]?.value ?: ""
+
+            // Lấy AID từ f55 trước, fallback sang cardDetailsHex
+            val aid = f55TagsMap[EMVTag.CHIP_APP_ID]?.value
+                ?: f55TagsMap[EMVTag.CHIP_APP_ID_84]?.value
+                ?: tagsMap[EMVTag.CHIP_APP_ID]?.value
+                ?: tagsMap[EMVTag.CHIP_APP_ID_84]?.value
+                ?: ""
+
+
             val posEntryMode = CardHelper.parsePosEntryMode(tagsMap[EMVTag.POS_ENTRY_MODE]?.value ?: "", cardType, transactionHasPin)
 
             // 5. Build request với F55 Data
