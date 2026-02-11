@@ -6,7 +6,6 @@ import com.atg.pos.domain.entities.payment.TLVUtil
 import com.onefin.posapp.core.models.EvmConfig
 import com.onefin.posapp.core.models.Terminal
 import com.onefin.posapp.core.models.data.CvmConfig
-import com.onefin.posapp.core.models.data.RequestSale.Data.Card
 import com.sunmi.pay.hardware.aidl.AidlConstants
 import com.sunmi.pay.hardware.aidlv2.bean.AidV2
 import com.sunmi.pay.hardware.aidlv2.bean.CapkV2
@@ -716,70 +715,5 @@ object EmvUtil {
             b[i] = (char2Byte(chars[i * 2]) shl 4 or char2Byte(chars[i * 2 + 1])).toByte()
         }
         return b
-    }
-    private fun injectAidsFromJson(context: Context, emvOptV2: EMVOptV2): Int {
-        try {
-            val aidList = ResourceHelper.loadAidsFromAssets(context) ?: run {
-                return 0
-            }
-
-            var successCount = 0
-            for ((index, aidData) in aidList.withIndex()) {
-                val entry = aidData.getEntry() ?: continue
-                val (type, aidEntry) = entry
-
-                try {
-                    val aidV2 = ResourceHelper.convertToAidV2(aidEntry, type)
-                    val result = emvOptV2.addAid(aidV2)
-                    if (result == 0) {
-                        successCount++
-                    }
-                } catch (_: Exception) {
-                }
-            }
-            return successCount
-        } catch (e: Exception) {
-            return 0
-        }
-    }
-    private fun injectCapksFromJson(context: Context, emvOptV2: EMVOptV2): Int {
-        try {
-            val capkList = ResourceHelper.loadCapksFromAssets(context) ?: run {
-                return 0
-            }
-
-            var successCount = 0
-            for (capkData in capkList) {
-                try {
-                    val capkV2 = ResourceHelper.convertToCapkV2(capkData)
-                    val result = emvOptV2.addCapk(capkV2)
-
-                    if (result == 0) {
-                        successCount++
-                    }
-                } catch (_: Exception) {
-                }
-            }
-            return successCount
-
-        } catch (e: Exception) {
-            return 0
-        }
-    }
-
-    fun removePaddingCard(card: Card): Card {
-        val pan = card.clearPan
-        val track2 = card.track2
-        if (pan.endsWith("F", ignoreCase = true)) {
-            card.clearPan = pan.dropLast(1)
-            if (card.emvData != null)
-                card.emvData = card.emvData!!.replace(pan, card.clearPan)
-        }
-        if (track2 != null && track2.endsWith("F", ignoreCase = true)) {
-            card.track2 = track2.dropLast(1)
-            if (card.emvData != null)
-                card.emvData = card.emvData!!.replace(track2, card.track2.toString())
-        }
-        return card
     }
 }

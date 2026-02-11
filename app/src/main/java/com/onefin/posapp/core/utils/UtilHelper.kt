@@ -5,6 +5,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.reflect.TypeToken
 import com.onefin.posapp.core.models.data.PaymentAppRequest
+import com.onefin.posapp.core.models.data.RequestSale.Data.Card
 import com.onefin.posapp.core.models.data.StatusInfo
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -15,9 +16,26 @@ import java.util.Locale
 import java.util.UUID
 import kotlin.collections.joinToString
 import kotlin.random.Random
+import kotlin.text.dropLast
+import kotlin.text.endsWith
 
 object UtilHelper {
 
+    fun removePaddingCard(card: Card): Card {
+        val pan = card.clearPan
+        val track2 = card.track2
+        if (pan.endsWith("F", ignoreCase = true)) {
+            card.clearPan = pan.dropLast(1)
+            if (card.emvData != null)
+                card.emvData = card.emvData!!.replace(pan, card.clearPan)
+        }
+        if (track2 != null && track2.endsWith("F", ignoreCase = true)) {
+            card.track2 = track2.dropLast(1)
+            if (card.emvData != null)
+                card.emvData = card.emvData!!.replace(track2, card.track2.toString())
+        }
+        return card
+    }
     fun getDayOfWeek(dateString: String): Int {
         return try {
             val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
