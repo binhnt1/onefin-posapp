@@ -487,44 +487,33 @@ object EmvUtil {
     }
     private fun setExpressPayTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
-            "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
-            "DF8123", "DF8124", "DF8125"
+            "9F6D",    // Contactless Reader Capabilities
+            "9F6E",    // Third Party Data / Form Factor Indicator
+            "DF8168",  // Card Data Input Capability
+            "9F33",    // Terminal Capabilities
+            "DF8167",  // CVM Capability - CVM Required
+            "DF8169",  // CVM Capability - No CVM Required
+            "DF8170"   // Additional Terminal Capabilities
         )
 
-        val chipCvm = if (cvmConfig != null) {
-            ResourceHelper.convertToTlv(cvmConfig, "amex", "chip")
-        } else {
-            ResourceHelper.getDefaultTlvValues()
-        }
-
-        val contactlessCvm = if (cvmConfig != null) {
-            ResourceHelper.convertToTlv(cvmConfig, "amex", "contactless")
-        } else {
-            ResourceHelper.getDefaultTlvValues()
-        }
-
         val chipValues = arrayOf(
-            "E0",
-            "F8",
-            "F8",
-            "E8",
-            chipCvm.cvmRequiredLimit,
-            chipCvm.readerCvmRequiredLimit,
-            config.tacDefault,
-            config.tacDenial,
-            config.tacOnline
+            "C0",        // 9F6D: Contactless Reader Capabilities
+            "D8A00000",  // 9F6E: Third Party Data / Form Factor Indicator
+            "00",        // DF8168: Card Data Input Capability
+            "E0B8C8",    // 9F33: Terminal Capabilities (AMEX-specific)
+            "",          // DF8167: CVM Capability - CVM Required
+            "00",        // DF8169: CVM Capability - No CVM Required
+            "60"         // DF8170: Additional Terminal Capabilities
         )
 
         val contactlessValues = arrayOf(
-            "E0",
-            "F8",
-            "F8",
-            contactlessCvm.contactlessTransLimit,
-            contactlessCvm.cvmRequiredLimit,
-            contactlessCvm.readerCvmRequiredLimit,
-            config.tacDefault,
-            config.tacDenial,
-            config.tacOnline
+            "C0",        // 9F6D: Contactless Reader Capabilities
+            "D8A00000",  // 9F6E: Third Party Data / Form Factor Indicator
+            "00",        // DF8168: Card Data Input Capability
+            "E0B8C8",    // 9F33: Terminal Capabilities (AMEX-specific)
+            "",          // DF8167: CVM Capability - CVM Required
+            "00",        // DF8169: CVM Capability - No CVM Required
+            "60"         // DF8170: Additional Terminal Capabilities
         )
 
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, chipValues)
