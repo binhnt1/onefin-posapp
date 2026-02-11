@@ -35,20 +35,17 @@ class ReceiptPrinter(
             }
 
             printerHelper.enterPrinterBuffer(true)
-
             printerHelper.initPrinter()
             printerHelper.setPrintDensity(15)
 
             printHeader(terminal)
             printTransactionType(transaction)
-
-            // In remark nếu có (ghi chú người dùng nhập)
             if (transaction.remark.isNotEmpty()) {
                 printerHelper.printTextWithFormat(
+                    isBold = true,
                     text = transaction.remark,
                     alignment = PrinterHelper.ALIGN_CENTER,
                     fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
-                    isBold = true
                 )
                 printerHelper.printDivider("-", PAPER_WIDTH)
             }
@@ -57,7 +54,8 @@ class ReceiptPrinter(
             printAmountSection(transaction)
             printStatusSection(transaction)
 
-            printFooter()
+            printSignatureSection(null)
+            printFooter(terminal)
             printerHelper.feedPaper(4)
             printerHelper.exitPrinterBuffer(true)
             Result.success(Unit)
@@ -82,8 +80,6 @@ class ReceiptPrinter(
 
             printHeader(terminal)
             printTransactionType(transaction)
-
-            // In remark nếu có (VD: "Liên số 2")
             if (transaction.remark.isNotEmpty()) {
                 printerHelper.printTextWithFormat(
                     isBold = true,
@@ -98,11 +94,8 @@ class ReceiptPrinter(
             printAmountSection(transaction)
             printStatusSection(transaction)
 
-            // 🔥 IN CHỮ KÝ
-            if (signatureBitmap != null) {
-                printSignatureSection(signatureBitmap)
-            }
-            printFooter()
+            printSignatureSection(signatureBitmap)
+            printFooter(terminal)
             printerHelper.feedPaper(4)
             printerHelper.exitPrinterBuffer(true)
             Result.success(Unit)
@@ -443,33 +436,56 @@ class ReceiptPrinter(
         )
     }
 
-    private fun printSignatureSection(signatureBytes: ByteArray) {
-        try {
-            printerHelper.printDivider("-", PAPER_WIDTH)
+    private fun printSignatureSection(signatureBytes: ByteArray?) {
+        printerHelper.printDivider("-", PAPER_WIDTH)
 
+        if (signatureBytes != null) {
+            // CÓ CHỮ KÝ - In hình + text xác nhận
+            try {
+                printerHelper.printTextWithFormat(
+                    text = "Chữ ký khách hàng:",
+                    alignment = PrinterHelper.ALIGN_LEFT,
+                    fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+                )
+
+                printerHelper.printNewLine(1)
+
+                // Convert ByteArray to Bitmap
+                val bitmap = BitmapFactory.decodeByteArray(
+                    signatureBytes,
+                    0,
+                    signatureBytes.size
+                )
+
+                val resizedBitmap = resizeBitmap(bitmap, 300, 150)
+                printerHelper.printBitmap(resizedBitmap)
+
+                bitmap.recycle()
+                resizedBitmap.recycle()
+
+                printerHelper.printNewLine(1)
+
+                // In text xác nhận chữ ký
+                printerHelper.printTextWithFormat(
+                    text = "CARDHOLDER'S SIGNATURE/CHỮ KÝ CỦA CHỦ THẺ",
+                    alignment = PrinterHelper.ALIGN_CENTER,
+                    fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+                )
+            } catch (_: Exception) {
+                // Nếu lỗi khi in hình, vẫn in text không cần ký
+                printerHelper.printTextWithFormat(
+                    text = "NO SIGNATURE REQUIRED/KHÔNG YÊU CẦU KHÁCH HÀNG KÝ",
+                    alignment = PrinterHelper.ALIGN_CENTER,
+                    fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+                )
+            }
+        } else {
+            // KHÔNG CÓ CHỮ KÝ - In text không yêu cầu ký
             printerHelper.printTextWithFormat(
-                text = "Chữ ký khách hàng:",
-                alignment = PrinterHelper.ALIGN_LEFT,
+                text = "NO SIGNATURE REQUIRED/KHÔNG YÊU CẦU KHÁCH HÀNG KÝ",
+                alignment = PrinterHelper.ALIGN_CENTER,
                 fontSize = PrinterHelper.TEXT_SIZE_NORMAL
             )
-
-            printerHelper.printNewLine(1)
-
-            // Convert ByteArray to Bitmap
-            val bitmap = BitmapFactory.decodeByteArray(
-                signatureBytes,
-                0,
-                signatureBytes.size
-            )
-
-            val resizedBitmap = resizeBitmap(bitmap, 300, 150)
-            printerHelper.printBitmap(resizedBitmap)
-
-            bitmap.recycle()
-            resizedBitmap.recycle()
-
-            printerHelper.printDivider("-", PAPER_WIDTH)
-        } catch (_: Exception) {
         }
     }
 
@@ -527,12 +543,6 @@ class ReceiptPrinter(
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
             isBold = true
-        )
-
-        printerHelper.printTextWithFormat(
-            text = transaction.getFormTypeText(context),
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
         )
 
         printerHelper.printDoubleDivider(PAPER_WIDTH)
@@ -682,8 +692,23 @@ class ReceiptPrinter(
         )
     }
 
-    private fun printFooter() {
+    private fun printFooter(terminal: Terminal? = null) {
         printerHelper.printDivider("-", PAPER_WIDTH)
+
+        // In địa chỉ merchant nếu có
+        if (terminal?.merchantCompany?.isNotEmpty() == true) {
+            printerHelper.printTextWithFormat(
+                text = "Địa chỉ:",
+                alignment = PrinterHelper.ALIGN_LEFT,
+                fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+            )
+            printerHelper.printTextWithFormat(
+                text = terminal.merchantCompany,
+                alignment = PrinterHelper.ALIGN_LEFT,
+                fontSize = PrinterHelper.TEXT_SIZE_NORMAL
+            )
+            printerHelper.printDivider("-", PAPER_WIDTH)
+        }
 
         printerHelper.printTextWithFormat(
             text = "Cảm ơn quý khách!",
@@ -710,19 +735,6 @@ class ReceiptPrinter(
         // Footer terms
         printerHelper.printTextWithFormat(
             text = "NO REFUND/KHÔNG HOÀN TRẢ",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-        )
-
-        printerHelper.printTextWithFormat(
-            text = "NO SIGNATURE REQUIRED/KHÔNG YÊU CẦU KHÁCH HÀNG KÝ",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-        )
-
-        printerHelper.printNewLine(1)
-        printerHelper.printTextWithFormat(
-            text = "CARDHOLDER'S SIGNATURE/CHỮ KÝ CỦA CHỦ THẺ",
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_NORMAL
         )

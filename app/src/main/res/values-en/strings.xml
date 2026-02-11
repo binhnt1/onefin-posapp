@@ -155,6 +155,7 @@
 
     <!-- Card Types -->
     <string name="card_type_visa">Visa</string>
+    <string name="card_type_amex">Amex</string>
     <string name="card_type_mastercard">Mastercard</string>
     <string name="card_type_jcb">JCB</string>
     <string name="card_type_napas">Napas</string>

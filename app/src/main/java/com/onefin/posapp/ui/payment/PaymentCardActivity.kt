@@ -38,7 +38,6 @@ import com.onefin.posapp.core.models.data.RequestSale
 import com.onefin.posapp.core.models.data.SaleResultData
 import com.onefin.posapp.core.services.ApiService
 import com.onefin.posapp.core.utils.CardHelper
-import com.onefin.posapp.core.utils.EmvUtil
 import com.onefin.posapp.core.utils.PaymentHelper
 import com.onefin.posapp.core.utils.PrinterHelper
 import com.onefin.posapp.core.utils.ReceiptPrinter
@@ -280,11 +279,27 @@ fun PaymentCardScreen(
                         result.onSuccess { saleResultData ->
                             if (saleResultData.status?.code == "00") {
                                 pendingSaleResult = saleResultData
-                                paymentState = PaymentState.WAITING_SIGNATURE
-                                statusMessage = context.getString(R.string.payment_waiting_signature)
-                                val ttsMessage = context.getString(R.string.tts_transaction_success_signature)
-                                ttsManager.speak(ttsMessage)
-                                showSignatureDialog = true
+
+                                // 🔥 KIỂM TRA NGƯỠNG CHỮ KÝ: >= 2000 VND thì yêu cầu ký
+                                val signatureThreshold = 2000L // Test với 2000 VND
+                                val transactionAmount = paymentAppRequest.merchantRequestData?.amount ?: 0
+
+                                if (transactionAmount >= signatureThreshold) {
+                                    // CẦN CHỮ KÝ - Hiện màn hình ký
+                                    paymentState = PaymentState.WAITING_SIGNATURE
+                                    statusMessage = context.getString(R.string.payment_waiting_signature)
+                                    val ttsMessage = context.getString(R.string.tts_transaction_success_signature)
+                                    ttsManager.speak(ttsMessage)
+                                    showSignatureDialog = true
+                                } else {
+                                    // KHÔNG CẦN CHỮ KÝ - Thành công luôn
+                                    customerSignature = null // Không có chữ ký
+                                    paymentState = PaymentState.SUCCESS
+                                    statusMessage = context.getString(R.string.payment_success)
+                                    isSuccessCountdownActive = true
+                                    val ttsMessage = context.getString(R.string.payment_success)
+                                    ttsManager.speak(ttsMessage)
+                                }
                             } else {
                                 val apiErrorMsg = saleResultData.status?.message
                                     ?: context.getString(R.string.payment_failed)
@@ -531,7 +546,7 @@ fun PaymentCardScreen(
                         }
                     }
                 } else null,
-                onPrint = if (paymentState == PaymentState.SUCCESS && customerSignature != null) {
+                onPrint = if (paymentState == PaymentState.SUCCESS) {
                     {
                         // Tắt countdown tự động để không bị đóng màn hình
                         isSuccessCountdownActive = false
@@ -570,12 +585,21 @@ fun PaymentCardScreen(
 
                                 pendingSaleResult?.let { saleResult ->
                                     val transaction = saleResult.toTransaction()
-                                    // In liên số 1 và đợi in xong
-                                    val printResult = receiptPrinter.printReceiptWithSignature(
-                                        transaction = transaction,
-                                        terminal = account.terminal,
-                                        signatureBitmap = customerSignature
-                                    )
+                                    transaction.remark = "SALE - Liên số 1"
+
+                                    // In hóa đơn với hoặc không có chữ ký
+                                    val printResult = if (customerSignature != null) {
+                                        receiptPrinter.printReceiptWithSignature(
+                                            transaction = transaction,
+                                            terminal = account.terminal,
+                                            signatureBitmap = customerSignature
+                                        )
+                                    } else {
+                                        receiptPrinter.printReceipt(
+                                            transaction = transaction,
+                                            terminal = account.terminal
+                                        )
+                                    }
 
                                     if (printResult.isSuccess) {
                                         withContext(Dispatchers.Main) {
@@ -688,12 +712,21 @@ fun PaymentCardScreen(
 
                                     pendingSaleResult?.let { saleResult ->
                                         val transaction = saleResult.toTransaction()
-                                        transaction.remark = "Liên số 2"
-                                        receiptPrinter.printReceiptWithSignature(
-                                            transaction = transaction,
-                                            terminal = account.terminal,
-                                            signatureBitmap = customerSignature
-                                        )
+                                        transaction.remark = "SALE - Liên số 2"
+
+                                        // In hóa đơn với hoặc không có chữ ký
+                                        if (customerSignature != null) {
+                                            receiptPrinter.printReceiptWithSignature(
+                                                transaction = transaction,
+                                                terminal = account.terminal,
+                                                signatureBitmap = customerSignature
+                                            )
+                                        } else {
+                                            receiptPrinter.printReceipt(
+                                                transaction = transaction,
+                                                terminal = account.terminal
+                                            )
+                                        }
 
                                         withContext(Dispatchers.Main) {
                                             ttsManager.speak("In liên số 2 thành công")

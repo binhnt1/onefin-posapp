@@ -369,7 +369,6 @@ fun TransactionDetailScreen(
 
                                             // Gán notes vào remark trước khi in
                                             transaction?.remark = notes
-
                                             val result = receiptPrinter.printReceipt(
                                                 transaction = transaction!!,
                                                 terminal = account!!.terminal
@@ -509,6 +508,27 @@ fun TransactionDetailScreen(
                     val result = processRefund(password)
 
                     result.onSuccess {
+                        // Hủy thành công - In hóa đơn với remark VOID
+                        if (account != null && printerHelper.waitForReady(timeoutMs = 3000)) {
+                            // Set remark với VOID
+                            transaction?.remark = if (notes.isNotEmpty()) {
+                                "VOID - $notes"
+                            } else {
+                                "VOID"
+                            }
+
+                            // In hóa đơn
+                            val printResult = receiptPrinter.printReceipt(
+                                transaction = transaction!!,
+                                terminal = account!!.terminal
+                            )
+
+                            // Log kết quả in (không cần thông báo lỗi vì đã thành công hủy)
+                            if (printResult.isFailure) {
+                                // Silent fail - giao dịch đã hủy thành công rồi
+                            }
+                        }
+
                         showProcessingDialog = false
                         isCancelSuccess = true
                         showSuccessDialog = true
@@ -550,6 +570,7 @@ fun TransactionDetailScreen(
                 showPinSheet = true
             },
             onCancel = {
+                showErrorDialog = false
             }
         )
     }
