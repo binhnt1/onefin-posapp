@@ -154,18 +154,11 @@ class ReceiptPrinter(
 
         // Tiêu đề hóa đơn kết toán
         printerHelper.printTextWithFormat(
-            text = "HÓA ĐƠN KẾT TOÁN",
+            text = "HÓA ĐƠN KẾT TOÁN/SETTLEMENT RECEIPT",
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_LARGE,
             isBold = true
         )
-
-        printerHelper.printTextWithFormat(
-            text = "SETTLEMENT RECEIPT",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-        )
-
         printerHelper.printDoubleDivider(PAPER_WIDTH)
     }
 
@@ -207,13 +200,13 @@ class ReceiptPrinter(
         // Thông tin merchant & thiết bị
         settleData.header?.let { header ->
             if (header.merchantId?.isNotEmpty() == true) {
-                printerHelper.printTwoColumns("Mã merchant:", header.merchantId)
+                printerHelper.printTwoColumns("MID:", header.merchantId)
             }
             if (header.terminalId?.isNotEmpty() == true) {
-                printerHelper.printTwoColumns("Mã thiết bị:", header.terminalId)
+                printerHelper.printTwoColumns("TID:", header.terminalId)
             }
             if (header.transType?.isNotEmpty() == true) {
-                printerHelper.printTwoColumns("Loại GD:", header.transType)
+                printerHelper.printTwoColumns("Loại GD/Transaction Type:", header.transType)
             }
         }
 
@@ -222,21 +215,21 @@ class ReceiptPrinter(
         // Thông tin batch
         settleData.data?.let { data ->
             if (data.batchNo?.isNotEmpty() == true) {
-                printerHelper.printTwoColumns("Số batch:", data.batchNo)
+                printerHelper.printTwoColumns("Số lô/Batch No:", data.batchNo)
             }
         }
 
         val dateTime = settleData.getFormattedDateTime()
         if (dateTime != null) {
-            printerHelper.printTwoColumns("Thời gian:", dateTime)
+            printerHelper.printTwoColumns("Thời gian/Time:", dateTime)
         }
 
         settleData.header?.let { header ->
             if (header.transId?.isNotEmpty() == true) {
-                printerHelper.printTwoColumns("Mã GD:", header.transId)
+                printerHelper.printTwoColumns("Mã GD/Transaction ID:", header.transId)
             }
             if (header.merchantTransId?.isNotEmpty() == true) {
-                printerHelper.printTwoColumns("Mã tham chiếu:", header.merchantTransId)
+                printerHelper.printTwoColumns("Mã tham chiếu/Merchant Trans ID:", header.merchantTransId)
             }
         }
 
@@ -245,7 +238,7 @@ class ReceiptPrinter(
 
     private fun printSettlementStatistics(settleData: SettleResultData) {
         printerHelper.printTextWithFormat(
-            text = "THỐNG KÊ GIAO DỊCH",
+            text = "THỐNG KÊ GIAO DỊCH/TRANSACTION STATISTICS",
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
             isBold = true
@@ -260,22 +253,22 @@ class ReceiptPrinter(
 
             if (saleQty != "0") {
                 printerHelper.printTextWithFormat(
-                    text = "GIAO DỊCH MUA HÀNG (SALE):",
+                    text = "GIAO DỊCH MUA HÀNG/SALE:",
                     alignment = PrinterHelper.ALIGN_LEFT,
                     fontSize = PrinterHelper.TEXT_SIZE_NORMAL,
                     isBold = true
                 )
 
                 printerHelper.printTwoColumns(
-                    "  Số lượng:",
-                    "$saleQty giao dịch"
+                    "  Số lượng/Amount:",
+                    "$saleQty giao dịch/transactions"
                 )
 
                 val saleAmountFormatted = printerHelper.formatCurrencyWithPadding(
                     saleAmt.toLongOrNull() ?: 0L,
                     15
                 )
-                printerHelper.printTwoColumns("  Tổng tiền:", saleAmountFormatted)
+                printerHelper.printTwoColumns("  Tổng tiền/Total:", saleAmountFormatted)
 
                 printerHelper.printNewLine(1)
             }
@@ -286,22 +279,22 @@ class ReceiptPrinter(
 
             if (voidQty != "0") {
                 printerHelper.printTextWithFormat(
-                    text = "GIAO DỊCH HỦY (VOID):",
+                    text = "GIAO DỊCH HỦY/VOID:",
                     alignment = PrinterHelper.ALIGN_LEFT,
                     fontSize = PrinterHelper.TEXT_SIZE_NORMAL,
                     isBold = true
                 )
 
                 printerHelper.printTwoColumns(
-                    "  Số lượng:",
-                    "$voidQty giao dịch"
+                    "  Số lượng/Amount:",
+                    "$voidQty giao dịch/transactions"
                 )
 
                 val voidAmountFormatted = printerHelper.formatCurrencyWithPadding(
                     voidAmt.toLongOrNull() ?: 0L,
                     15
                 )
-                printerHelper.printTwoColumns("  Tổng tiền:", voidAmountFormatted)
+                printerHelper.printTwoColumns("  Tổng tiền/Total:", voidAmountFormatted)
             }
         }
 
@@ -310,7 +303,7 @@ class ReceiptPrinter(
 
     private fun printSettlementSummary(settleData: SettleResultData) {
         printerHelper.printTextWithFormat(
-            text = "TỔNG KẾT",
+            text = "TỔNG KẾT/SUMMARY",
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
             isBold = true
@@ -321,18 +314,18 @@ class ReceiptPrinter(
         settleData.data?.let { data ->
             // Tổng số giao dịch
             val totalQty = data.totalQuantity ?: "0"
-            printerHelper.printTwoColumns("TỔNG SỐ GD:", "$totalQty GD")
+            printerHelper.printTwoColumns("TỔNG SỐ GD/Total Transaction:", "$totalQty GD")
 
             // Tổng tiền bán
             val saleAmount = data.saleAmount?.toLongOrNull() ?: 0L
             val saleFormatted = printerHelper.formatCurrencyWithPadding(saleAmount, 15)
-            printerHelper.printTwoColumns("Tổng tiền bán:", saleFormatted)
+            printerHelper.printTwoColumns("Tổng tiền bán/Total Sale:", saleFormatted)
 
             // Tổng tiền hoàn
             val voidAmount = data.voidAmount?.toLongOrNull() ?: 0L
             if (voidAmount > 0) {
                 val voidFormatted = printerHelper.formatCurrencyWithPadding(-voidAmount, 15)
-                printerHelper.printTwoColumns("Tổng tiền hoàn:", voidFormatted)
+                printerHelper.printTwoColumns("Tổng tiền hoàn/Total Void:", voidFormatted)
             }
 
             printerHelper.printDivider("-", PAPER_WIDTH)
@@ -342,7 +335,7 @@ class ReceiptPrinter(
             val netFormatted = printerHelper.formatCurrencyWithPadding(netAmount, 15)
 
             printerHelper.printTextWithFormat(
-                text = "TỔNG THANH TOÁN:",
+                text = "TỔNG THANH TOÁN/TOTAL PAYMENT:",
                 alignment = PrinterHelper.ALIGN_LEFT,
                 fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
                 isBold = true
@@ -360,7 +353,7 @@ class ReceiptPrinter(
 
     private fun printSettlementConfirmation(settleData: SettleResultData) {
         printerHelper.printTextWithFormat(
-            text = "THÔNG TIN XÁC NHẬN",
+            text = "THÔNG TIN XÁC NHẬN/CONFIRMATION INFORMATION",
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
             isBold = true
@@ -370,23 +363,23 @@ class ReceiptPrinter(
 
         settleData.data?.let { data ->
             if (data.approveCode?.isNotEmpty() == true) {
-                printerHelper.printTwoColumns("Mã phê duyệt:", data.approveCode)
+                printerHelper.printTwoColumns("Mã phê duyệt/Approve Code:", data.approveCode)
             }
             if (data.refNo?.isNotEmpty() == true) {
-                printerHelper.printTwoColumns("Mã tham chiếu:", data.refNo)
+                printerHelper.printTwoColumns("Mã tham chiếu/Ref No:", data.refNo)
             }
             if (data.traceNo?.isNotEmpty() == true) {
-                printerHelper.printTwoColumns("Mã trace:", data.traceNo)
+                printerHelper.printTwoColumns("Mã trace/Trace No:", data.traceNo)
             }
             if (data.isoResponseCode?.isNotEmpty() == true) {
                 val isoText = when (data.isoResponseCode) {
-                    "00" -> "${data.isoResponseCode} - Thành công"
+                    "00" -> "${data.isoResponseCode} - Thành công/Success"
                     else -> data.isoResponseCode
                 }
-                printerHelper.printTwoColumns("Mã ISO:", isoText)
+                printerHelper.printTwoColumns("Mã ISO/ISO:", isoText)
             }
             if (data.currency?.isNotEmpty() == true) {
-                printerHelper.printTwoColumns("Loại tiền:", data.currency)
+                printerHelper.printTwoColumns("Loại tiền/Currency:", data.currency)
             }
         }
 
@@ -395,7 +388,7 @@ class ReceiptPrinter(
 
     private fun printSettlementStatus(settleData: SettleResultData) {
         val isSuccess = settleData.isSuccess()
-        val statusText = if (isSuccess) "✓ KẾT TOÁN THÀNH CÔNG" else "✗ KẾT TOÁN THẤT BẠI"
+        val statusText = if (isSuccess) "✓ KẾT TOÁN THÀNH CÔNG/SETTLE SUCCESSFUL" else "✗ KẾT TOÁN THẤT BẠI/SETTLE FAILURE"
 
         printerHelper.printTextWithFormat(
             text = statusText,
@@ -422,7 +415,7 @@ class ReceiptPrinter(
             .format(java.util.Date())
 
         printerHelper.printTextWithFormat(
-            text = "Ngày in: $currentDate",
+            text = "Ngày in/Print Date: $currentDate",
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_NORMAL
         )
@@ -430,7 +423,7 @@ class ReceiptPrinter(
         printerHelper.printDoubleDivider(PAPER_WIDTH)
 
         printerHelper.printTextWithFormat(
-            text = "Vui lòng giữ phiếu để đối chiếu",
+            text = "Vui lòng giữ phiếu để đối chiếu/Please keep the receipt for verification",
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_NORMAL
         )
@@ -440,14 +433,12 @@ class ReceiptPrinter(
         printerHelper.printDivider("-", PAPER_WIDTH)
 
         if (signatureBytes != null) {
-            // CÓ CHỮ KÝ - In hình + text xác nhận
             try {
                 printerHelper.printTextWithFormat(
-                    text = "Chữ ký khách hàng:",
-                    alignment = PrinterHelper.ALIGN_LEFT,
+                    text = "CARDHOLDER'S SIGNATURE/CHỮ KÝ CỦA CHỦ THẺ",
+                    alignment = PrinterHelper.ALIGN_CENTER,
                     fontSize = PrinterHelper.TEXT_SIZE_NORMAL
                 )
-
                 printerHelper.printNewLine(1)
 
                 // Convert ByteArray to Bitmap
@@ -459,20 +450,10 @@ class ReceiptPrinter(
 
                 val resizedBitmap = resizeBitmap(bitmap, 300, 150)
                 printerHelper.printBitmap(resizedBitmap)
-
                 bitmap.recycle()
                 resizedBitmap.recycle()
 
-                printerHelper.printNewLine(1)
-
-                // In text xác nhận chữ ký
-                printerHelper.printTextWithFormat(
-                    text = "CARDHOLDER'S SIGNATURE/CHỮ KÝ CỦA CHỦ THẺ",
-                    alignment = PrinterHelper.ALIGN_CENTER,
-                    fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-                )
             } catch (_: Exception) {
-                // Nếu lỗi khi in hình, vẫn in text không cần ký
                 printerHelper.printTextWithFormat(
                     text = "NO SIGNATURE REQUIRED/KHÔNG YÊU CẦU KHÁCH HÀNG KÝ",
                     alignment = PrinterHelper.ALIGN_CENTER,
@@ -486,6 +467,7 @@ class ReceiptPrinter(
                 alignment = PrinterHelper.ALIGN_CENTER,
                 fontSize = PrinterHelper.TEXT_SIZE_NORMAL
             )
+            printerHelper.printNewLine(1)
         }
     }
 
@@ -516,7 +498,7 @@ class ReceiptPrinter(
 
         if (terminal.phone.isNotEmpty()) {
             printerHelper.printTextWithFormat(
-                text = "SĐT: ${terminal.phone}",
+                text = "SĐT/Phone: ${terminal.phone}",
                 alignment = PrinterHelper.ALIGN_CENTER,
                 fontSize = PrinterHelper.TEXT_SIZE_NORMAL
             )
@@ -539,7 +521,7 @@ class ReceiptPrinter(
 
     private fun printTransactionType(transaction: Transaction) {
         printerHelper.printTextWithFormat(
-            text = "HÓA ĐƠN THANH TOÁN",
+            text = "HÓA ĐƠN THANH TOÁN/PAYMENT INVOICE",
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
             isBold = true
@@ -554,46 +536,46 @@ class ReceiptPrinter(
         if (dateTime.isNotEmpty()) {
             val parts = dateTime.split(" ")
             if (parts.size == 2) {
-                printerHelper.printTwoColumns("NGÀY: ${parts[0]}", "GIỜ: ${parts[1]}")
+                printerHelper.printTwoColumns("NGÀY/DAY: ${parts[0]}", "GIỜ/HOUR: ${parts[1]}")
             } else {
-                printerHelper.printTwoColumns("Ngày GD:", dateTime)
+                printerHelper.printTwoColumns("Ngày GD/Transaction Date:", dateTime)
             }
         }
 
         // Số lô và số hóa đơn
         if (transaction.batchNumber.isNotEmpty() || transaction.invoiceNumber.isNotEmpty()) {
             printerHelper.printTwoColumns(
-                "SỐ LÔ: ${transaction.batchNumber}",
-                "HĐ: ${transaction.invoiceNumber}"
+                "Số lô/Batch No: ${transaction.batchNumber}",
+                "HĐ/Invoice No: ${transaction.invoiceNumber}"
             )
         }
 
-        printerHelper.printTwoColumns("Mã GD:", transaction.transactionId)
+        printerHelper.printTwoColumns("Mã GD/Transaction ID:", transaction.transactionId)
 
         printerHelper.printDivider("-", PAPER_WIDTH)
 
         if (transaction.formType == 1) {
             // Loại thẻ - Source
-            printerHelper.printTwoColumns("Loại thẻ:", transaction.getCardTypeText(context))
+            printerHelper.printTwoColumns("Loại thẻ/Card:", transaction.getCardTypeText(context))
 
             // Phương thức (Card Mode)
             val cardModeText = transaction.getCardModeText()
             if (cardModeText.isNotEmpty()) {
-                printerHelper.printTwoColumns("Phương thức:", cardModeText)
+                printerHelper.printTwoColumns("Phương thức/Method:", cardModeText)
             }
 
             // Số thẻ
             if (transaction.accountNumber.isNotEmpty()) {
-                printerHelper.printTwoColumns("Số thẻ:", transaction.getMaskedNumber())
+                printerHelper.printTwoColumns("Số thẻ/Card Number:", transaction.getMaskedNumber())
             }
 
             // Ngày hết hạn
-            printerHelper.printTwoColumns("Ngày hết hạn:", "**/**")
+            printerHelper.printTwoColumns("Ngày hết hạn/Exp Date:", "**/**")
 
             // Tên chủ thẻ
             if (transaction.accountName.isNotEmpty()) {
                 printerHelper.printTextWithFormat(
-                    text = "Tên chủ thẻ:",
+                    text = "Tên chủ thẻ/Card Name:",
                     alignment = PrinterHelper.ALIGN_LEFT,
                     fontSize = PrinterHelper.TEXT_SIZE_NORMAL
                 )
@@ -606,12 +588,12 @@ class ReceiptPrinter(
 
             // Số tham chiếu (refno)
             if (transaction.refno.isNotEmpty()) {
-                printerHelper.printTwoColumns("Số tham chiếu:", transaction.refno)
+                printerHelper.printTwoColumns("Số tham chiếu/Ref No:", transaction.refno)
             }
 
             // Mã chuẩn chi (traceNo/Stan)
             if (transaction.traceNo.isNotEmpty()) {
-                printerHelper.printTwoColumns("Mã chuẩn chi:", transaction.traceNo)
+                printerHelper.printTwoColumns("Mã chuẩn chi/Trace No:", transaction.traceNo)
             }
 
             // AID
@@ -631,7 +613,7 @@ class ReceiptPrinter(
 
             // Mã phê duyệt
             if (transaction.approvedCode.isNotEmpty()) {
-                printerHelper.printTwoColumns("Mã phê duyệt:", transaction.approvedCode)
+                printerHelper.printTwoColumns("Mã phê duyệt/Approved Code:", transaction.approvedCode)
             }
         }
 
@@ -640,18 +622,18 @@ class ReceiptPrinter(
 
     private fun printAmountSection(transaction: Transaction) {
         val amountStr = printerHelper.formatCurrencyWithPadding(transaction.totalTransAmt, 15)
-        printerHelper.printTwoColumns("Số tiền:", amountStr)
+        printerHelper.printTwoColumns("Số tiền/Amount:", amountStr)
 
         if (transaction.feeTransAmt > 0) {
             val feeStr = printerHelper.formatCurrencyWithPadding(transaction.feeTransAmt, 15)
-            printerHelper.printTwoColumns("Phí GD:", feeStr)
+            printerHelper.printTwoColumns("Phí GD/Fee:", feeStr)
         }
 
         printerHelper.printDoubleDivider(PAPER_WIDTH)
 
         val totalStr = printerHelper.formatCurrencyWithPadding(transaction.totalTransAmt, 15)
         printerHelper.printTextWithFormat(
-            text = "TỔNG CỘNG:",
+            text = "TỔNG CỘNG/TOTAL:",
             alignment = PrinterHelper.ALIGN_LEFT,
             fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
             isBold = true
@@ -668,11 +650,11 @@ class ReceiptPrinter(
 
     private fun printStatusSection(transaction: Transaction) {
         val statusInfo = transaction.getReceiptStatusInfo(context)
-        printerHelper.printTwoColumns("Trạng thái:", statusInfo.text)
+        printerHelper.printTwoColumns("Trạng thái/Status:", statusInfo.text)
 
         val settledDate = transaction.getFormattedSettledDateTime()
         if (settledDate.isNotEmpty()) {
-            printerHelper.printTwoColumns("Ngày quyết toán:", settledDate)
+            printerHelper.printTwoColumns("Ngày quyết toán/Settled Date:", settledDate)
         }
     }
 
@@ -680,7 +662,7 @@ class ReceiptPrinter(
         printerHelper.printDivider("-", PAPER_WIDTH)
 
         printerHelper.printTextWithFormat(
-            text = "Ghi chú:",
+            text = "Ghi chú/Notes:",
             alignment = PrinterHelper.ALIGN_LEFT,
             fontSize = PrinterHelper.TEXT_SIZE_NORMAL
         )
@@ -698,7 +680,7 @@ class ReceiptPrinter(
         // In địa chỉ merchant nếu có
         if (terminal?.merchantCompany?.isNotEmpty() == true) {
             printerHelper.printTextWithFormat(
-                text = "Địa chỉ:",
+                text = "Địa chỉ/Address:",
                 alignment = PrinterHelper.ALIGN_LEFT,
                 fontSize = PrinterHelper.TEXT_SIZE_NORMAL
             )
@@ -711,14 +693,14 @@ class ReceiptPrinter(
         }
 
         printerHelper.printTextWithFormat(
-            text = "Cảm ơn quý khách!",
+            text = "Cảm ơn quý khách!/Thank you, customers!",
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_NORMAL,
             isBold = true
         )
 
         printerHelper.printTextWithFormat(
-            text = "Hẹn gặp lại!",
+            text = "Hẹn gặp lại!/See you again!",
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_NORMAL
         )

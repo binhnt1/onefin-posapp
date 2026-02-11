@@ -32,9 +32,14 @@ import java.io.ByteArrayOutputStream
 import androidx.core.graphics.toColorInt
 import com.onefin.posapp.R  // ⭐ Import R
 
+// Biến toàn cục cho CVM Amount threshold
+private const val CVMAmount = 2000
+
 @Composable
 fun SignatureBottomSheet(
-    onConfirm: (ByteArray?) -> Unit
+    onConfirm: (ByteArray?) -> Unit,
+    onCancel: () -> Unit,
+    transactionAmount: Long
 ) {
     var isVisible by remember { mutableStateOf(false) }
 
@@ -83,7 +88,9 @@ fun SignatureBottomSheet(
                     shadowElevation = 8.dp
                 ) {
                     SignatureContent(
-                        onConfirm = onConfirm
+                        onConfirm = onConfirm,
+                        onCancel = onCancel,
+                        canShowCancel = transactionAmount < CVMAmount
                     )
                 }
             }
@@ -93,7 +100,9 @@ fun SignatureBottomSheet(
 
 @Composable
 private fun SignatureContent(
-    onConfirm: (ByteArray?) -> Unit
+    onConfirm: (ByteArray?) -> Unit,
+    onCancel: () -> Unit,
+    canShowCancel: Boolean
 ) {
     var signatureView by remember { mutableStateOf<SignatureView?>(null) }
     var showError by remember { mutableStateOf(false) }
@@ -168,6 +177,25 @@ private fun SignatureContent(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Skip button (chỉ hiện khi transactionAmount < CVMAmount)
+            if (canShowCancel) {
+                OutlinedButton(
+                    onClick = onCancel,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = androidx.compose.ui.graphics.Color(0xFFE65100)
+                    )
+                ) {
+                    Text(
+                        stringResource(R.string.signature_skip),
+                        fontSize = 16.sp
+                    )
+                }
+            }
+
             // Clear button
             OutlinedButton(
                 onClick = {

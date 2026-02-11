@@ -244,6 +244,7 @@
     <string name="signature_warning">⚠️ Bắt buộc phải ký tên để hoàn tất giao dịch</string>
     <string name="signature_clear">Xóa</string>
     <string name="signature_confirm">Xác nhận</string>
+    <string name="signature_skip">Bỏ qua</string>
 
     <!-- Payment States -->
     <string name="payment_initializing">Đang khởi tạo...</string>

@@ -280,26 +280,12 @@ fun PaymentCardScreen(
                             if (saleResultData.status?.code == "00") {
                                 pendingSaleResult = saleResultData
 
-                                // 🔥 KIỂM TRA NGƯỠNG CHỮ KÝ: >= 2000 VND thì yêu cầu ký
-                                val signatureThreshold = 2000L // Test với 2000 VND
-                                val transactionAmount = paymentAppRequest.merchantRequestData?.amount ?: 0
-
-                                if (transactionAmount >= signatureThreshold) {
-                                    // CẦN CHỮ KÝ - Hiện màn hình ký
-                                    paymentState = PaymentState.WAITING_SIGNATURE
-                                    statusMessage = context.getString(R.string.payment_waiting_signature)
-                                    val ttsMessage = context.getString(R.string.tts_transaction_success_signature)
-                                    ttsManager.speak(ttsMessage)
-                                    showSignatureDialog = true
-                                } else {
-                                    // KHÔNG CẦN CHỮ KÝ - Thành công luôn
-                                    customerSignature = null // Không có chữ ký
-                                    paymentState = PaymentState.SUCCESS
-                                    statusMessage = context.getString(R.string.payment_success)
-                                    isSuccessCountdownActive = true
-                                    val ttsMessage = context.getString(R.string.payment_success)
-                                    ttsManager.speak(ttsMessage)
-                                }
+                                // Luôn hiện màn hình chữ ký
+                                paymentState = PaymentState.WAITING_SIGNATURE
+                                statusMessage = context.getString(R.string.payment_waiting_signature)
+                                val ttsMessage = context.getString(R.string.tts_transaction_success_signature)
+                                ttsManager.speak(ttsMessage)
+                                showSignatureDialog = true
                             } else {
                                 val apiErrorMsg = saleResultData.status?.message
                                     ?: context.getString(R.string.payment_failed)
@@ -585,7 +571,7 @@ fun PaymentCardScreen(
 
                                 pendingSaleResult?.let { saleResult ->
                                     val transaction = saleResult.toTransaction()
-                                    transaction.remark = "SALE - Liên số 1"
+                                    transaction.remark = "SALE - Liên số 1/Invoice No 1"
 
                                     // In hóa đơn với hoặc không có chữ ký
                                     val printResult = if (customerSignature != null) {
@@ -662,6 +648,15 @@ fun PaymentCardScreen(
 
         if (showSignatureDialog) {
             SignatureBottomSheet(
+                transactionAmount = amount,
+                onCancel = {
+                    // Bỏ qua chữ ký
+                    showSignatureDialog = false
+                    customerSignature = null
+                    paymentState = PaymentState.SUCCESS
+                    statusMessage = context.getString(R.string.payment_success)
+                    isSuccessCountdownActive = true
+                },
                 onConfirm = { signatureData ->
                     showSignatureDialog = false
                     customerSignature = signatureData
@@ -712,7 +707,7 @@ fun PaymentCardScreen(
 
                                     pendingSaleResult?.let { saleResult ->
                                         val transaction = saleResult.toTransaction()
-                                        transaction.remark = "SALE - Liên số 2"
+                                        transaction.remark = "SALE - Liên số 2/Invoice No 1"
 
                                         // In hóa đơn với hoặc không có chữ ký
                                         if (customerSignature != null) {

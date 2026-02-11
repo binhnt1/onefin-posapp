@@ -243,6 +243,7 @@
     <string name="signature_warning">⚠️ Signature is required to complete the transaction</string>
     <string name="signature_clear">Clear</string>
     <string name="signature_confirm">Confirm</string>
+    <string name="signature_skip">Cancel</string>
 
     <!-- Payment States -->
     <string name="payment_initializing">Initializing...</string>
