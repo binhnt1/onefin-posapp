@@ -14,14 +14,18 @@ data class CvmConfig(
  * Sale configuration chứa các card brands
  */
 data class SaleConfig(
+
+    @SerializedName("jcb")
+    val jcb: CardBrandConfig? = null,
+
+    @SerializedName("amex")
+    val amex: CardBrandConfig? = null,
+
     @SerializedName("visa")
     val visa: CardBrandConfig? = null,
 
     @SerializedName("master")
     val master: CardBrandConfig? = null,
-
-    @SerializedName("jcb")
-    val jcb: CardBrandConfig? = null,
 
     @SerializedName("napas")
     val napas: CardBrandConfig? = null,

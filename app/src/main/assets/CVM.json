@@ -72,6 +72,30 @@
                 }
             }
         },
+        "amex": {
+          "chip": {
+            "signature": {
+              "amount": 0,
+              "needSign": "Y"
+            }
+          },
+          "contactless": {
+            "signature": {
+              "amount": 900001,
+              "needSign": "Y"
+            }
+          },
+          "magstripe": {
+            "signature": {
+              "amount": 0,
+              "needSign": "Y"
+            },
+            "pin": {
+              "amount": 0,
+              "needPin": "N"
+            }
+          }
+        },
         "napas": {
             "chip": {
                 "signature": {
