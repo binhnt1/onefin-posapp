@@ -16,8 +16,8 @@ android {
     defaultConfig {
         applicationId = "com.onefin.posapp"
         minSdk = 26
-        versionCode = 4
-        versionName = "1.0.4"
+        versionCode = 5
+        versionName = "1.0.5"
 
         vectorDrawables {
             useSupportLibrary = true

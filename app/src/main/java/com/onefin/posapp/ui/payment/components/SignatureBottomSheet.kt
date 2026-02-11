@@ -33,7 +33,7 @@ import androidx.core.graphics.toColorInt
 import com.onefin.posapp.R  // ⭐ Import R
 
 // Biến toàn cục cho CVM Amount threshold
-private const val CVMAmount = 2000
+private const val CVMAmount = 1000000
 
 @Composable
 fun SignatureBottomSheet(
