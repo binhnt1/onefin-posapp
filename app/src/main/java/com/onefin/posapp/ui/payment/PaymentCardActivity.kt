@@ -571,7 +571,7 @@ fun PaymentCardScreen(
 
                                 pendingSaleResult?.let { saleResult ->
                                     val transaction = saleResult.toTransaction()
-                                    transaction.remark = "SALE - Liên số 1/Invoice No 1"
+                                    transaction.remark = "SALE - Liên số 1/Inv No 1"
 
                                     // In hóa đơn với hoặc không có chữ ký
                                     val printResult = if (customerSignature != null) {
@@ -707,7 +707,7 @@ fun PaymentCardScreen(
 
                                     pendingSaleResult?.let { saleResult ->
                                         val transaction = saleResult.toTransaction()
-                                        transaction.remark = "SALE - Liên số 2/Invoice No 1"
+                                        transaction.remark = "SALE - Liên số 2/Inv No 2"
 
                                         // In hóa đơn với hoặc không có chữ ký
                                         if (customerSignature != null) {

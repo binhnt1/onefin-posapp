@@ -196,6 +196,7 @@ class ReceiptPrinter(
 
         return bitmap
     }
+
     private fun printSettlementInfo(settleData: SettleResultData) {
         // Thông tin merchant & thiết bị
         settleData.header?.let { header ->
@@ -229,7 +230,10 @@ class ReceiptPrinter(
                 printerHelper.printTwoColumns("Mã GD/Transaction ID:", header.transId)
             }
             if (header.merchantTransId?.isNotEmpty() == true) {
-                printerHelper.printTwoColumns("Mã tham chiếu/Merchant Trans ID:", header.merchantTransId)
+                printerHelper.printTwoColumns(
+                    "Mã tham chiếu/Merchant Trans ID:",
+                    header.merchantTransId
+                )
             }
         }
 
@@ -363,10 +367,10 @@ class ReceiptPrinter(
 
         settleData.data?.let { data ->
             if (data.approveCode?.isNotEmpty() == true) {
-                printerHelper.printTwoColumns("Mã phê duyệt/Approve Code:", data.approveCode)
+                printerHelper.printTwoColumns("Mã phê duyệt/App Code:", data.approveCode)
             }
             if (data.refNo?.isNotEmpty() == true) {
-                printerHelper.printTwoColumns("Mã tham chiếu/Ref No:", data.refNo)
+                printerHelper.printTwoColumns("Tham chiếu/Ref No:", data.refNo)
             }
             if (data.traceNo?.isNotEmpty() == true) {
                 printerHelper.printTwoColumns("Mã trace/Trace No:", data.traceNo)
@@ -388,7 +392,8 @@ class ReceiptPrinter(
 
     private fun printSettlementStatus(settleData: SettleResultData) {
         val isSuccess = settleData.isSuccess()
-        val statusText = if (isSuccess) "✓ KẾT TOÁN THÀNH CÔNG/SETTLE SUCCESSFUL" else "✗ KẾT TOÁN THẤT BẠI/SETTLE FAILURE"
+        val statusText =
+            if (isSuccess) "✓ KẾT TOÁN THÀNH CÔNG/SETTLE SUCCESSFUL" else "✗ KẾT TOÁN THẤT BẠI/SETTLE FAILURE"
 
         printerHelper.printTextWithFormat(
             text = statusText,
@@ -410,8 +415,10 @@ class ReceiptPrinter(
         printerHelper.printDoubleDivider(PAPER_WIDTH)
 
         // Ngày in
-        val currentDate = settleData.getFormattedDateTime() ?:
-        java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.getDefault())
+        val currentDate = settleData.getFormattedDateTime() ?: java.text.SimpleDateFormat(
+            "dd/MM/yyyy HH:mm",
+            java.util.Locale.getDefault()
+        )
             .format(java.util.Date())
 
         printerHelper.printTextWithFormat(
@@ -481,7 +488,8 @@ class ReceiptPrinter(
 
         // Print combined logos if at least one exists
         if (bankLogoBitmap != null || merchantLogoBitmap != null) {
-            val combinedBitmap = combineThreeLogos(bankLogoBitmap, merchantLogoBitmap, onefinTextBitmap)
+            val combinedBitmap =
+                combineThreeLogos(bankLogoBitmap, merchantLogoBitmap, onefinTextBitmap)
             if (combinedBitmap != null) {
                 printerHelper.printBitmap(combinedBitmap)
             }
@@ -536,22 +544,26 @@ class ReceiptPrinter(
         if (dateTime.isNotEmpty()) {
             val parts = dateTime.split(" ")
             if (parts.size == 2) {
-                printerHelper.printTwoColumns("NGÀY/DAY: ${parts[0]}", "GIỜ/HOUR: ${parts[1]}")
+                printerHelper.printTwoColumns("Ngày GD/Time:", parts[0] + " " + parts[1])
             } else {
-                printerHelper.printTwoColumns("Ngày GD/Transaction Date:", dateTime)
+                printerHelper.printTwoColumns("Ngày GD/Time:", dateTime)
             }
         }
 
         // Số lô và số hóa đơn
-        if (transaction.batchNumber.isNotEmpty() || transaction.invoiceNumber.isNotEmpty()) {
+        if (transaction.batchNumber.isNotEmpty()) {
             printerHelper.printTwoColumns(
-                "Số lô/Batch No: ${transaction.batchNumber}",
-                "HĐ/Invoice No: ${transaction.invoiceNumber}"
+                "Số lô/Batch No:",
+                transaction.batchNumber
             )
         }
-
-        printerHelper.printTwoColumns("Mã GD/Transaction ID:", transaction.transactionId)
-
+        if (transaction.invoiceNumber.isNotEmpty()) {
+            printerHelper.printTwoColumns(
+                "HĐ/Invoice No:",
+                transaction.invoiceNumber
+            )
+        }
+        printerHelper.printTwoColumns("Mã GD/Trans ID:", transaction.transactionId)
         printerHelper.printDivider("-", PAPER_WIDTH)
 
         if (transaction.formType == 1) {
@@ -588,7 +600,7 @@ class ReceiptPrinter(
 
             // Số tham chiếu (refno)
             if (transaction.refno.isNotEmpty()) {
-                printerHelper.printTwoColumns("Số tham chiếu/Ref No:", transaction.refno)
+                printerHelper.printTwoColumns("Tham chiếu/Ref No:", transaction.refno)
             }
 
             // Mã chuẩn chi (traceNo/Stan)
@@ -613,7 +625,7 @@ class ReceiptPrinter(
 
             // Mã phê duyệt
             if (transaction.approvedCode.isNotEmpty()) {
-                printerHelper.printTwoColumns("Mã phê duyệt/Approved Code:", transaction.approvedCode)
+                printerHelper.printTwoColumns("Mã phê duyệt/App Code:", transaction.approvedCode)
             }
         }
 
