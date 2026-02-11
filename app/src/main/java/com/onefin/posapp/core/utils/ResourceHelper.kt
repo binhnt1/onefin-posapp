@@ -35,6 +35,7 @@ object ResourceHelper {
             "jcb" -> cvmConfig.sale.jcb
             "visa" -> cvmConfig.sale.visa
             "napas" -> cvmConfig.sale.napas
+            "ae", "amex" -> cvmConfig.sale.amex
             "master", "mastercard" -> cvmConfig.sale.master
             "unionpay", "union pay" -> cvmConfig.sale.unionpay
             else -> null

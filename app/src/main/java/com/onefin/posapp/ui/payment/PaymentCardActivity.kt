@@ -42,6 +42,7 @@ import com.onefin.posapp.core.utils.EmvUtil
 import com.onefin.posapp.core.utils.PaymentHelper
 import com.onefin.posapp.core.utils.PrinterHelper
 import com.onefin.posapp.core.utils.ReceiptPrinter
+import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.ui.base.BaseActivity
 import com.onefin.posapp.ui.payment.components.ActionButtons
 import com.onefin.posapp.ui.payment.components.CardInfoCard
@@ -810,7 +811,7 @@ private fun InitializingCard(modifier: Modifier = Modifier) {
 
 suspend fun processPayment(apiService: ApiService, requestSale: RequestSale): Result<SaleResultData> {
     val gson = Gson()
-    requestSale.data.card = EmvUtil.removePaddingCard(requestSale.data.card)
+    requestSale.data.card = UtilHelper.removePaddingCard(requestSale.data.card)
     return try {
         val requestBody = mapOf(
             "data" to mapOf(
