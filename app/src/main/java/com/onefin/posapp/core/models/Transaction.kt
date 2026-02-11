@@ -82,12 +82,13 @@ data class Transaction(
 
     fun getCardTypeText(context: Context): String {
         return when (source.lowercase()) {
-            "visa" -> context.getString(R.string.card_type_visa)
-            "master", "mastercard" -> context.getString(R.string.card_type_mastercard)
             "jcb" -> context.getString(R.string.card_type_jcb)
+            "visa" -> context.getString(R.string.card_type_visa)
+            "vietqr" -> context.getString(R.string.card_type_vietqr)
             "napas" -> context.getString(R.string.card_type_napas)
             "member" -> context.getString(R.string.card_type_member)
-            "vietqr" -> context.getString(R.string.card_type_vietqr)
+            "ae", "amex" -> context.getString(R.string.card_type_amex)
+            "master", "mastercard" -> context.getString(R.string.card_type_mastercard)
             else -> context.getString(R.string.card_type_default)
         }
     }
@@ -105,12 +106,13 @@ data class Transaction(
         if (formType == 2) return R.drawable.icon_qr
         if (formType == 3) return R.drawable.icon_member
         return when (source.lowercase()) {
-            "visa" -> R.drawable.icon_visa
-            "master", "mastercard" -> R.drawable.icon_master
             "jcb" -> R.drawable.icon_jcb
+            "visa" -> R.drawable.icon_visa
+            "vietqr" -> R.drawable.icon_qr
             "napas" -> R.drawable.icon_napas
             "member" -> R.drawable.icon_member
-            "vietqr" -> R.drawable.icon_qr
+            "ae", "amex" -> R.drawable.icon_amex
+            "master", "mastercard" -> R.drawable.icon_master
             else -> R.drawable.icon_visa
         }
     }
@@ -210,7 +212,7 @@ data class Transaction(
     fun getFormattedSettledDateTime(): String {
         return try {
             val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-            val outputFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+            val outputFormat = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
             val dateString = settledDate ?: ""
             if (dateString.isEmpty())
                 return  ""
@@ -224,7 +226,7 @@ data class Transaction(
     fun getFormattedTransactionDateTime(): String {
         return try {
             val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-            val outputFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+            val outputFormat = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
             val date = inputFormat.parse(transactionDate)
             date?.let { outputFormat.format(it) } ?: ""
         } catch (e: Exception) {
