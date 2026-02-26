@@ -427,9 +427,9 @@ object EmvUtil {
     }
     private fun setPayPassTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
-            "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
-            "DF8123", "DF8124", "DF8125", "DF8126", "DF811B", "DF811D",
-            "DF8122", "DF8120", "DF8121"
+            "DF8117", "DF8118", "DF8119", "DF811B", "DF811D", "DF811E",
+            "DF811F", "DF8120", "DF8121", "DF8122", "DF8123", "DF8124",
+            "DF8125", "DF812C"
         )
 
         val chipCvm = if (cvmConfig != null) {
@@ -447,39 +447,37 @@ object EmvUtil {
         val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
 
         val chipValues = arrayOf(
-            floorLimit,
-            floorLimit,
-            floorLimit,
-            "E8",
-            "00",
-            chipCvm.readerCvmRequiredLimit,
-            config.tacDefault,
-            config.tacDenial,
-            config.tacOnline,
-            chipCvm.cvmRequiredLimit,
-            "30",
-            "02",
-            "0000000000",
-            "000000000000",
-            "000000000000"
+            floorLimit,                      // DF8117 - Card Data Input Capability
+            "000000000000",                  // DF8118 - Chip CVM Capability
+            "000000999999",                  // DF8119 - Chip CVM Capability No CVM
+            "30",                            // DF811B - Kernel Configuration
+            "02",                            // DF811D - Status Check Support
+            chipCvm.cvmRequiredLimit,        // DF811E - CVM Required Limit
+            chipCvm.contactlessTransLimit,   // DF811F - Contactless Transaction Limit
+            "000000999999",                  // DF8120 - Contactless TAC Default
+            chipCvm.contactlessCvmLimit,     // DF8121 - Contactless CVM Limit
+            "0000000000",                    // DF8122 - Contactless TAC Online
+            config.tacDefault,               // DF8123 - TAC Default
+            config.tacDenial,                // DF8124 - TAC Denial
+            config.tacOnline,                // DF8125 - TAC Online
+            chipCvm.readerCvmRequiredLimit   // DF812C - Reader CVM Required Limit
         )
 
         val contactlessValues = arrayOf(
-            floorLimit,
-            floorLimit,
-            floorLimit,
-            contactlessCvm.contactlessTransLimit,
-            contactlessCvm.cvmRequiredLimit,
-            contactlessCvm.readerCvmRequiredLimit,
-            config.tacDefault,
-            config.tacDenial,
-            config.tacOnline,
-            contactlessCvm.cvmRequiredLimit,
-            "30",
-            "02",
-            "0000000000",
-            "000000000000",
-            contactlessCvm.contactlessCvmLimit
+            floorLimit,                            // DF8117 - Card Data Input Capability
+            "000000000000",                        // DF8118 - Chip CVM Capability
+            "000000999999",                        // DF8119 - Chip CVM Capability No CVM
+            "30",                                  // DF811B - Kernel Configuration
+            "02",                                  // DF811D - Status Check Support
+            contactlessCvm.cvmRequiredLimit,       // DF811E - CVM Required Limit
+            contactlessCvm.contactlessTransLimit,  // DF811F - Contactless Transaction Limit
+            "000000999999",                        // DF8120 - Contactless TAC Default
+            contactlessCvm.contactlessCvmLimit,    // DF8121 - Contactless CVM Limit
+            "0000000000",                          // DF8122 - Contactless TAC Online
+            config.tacDefault,                     // DF8123 - TAC Default
+            config.tacDenial,                      // DF8124 - TAC Denial
+            config.tacOnline,                      // DF8125 - TAC Online
+            contactlessCvm.readerCvmRequiredLimit  // DF812C - Reader CVM Required Limit
         )
 
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, chipValues)

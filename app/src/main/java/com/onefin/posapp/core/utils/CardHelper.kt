@@ -634,4 +634,59 @@ object CardHelper {
 
         return sb.toString()
     }
+
+    /**
+     * Update 9F34 (CVM Results) in EMV data
+     * @param emvDataHex Original EMV data hex string
+     * @param cvmResult CVM result value (e.g., "1E0302" for successful signature, "420302" for successful PIN)
+     * @return Updated EMV data hex string
+     */
+    fun updateCvmResult(emvDataHex: String, cvmResult: String): String {
+        if (emvDataHex.isEmpty()) return emvDataHex
+
+        val tag9F34 = "9F34"
+        val newCvmValue = cvmResult.padEnd(6, '0').take(6) // Ensure 3 bytes
+        val newCvmTlv = buildTlv(tag9F34, newCvmValue)
+
+        // Parse existing TLV
+        val tagsMap = com.atg.pos.domain.entities.payment.TLVUtil.buildTLVMap(emvDataHex)
+
+        // Check if 9F34 exists
+        return if (tagsMap.containsKey(tag9F34)) {
+            // Replace existing 9F34
+            val existingValue = tagsMap[tag9F34]?.value ?: ""
+            val existingTlv = buildTlv(tag9F34, existingValue)
+            emvDataHex.replace(existingTlv, newCvmTlv, ignoreCase = true)
+        } else {
+            // Append new 9F34 at the end
+            emvDataHex + newCvmTlv
+        }
+    }
+
+    /**
+     * Get appropriate CVM result based on transaction parameters
+     * @param transactionAmount Transaction amount in minor units (e.g., 1000000 for 1M VND)
+     * @param cvmLimit CVM limit threshold (e.g., 1000000 for Mastercard)
+     * @param hasPin Whether PIN was entered
+     * @param hasSignature Whether signature was collected
+     * @return CVM result hex string (3 bytes)
+     */
+    fun getCvmResult(
+        transactionAmount: Long,
+        cvmLimit: Long,
+        hasPin: Boolean,
+        hasSignature: Boolean
+    ): String {
+        // If transaction amount is less than or equal to CVM limit, No CVM Required
+        if (transactionAmount <= cvmLimit) {
+            return "1F0000"  // No CVM Required - Always - Successful
+        }
+
+        // If transaction amount exceeds CVM limit, require authentication
+        return when {
+            hasPin -> "420302"        // Online PIN - If terminal supports - Successful
+            hasSignature -> "1E0302"  // Signature - If terminal supports - Successful
+            else -> "1F0000"          // No CVM Required - Always - Successful (fallback)
+        }
+    }
 }

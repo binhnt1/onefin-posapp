@@ -102,4 +102,37 @@ object ResourceHelper {
     private fun amountToHex12(amount: Long): String {
         return amount.toString().padStart(12, '0')
     }
+
+    /**
+     * Get CVM limit amount from CVM config
+     * @param cvmConfig CVM configuration loaded from CVM.json
+     * @param cardBrand Card brand (e.g., "master", "visa", "napas")
+     * @param entryMode Entry mode (e.g., "chip", "contactless", "magstripe")
+     * @return CVM limit amount in minor units (e.g., 1000000 for 1M VND), or 0 if not configured
+     */
+    fun getCvmLimitAmount(cvmConfig: CvmConfig?, cardBrand: String, entryMode: String): Long {
+        if (cvmConfig == null) return 0L
+
+        // Get config for card brand
+        val brandConfig = when (cardBrand.lowercase()) {
+            "jcb" -> cvmConfig.sale.jcb
+            "visa" -> cvmConfig.sale.visa
+            "napas" -> cvmConfig.sale.napas
+            "ae", "amex" -> cvmConfig.sale.amex
+            "master", "mastercard" -> cvmConfig.sale.master
+            "unionpay", "union pay" -> cvmConfig.sale.unionpay
+            else -> null
+        }
+
+        // Get config for entry mode
+        val modeConfig = when (entryMode.lowercase()) {
+            "chip" -> brandConfig?.chip
+            "magstripe" -> brandConfig?.magstripe
+            "contactless" -> brandConfig?.contactless
+            else -> null
+        }
+
+        // Return signature amount as CVM limit
+        return modeConfig?.signature?.amount ?: 0L
+    }
 }

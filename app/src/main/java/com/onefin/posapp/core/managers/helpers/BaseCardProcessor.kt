@@ -12,6 +12,7 @@ import com.onefin.posapp.core.models.enums.CardProviderType
 import com.onefin.posapp.core.utils.CardHelper
 import com.onefin.posapp.core.utils.EMVTag
 import com.onefin.posapp.core.utils.F55Manager
+import com.onefin.posapp.core.utils.ResourceHelper
 import com.sunmi.pay.hardware.aidl.AidlConstants
 import com.sunmi.pay.hardware.aidlv2.bean.EMVCandidateV2
 import com.sunmi.pay.hardware.aidlv2.bean.PinPadConfigV2
@@ -107,12 +108,50 @@ abstract class BaseCardProcessor(
             val tvlOpCode = F55Manager.getTLVOpCode(detectedCardType, cardType)
             val length = emvOpt.getTlvList(tvlOpCode, f55Tags, outData)
 
-            val f55Hex = if (length > 0) {
+            var f55Hex = if (length > 0) {
                 val copy = outData.copyOf(length)
                 ByteUtil.bytes2HexStr(copy) + "9F0306000000000000"
             } else {
                 ""
             }
+
+            // Update 9F34 (CVM Results) based on actual CVM collected and CVM config
+            // Load CVM config from CVM.json to get the correct limit based on card type and entry mode
+            val transactionHasPin = !currentPinBlock.isNullOrEmpty()
+
+            // Get transaction amount from currentPaymentAppRequest
+            val transactionAmount = currentPaymentAppRequest?.merchantRequestData?.amount ?: 0L
+
+            // Determine entry mode based on cardType
+            val entryMode = when (cardType) {
+                AidlConstants.CardType.NFC -> "contactless"
+                AidlConstants.CardType.IC -> "chip"
+                AidlConstants.CardType.MAGNETIC -> "magstripe"
+                else -> "chip" // fallback
+            }
+
+            // Get card brand name for CVM config lookup
+            val cardBrand = when (detectedCardType) {
+                CardProviderType.MASTER -> "master"
+                CardProviderType.VISA -> "visa"
+                CardProviderType.NAPAS -> "napas"
+                CardProviderType.JCB -> "jcb"
+                CardProviderType.AE -> "amex"
+                CardProviderType.UNION -> "unionpay"
+                else -> "master" // fallback
+            }
+
+            // Load CVM config and get limit for this card type and entry mode
+            val cvmConfig = ResourceHelper.loadCvmFromAssets(context)
+            val cvmLimit = ResourceHelper.getCvmLimitAmount(cvmConfig, cardBrand, entryMode)
+
+            val cvmResult = CardHelper.getCvmResult(
+                transactionAmount = transactionAmount,
+                cvmLimit = cvmLimit,
+                hasPin = transactionHasPin,
+                hasSignature = !transactionHasPin
+            )
+            f55Hex = CardHelper.updateCvmResult(f55Hex, cvmResult)
 
             // 2. Get Additional Tags (for card details) ⭐ QUAN TRỌNG
             val additionalTags = arrayOf(
@@ -171,7 +210,6 @@ abstract class BaseCardProcessor(
                 ?: tagsMap[EMVTag.CHIP_TC]?.value
                 ?: ""
 
-            val transactionHasPin = !currentPinBlock.isNullOrEmpty()
 
             // Lấy AID từ f55 trước, fallback sang cardDetailsHex
             val aid = f55TagsMap[EMVTag.CHIP_APP_ID]?.value
