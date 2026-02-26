@@ -604,9 +604,9 @@ class ReceiptPrinter(
             }
 
             // Mã chuẩn chi (traceNo/Stan)
-            if (transaction.traceNo.isNotEmpty()) {
-                printerHelper.printTwoColumns("Mã chuẩn chi/Trace No:", transaction.traceNo)
-            }
+//            if (transaction.traceNo.isNotEmpty()) {
+//                printerHelper.printTwoColumns("Mã chuẩn chi/Trace No:", transaction.traceNo)
+//            }
 
             // AID
             if (transaction.aid.isNotEmpty()) {
@@ -623,9 +623,9 @@ class ReceiptPrinter(
                 printerHelper.printTwoColumns("TC/ARQC:", transaction.tc)
             }
 
-            // Mã phê duyệt
+            // Mã chuẩn chi
             if (transaction.approvedCode.isNotEmpty()) {
-                printerHelper.printTwoColumns("Mã phê duyệt/App Code:", transaction.approvedCode)
+                printerHelper.printTwoColumns("Mã chuẩn chi/App Code:", transaction.approvedCode)
             }
         }
 
