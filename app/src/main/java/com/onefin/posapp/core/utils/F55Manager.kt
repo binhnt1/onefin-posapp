@@ -27,8 +27,8 @@ object F55Manager {
     )
     private val VPB_F55_TAGS_VISA_CONTACTLESS = arrayOf(
         EMVTag.CHIP_APP_ID, "5F2A", "5F34", "82", "84", "95", "9A", "9C",
-        "9F02", "9F09", "9F10", "9F1A", EMVTag.CHIP_TC, "9F27", "9F33",
-        "9F35", "9F36", "9F37"
+        "9F02", "9F09", "9F10", "9F1A", EMVTag.CHIP_TC, "9F27", "9F33", "9F34",
+        "9F35", "9F36", "9F37", "9F6E"
     )
 
     private val VPB_F55_TAGS_MASTERCARD_CONTACT = arrayOf(
@@ -70,7 +70,7 @@ object F55Manager {
     private val VPB_F55_TAGS_AE_CONTACTLESS = arrayOf(
         EMVTag.CHIP_APP_ID, "82", "84", "95", "5F2A", "5F34", "9A", "9C", "9F02",
         "9F03", "9F08", "9F09", "9F10", "9F1A", EMVTag.CHIP_TC, "9F27",
-        "9F33", "9F34", "9F35", "9F36", "9F37"
+        "9F33", "9F34", "9F35", "9F36", "9F37", "9F6E"
     )
 
 

@@ -352,10 +352,12 @@ fun HomeContent(
     val isP2 = remember {
         Build.MODEL.lowercase().contains("p2")
     }
+    val serial = storageService.getSerial()
     val logoHeight = if (isP2) 24.dp else 40.dp
     val cancelButtonHeight = if (isP2) 48.dp else 56.dp
     val vietQRString = remember(account) {
         VietQRHelper.buildVietQRString(
+            description = "TT $serial",
             bankId = account.terminal.bankNapasId,
             accountNumber = account.terminal.accountNumber
         )

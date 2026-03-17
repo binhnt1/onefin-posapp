@@ -46,12 +46,15 @@ class QRCodeDisplayActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         val requestData = getPaymentAppRequest()
         if (requestData != null) {
+            val serial = storageService.getSerial()
             val account = storageService.getAccount()
+            val billNumber = requestData.merchantRequestData?.billNumber
             if (account != null) {
                 setContent {
                     PosAppTheme {
                         QRCodeDisplayScreen(
                             onCancel = { cancelTransaction() },
+                            description = "TT $serial $billNumber",
                             accountName = account.terminal.accountName,
                             bankNapasId = account.terminal.bankNapasId,
                             accountNumber = account.terminal.accountNumber,
@@ -102,6 +105,7 @@ fun QRCodeDisplayScreen(
     amount: Long,
     accountName: String,
     bankNapasId: String,
+    description: String,
     accountNumber: String,
     onCancel: () -> Unit
 ) {
@@ -111,8 +115,8 @@ fun QRCodeDisplayScreen(
         VietQRHelper.buildVietQRString(
             amount = amount,
             bankId = bankNapasId,
+            description = description,
             accountNumber = accountNumber,
-            description = context.getString(R.string.qr_payment_description)
         )
     }
 
@@ -256,6 +260,26 @@ fun QRCodeDisplayScreen(
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF101828)
                         )
+                        Spacer(modifier = Modifier.height(if (isP2) 4.dp else 8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "Nội dung:",
+                                fontSize = 14.sp,
+                                color = Color(0xFFD92D20), // Đỏ nổi bật cho label
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = description,
+                                fontSize = 14.sp,
+                                color = Color(0xFF1D5D9B), // Xanh đậm cho nội dung
+                                textAlign = TextAlign.Center
+                            )
+                        }
                         Spacer(modifier = Modifier.height(if (isP2) 1.dp else 2.dp))
                         Text(
                             text = stringResource(id = R.string.qr_auto_cancel_countdown, countdown),

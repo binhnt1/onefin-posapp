@@ -1,6 +1,7 @@
 package com.onefin.posapp.core.utils
 
 import android.annotation.SuppressLint
+import com.atg.pos.domain.entities.payment.TLVUtil
 import com.github.devnied.emvnfccard.model.EmvCard
 import com.onefin.posapp.core.models.data.EmvCardData
 import com.onefin.posapp.core.models.data.PaymentAppRequest
@@ -11,6 +12,7 @@ import com.onefin.posapp.core.models.data.SaleResultData
 import com.onefin.posapp.core.models.data.MemberResultData
 import com.onefin.posapp.core.models.data.VoidResultData
 import com.onefin.posapp.core.models.enums.CardBrand
+import com.onefin.posapp.core.models.enums.CardProviderType
 import com.sunmi.pay.hardware.aidl.AidlConstants
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -635,6 +637,26 @@ object CardHelper {
         return sb.toString()
     }
 
+    fun detectVirtualCard(f55Hex: String, cardBrand: CardProviderType?): Boolean {
+        if (f55Hex.isEmpty()) return false
+
+        val tagsMap = TLVUtil.buildTLVMap(f55Hex)
+        val tag9F6E = tagsMap["9F6E"]?.value ?: return false
+        if (tag9F6E.length < 8) return false
+
+        return when (cardBrand) {
+            CardProviderType.MASTER -> {
+                if (tag9F6E.length < 12) return false
+                tag9F6E.substring(8, 12).uppercase() == "3231"
+            }
+            CardProviderType.VISA -> {
+                val byte1 = tag9F6E.substring(0, 2).toIntOrNull(16) ?: return false
+                (byte1 and 0x1F) != 0
+            }
+            else -> false
+        }
+    }
+
     /**
      * Update 9F34 (CVM Results) in EMV data
      * @param emvDataHex Original EMV data hex string
@@ -672,11 +694,17 @@ object CardHelper {
      * @return CVM result hex string (3 bytes)
      */
     fun getCvmResult(
-        transactionAmount: Long,
         cvmLimit: Long,
         hasPin: Boolean,
-        hasSignature: Boolean
+        hasSignature: Boolean,
+        transactionAmount: Long,
+        isVirtualCard: Boolean = false
     ): String {
+        if (isVirtualCard) {
+            return if (transactionAmount <= cvmLimit) "3F0002"
+            else "010002"
+        }
+
         // If transaction amount is less than or equal to CVM limit, No CVM Required
         if (transactionAmount <= cvmLimit) {
             return "1F0000"  // No CVM Required - Always - Successful

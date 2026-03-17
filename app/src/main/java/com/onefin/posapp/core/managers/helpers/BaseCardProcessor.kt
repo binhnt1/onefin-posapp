@@ -2,6 +2,7 @@ package com.onefin.posapp.core.managers.helpers
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import com.atg.pos.domain.entities.payment.ByteUtil
 import com.atg.pos.domain.entities.payment.TLVUtil
 import com.onefin.posapp.core.models.Terminal
@@ -10,6 +11,7 @@ import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.models.data.RequestSale
 import com.onefin.posapp.core.models.enums.CardProviderType
 import com.onefin.posapp.core.utils.CardHelper
+import com.onefin.posapp.core.utils.CardHelper.detectVirtualCard
 import com.onefin.posapp.core.utils.EMVTag
 import com.onefin.posapp.core.utils.F55Manager
 import com.onefin.posapp.core.utils.ResourceHelper
@@ -115,7 +117,6 @@ abstract class BaseCardProcessor(
                 ""
             }
 
-            // Update 9F34 (CVM Results) based on actual CVM collected and CVM config
             // Load CVM config from CVM.json to get the correct limit based on card type and entry mode
             val transactionHasPin = !currentPinBlock.isNullOrEmpty()
 
@@ -124,34 +125,39 @@ abstract class BaseCardProcessor(
 
             // Determine entry mode based on cardType
             val entryMode = when (cardType) {
-                AidlConstants.CardType.NFC -> "contactless"
                 AidlConstants.CardType.IC -> "chip"
+                AidlConstants.CardType.NFC -> "contactless"
                 AidlConstants.CardType.MAGNETIC -> "magstripe"
                 else -> "chip" // fallback
             }
 
             // Get card brand name for CVM config lookup
             val cardBrand = when (detectedCardType) {
-                CardProviderType.MASTER -> "master"
-                CardProviderType.VISA -> "visa"
-                CardProviderType.NAPAS -> "napas"
                 CardProviderType.JCB -> "jcb"
                 CardProviderType.AE -> "amex"
+                CardProviderType.VISA -> "visa"
+                CardProviderType.NAPAS -> "napas"
+                CardProviderType.MASTER -> "master"
                 CardProviderType.UNION -> "unionpay"
                 else -> "master" // fallback
             }
 
             // Load CVM config and get limit for this card type and entry mode
-            val cvmConfig = ResourceHelper.loadCvmFromAssets(context)
-            val cvmLimit = ResourceHelper.getCvmLimitAmount(cvmConfig, cardBrand, entryMode)
+            val isVirtualCard = detectVirtualCard(f55Hex, detectedCardType)
+            if (detectedCardType == CardProviderType.MASTER) {
+                val cvmConfig = ResourceHelper.loadCvmFromAssets(context)
+                val cvmLimit = ResourceHelper.getCvmLimitAmount(cvmConfig, cardBrand, entryMode)
 
-            val cvmResult = CardHelper.getCvmResult(
-                transactionAmount = transactionAmount,
-                cvmLimit = cvmLimit,
-                hasPin = transactionHasPin,
-                hasSignature = !transactionHasPin
-            )
-            f55Hex = CardHelper.updateCvmResult(f55Hex, cvmResult)
+                val cvmResult = CardHelper.getCvmResult(
+                    cvmLimit = cvmLimit,
+                    hasPin = transactionHasPin,
+                    isVirtualCard = isVirtualCard,
+                    hasSignature = !transactionHasPin,
+                    transactionAmount = transactionAmount
+                )
+                Log.d("CVM_DEBUG", "9F34 from Result = $cvmResult")
+                f55Hex = CardHelper.updateCvmResult(f55Hex, cvmResult)
+            }
 
             // 2. Get Additional Tags (for card details) ⭐ QUAN TRỌNG
             val additionalTags = arrayOf(
