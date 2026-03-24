@@ -5,6 +5,7 @@ import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.os.Build
 import android.os.Bundle
+import android.util.Base64
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -663,6 +664,26 @@ fun PaymentCardScreen(
                     paymentState = PaymentState.SUCCESS
                     statusMessage = context.getString(R.string.payment_signature_confirmed)
                     isSuccessCountdownActive = true
+
+                    // Sửa: chuyển saleResult sang transaction để lấy transactionId
+                    if (signatureData != null && pendingSaleResult != null) {
+                        val transaction = pendingSaleResult!!.toTransaction()
+                        val transactionId = transaction.transactionId
+                        if (transactionId.isNotEmpty()) {
+                            val base64Signature = Base64.encodeToString(signatureData, Base64.NO_WRAP)
+                            val params = mapOf(
+                                "Id" to transactionId,
+                                "Signature" to base64Signature
+                            )
+                            activityScope.launch {
+                                try {
+                                    apiService.post("/api/transaction/signature", params)
+                                } catch (_: Exception) {
+                                    // Có thể log lỗi nếu cần
+                                }
+                            }
+                        }
+                    }
                 }
             )
         }
