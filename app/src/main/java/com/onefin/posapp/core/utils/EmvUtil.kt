@@ -2,6 +2,7 @@ package com.onefin.posapp.core.utils
 
 import android.content.Context
 import android.text.TextUtils
+import android.util.Log
 import com.atg.pos.domain.entities.payment.TLVUtil
 import com.onefin.posapp.core.models.EvmConfig
 import com.onefin.posapp.core.models.Terminal
@@ -175,26 +176,35 @@ object EmvUtil {
     }
     fun injectKeys(securityOpt: SecurityOptV2, terminal: Terminal): Boolean {
         return try {
-            // ksn
-            val ksn = terminal.ksn ?: "FFFF4357480393800000"
-            val ksnBytes = UtilHelper.hexStringToByteArray(ksn)
+            // Đọc KSN từ thiết bị
+            val dataOut = ByteArray(1024)
+            val len = securityOpt.dukptGetInitKSN(dataOut)
+            if (len < 0) {
+                Log.e("injectKeys", "dukptGetInitKSN failed: $len")
+                return false
+            }
+            val ksnBytes = dataOut.copyOf(len)
+            Log.d("injectKeys", "KSN: ${ksnBytes.joinToString("") { "%02X".format(it) }}")
 
-            // bdk
-            val bdk = terminal.bdk ?: "C1D0F8FB4958670DBA40AB1F3752EF0D"
-            val bdkBytes = UtilHelper.hexStringToByteArray(bdk)
+            // BDK
+            val bdkBytes = UtilHelper.hexStringToByteArray(terminal.bdk.toString())
+            Log.d("injectKeys", "BDK: ${terminal.bdk}")
+            val bdkHex = bdkBytes.joinToString("") { "%02X".format(it) }
+            Log.d("injectKeys", "BDK bytes as hex: $bdkHex")
+            Log.d("injectKeys", "BDK bytes length: ${bdkBytes.size}") // phải = 16
 
-            val keyType = 7
-            val keyIndex = 1
             val result = securityOpt.saveKeyDukpt(
-                keyType,
+                7,          // keyType
                 bdkBytes,
                 null,
-                ksnBytes,
-                1,              // algorithmType DES
-                keyIndex
+                ksnBytes,   // ← thẳng bytes, không convert
+                1,          // algorithmType DES
+                1           // keyIndex
             )
+            Log.d("injectKeys", "saveKeyDukpt result: $result")
             result == 0
         } catch (e: Exception) {
+            Log.e("injectKeys", "Exception: ${e.message}")
             false
         }
     }
