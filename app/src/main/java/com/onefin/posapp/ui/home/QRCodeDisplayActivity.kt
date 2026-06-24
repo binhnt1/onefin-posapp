@@ -120,7 +120,7 @@ fun QRCodeDisplayScreen(
         )
     }
 
-    var countdown by remember { mutableIntStateOf(90) }
+    var countdown by remember { mutableIntStateOf(900) }
 
     LaunchedEffect(key1 = true) {
         while (countdown > 0) {
