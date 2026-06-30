@@ -740,8 +740,10 @@ fun CardInfoCard(
             Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                // Card type
-                val cardType = requestSale.data.card.type?.uppercase() ?: "CARD"
+            // Card type - Ưu tiên appLabel
+                val cardType = requestSale.data.card.appLabel?.takeIf { it.isNotBlank() }
+                    ?: requestSale.data.card.type?.uppercase()
+                    ?: "CARD"
                 Text(
                     text = cardType,
                     fontSize = 12.sp,

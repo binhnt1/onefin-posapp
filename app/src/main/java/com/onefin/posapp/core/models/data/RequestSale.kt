@@ -45,6 +45,9 @@ data  class RequestSale(
             @SerializedName("mode")
             val mode: String? = null,
 
+            @SerializedName("appLabel")
+            val appLabel: String? = null,
+
             @SerializedName("newPin")
             val newPin: String? = null,
 

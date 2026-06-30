@@ -68,6 +68,9 @@ data class SaleResultData(
 
         @SerializedName("cardMode")
         val cardMode: Int = 0, // 1: MAGNETIC, 2: IC, 4: CONTACTLESS
+
+        @SerializedName("appLabel")
+        val appLabel: String? = null,
     ) : Serializable
 
     data class Header(
@@ -144,6 +147,7 @@ data class SaleResultData(
             remark = this.status?.message ?: "",
             source = this.data?.cardBrand ?: "",
             cardMode = this.data?.cardMode ?: 4,
+            appLabel = this.data?.appLabel ?: "",
             batchNumber = this.data?.batchNo ?: "",
             accountName = this.data?.cardHolder ?: "",
             transactionId = this.header?.transId ?: "",

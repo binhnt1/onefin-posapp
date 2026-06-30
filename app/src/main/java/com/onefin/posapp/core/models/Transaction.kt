@@ -70,6 +70,9 @@ data class Transaction(
     @SerializedName("CardMode")
     val cardMode: Int = 0, // 1: MAGNETIC, 2: IC, 4: CONTACTLESS
 
+    @SerializedName("AppLabel")
+    val appLabel: String = "",
+
     @SerializedName("ProcessStatus")
     val processStatus: Int = 0 // -1: Hủy, 0: Khởi tạo, 1: Đã tính phí, 2: Đã kết toán
 ) {

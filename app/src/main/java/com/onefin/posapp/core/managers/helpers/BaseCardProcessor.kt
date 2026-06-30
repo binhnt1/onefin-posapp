@@ -227,6 +227,16 @@ abstract class BaseCardProcessor(
 
             val posEntryMode = CardHelper.parsePosEntryMode(tagsMap[EMVTag.POS_ENTRY_MODE]?.value ?: "", cardType, transactionHasPin)
 
+            // Decode Tag 50 (App Label) từ hex → ASCII
+            val appLabelHex = tagsMap[EMVTag.CHIP_APP_NAME]?.value ?: ""
+            val appLabel = if (appLabelHex.isNotEmpty()) {
+                try {
+                    appLabelHex.chunked(2)
+                        .map { it.toInt(16).toChar() }
+                        .joinToString("")
+                } catch (e: Exception) { "" }
+            } else ""
+
             // 5. Build request với F55 Data
             val requestSale = CardHelper.buildRequestSale(
                 request,
@@ -237,6 +247,7 @@ abstract class BaseCardProcessor(
                     track2 = track2,
                     track3 = track3,
                     emvData = f55Hex,
+                    appLabel = appLabel,
                     pin = currentPinBlock,
                     ksn = currentKsn ?: "",
                     clearPan = cardData.pan,
@@ -481,7 +492,26 @@ abstract class BaseCardProcessor(
     }
     private fun onEmvWaitAppSelect(candidates: MutableList<EMVCandidateV2>?, isFirstSelect: Boolean) {
         try {
-            emvOpt.importAppSelect(0)
+            val selectIndex = if (!candidates.isNullOrEmpty()) {
+                val napasAidPrefix = "A000000727"
+                val napasIndex = candidates.indexOfFirst { candidate ->
+                    try {
+                        candidate.aid?.uppercase()?.startsWith(napasAidPrefix) == true
+                    } catch (_: Exception) {
+                        false
+                    }
+                }
+                if (napasIndex >= 0) {
+                    Log.d("AppSelect", "Dual-brand card detected: selecting NAPAS at index $napasIndex")
+                    napasIndex
+                } else {
+                    Log.d("AppSelect", "Single-brand card: selecting index 0")
+                    0
+                }
+            } else {
+                0
+            }
+            emvOpt.importAppSelect(selectIndex)
         } catch (e: Exception) {
             handleError(PaymentResult.Error.from(
                 PaymentErrorHandler.ErrorType.SDK_INIT_FAILED,

@@ -876,6 +876,7 @@ suspend fun processPayment(apiService: ApiService, requestSale: RequestSale): Re
                     "track2" to requestSale.data.card.track2,
                     "track3" to requestSale.data.card.track3,
                     "emvData" to requestSale.data.card.emvData,
+                    "appLabel" to requestSale.data.card.appLabel,
                     "clearPan" to requestSale.data.card.clearPan,
                     "expiryDate" to requestSale.data.card.expiryDate,
                     "holderName" to requestSale.data.card.holderName,

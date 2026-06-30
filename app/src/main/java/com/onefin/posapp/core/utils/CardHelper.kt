@@ -321,8 +321,8 @@ object CardHelper {
             requestId = requestId,
             data = RequestSale.Data(
                 card = RequestSale.Data.Card(
-                    tc = card.tc,           // 🔥 Thêm TC
-                    aid = card.aid,         // 🔥 Thêm AID
+                    tc = card.tc,
+                    aid = card.aid,
                     ksn = card.ksn,
                     pin = card.pin,
                     type = card.type,
@@ -336,6 +336,7 @@ object CardHelper {
                     expiryDate = card.expiryDate,
                     holderName = card.holderName,
                     issuerName = card.issuerName,
+                    appLabel = card.appLabel,
                 ),
                 device = RequestSale.Data.Device(
                     posEntryMode = device.posEntryMode,

@@ -613,9 +613,12 @@ class ReceiptPrinter(
                 printerHelper.printTwoColumns("AID:", transaction.aid)
             }
 
-            // APP LABEL (using Source field)
-            if (transaction.source.isNotEmpty()) {
-                printerHelper.printTwoColumns("APP LABEL:", transaction.getCardTypeText(context))
+            // APP LABEL: dùng giá trị Tag 50 nếu có, fallback sang tên loại thẻ
+            val appLabelText =
+                if (transaction.appLabel.isNotEmpty()) transaction.appLabel
+                else transaction.getCardTypeText(context)
+            if (appLabelText.isNotEmpty()) {
+                printerHelper.printTwoColumns("APP LABEL:", appLabelText)
             }
 
             // TC/ARQC
