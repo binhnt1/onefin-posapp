@@ -8,7 +8,6 @@ import com.onefin.posapp.core.config.ApiConstants
 import com.onefin.posapp.core.config.AppConfig
 import com.onefin.posapp.core.config.StorageKeys
 import com.onefin.posapp.core.models.ApiResponseModel
-import com.onefin.posapp.core.models.ResultType
 import com.onefin.posapp.core.utils.EncryptHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -22,6 +21,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.onefin.posapp.core.models.ApiException
 import com.onefin.posapp.core.models.BusinessException
+import timber.log.Timber
 
 @Singleton
 class ApiService @Inject constructor(
@@ -55,6 +55,7 @@ class ApiService @Inject constructor(
             val headers = buildHeaders()
 
             // 2. Encrypt and sign body
+            Timber.tag("ApiService").d(gson.toJson(body))
             val encryptedBody = encryptAndSignBody(body)
 
             // 3. Create request
@@ -201,6 +202,7 @@ class ApiService @Inject constructor(
 
         // 3. Decrypt
         val decryptedData = EncryptHelper.decrypt(apiResponse.data, sharedPreferences)
+        Timber.tag("ApiService").d("Decrypted Data: $decryptedData")
 
         // 4. Parse ResultApi
         val resultApi = gson.fromJson<ResultApi<Any>>(
