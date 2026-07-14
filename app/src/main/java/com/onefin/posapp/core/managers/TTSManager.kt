@@ -11,7 +11,6 @@ import com.onefin.posapp.core.models.data.BalanceData
 import com.onefin.posapp.core.services.ApiService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
-import timber.log.Timber
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Provider
@@ -92,10 +91,8 @@ class TTSManager @Inject constructor(
             try {
                 val audioUrl = fetchAudioUrlFromApi(text)
                 if (audioUrl.isNotEmpty()) {
-                    Timber.tag(TAG).w("Audio URL: $audioUrl")
                     playAudioFromUrl(audioUrl)
                 } else {
-                    Timber.tag(TAG).w("Audio URL empty from API")
                 }
             } catch (e: Exception) {
             }
