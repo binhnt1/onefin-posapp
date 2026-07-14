@@ -13,7 +13,6 @@ import com.sunmi.pay.hardware.aidlv2.bean.CapkV2
 import com.sunmi.pay.hardware.aidlv2.bean.EmvTermParamV2
 import com.sunmi.pay.hardware.aidlv2.emv.EMVOptV2
 import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
-import timber.log.Timber
 import java.util.Locale
 import kotlin.text.ifEmpty
 import kotlin.text.toInt
@@ -39,13 +38,10 @@ object EmvUtil {
                 try {
                     val aidToAdd = hexStr2Aid(aidHexString) // Parse hex string thành AidV2
                     emvOptV2.addAid(aidToAdd)
-                } catch (e: Exception) {
-                    Timber.e(e, "   Lỗi khi parse/nạp AID: ${aidHexString.take(50)}...")
+                } catch (_: Exception) {
                 }
             }
-            Timber.d("   ✅ Nạp AIDs mặc định từ tài liệu thành công!")
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (_: Exception) {
         }
     }
     fun injectCapks(context: Context, emvOptV2: EMVOptV2) {
@@ -107,13 +103,10 @@ object EmvUtil {
                 try {
                     val capk = hexStr2Rid(capkHexString) // Parse hex string
                     emvOptV2.addCapk(capk) // Nạp CAPK [cite: 552]
-                } catch (e: Exception) {
-                    Timber.e(e, "   Lỗi khi parse/nạp CAPK: ${capkHexString.take(50)}...")
+                } catch (_: Exception) {
                 }
             }
-            Timber.d("   Nạp CAPKs mặc định từ tài liệu thành công!")
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (_: Exception) {
         }
     }
     fun setTerminalParam(emv: EMVOptV2, terminal: Terminal) {
@@ -168,7 +161,7 @@ object EmvUtil {
                 "JCB" -> setJcbTlvs(emv, config, cvmConfig)
                 "NAPAS" -> setNapasTlvs(emv, config, cvmConfig)
                 "VISA" -> setPayWaveTlvs(emv, config, cvmConfig)
-                "MASTERCARD" -> setPayPassTlvs(emv, config, cvmConfig)
+                "MASTERCARD", "MASTER" -> setPayPassTlvs(emv, config, cvmConfig)
                 "UNIONPAY", "UNION PAY" -> setQpbocTlvs(emv, config, cvmConfig)
                 "AE", "AMEX", "AMERICAN EXPRESS" -> setExpressPayTlvs(emv, config, cvmConfig)
             }
@@ -180,7 +173,6 @@ object EmvUtil {
             val dataOut = ByteArray(1024)
             val len = securityOpt.dukptGetInitKSN(dataOut)
             if (len < 0) {
-                Log.e("injectKeys", "dukptGetInitKSN failed: $len")
                 return false
             }
             val ksnBytes = dataOut.copyOf(len)
@@ -203,8 +195,7 @@ object EmvUtil {
             )
             Log.d("injectKeys", "saveKeyDukpt result: $result")
             result == 0
-        } catch (e: Exception) {
-            Log.e("injectKeys", "Exception: ${e.message}")
+        } catch (_: Exception) {
             false
         }
     }
@@ -213,7 +204,7 @@ object EmvUtil {
         val config: EvmConfig = terminal?.evmConfigs?.firstOrNull() ?: EvmConfig()
 
         val globalTags = arrayOf(
-            "9F1A", "5F2A", "5F36", "9F33", "9F35", "9F40",
+            "9F1A", "5F2A", "5F36", "9F35", "9F40",
             "9F66", "9F09", "9F1C", "9F15", "9F16", "9F1E"
         )
 
@@ -227,7 +218,6 @@ object EmvUtil {
             config.countryCode9F1A,
             config.transCurrencyCode5F2A,
             config.transCurrencyExp,
-            config.terminalCap9F33,
             config.terminalType9F35,
             config.exTerminalCap9F40,
             ttq,
@@ -242,6 +232,7 @@ object EmvUtil {
     }
     private fun setJcbTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
+            "9F33",  // Terminal Capabilities
             "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
             "DF8123", "DF8124", "DF8125", "DF8126"
         )
@@ -259,8 +250,10 @@ object EmvUtil {
         }
 
         val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
+        val terminalCap = config.terminalCap9F33.ifEmpty { "E0F8C8" }
 
         val chipValues = arrayOf(
+            terminalCap,
             floorLimit,
             floorLimit,
             floorLimit,
@@ -274,6 +267,7 @@ object EmvUtil {
         )
 
         val contactlessValues = arrayOf(
+            terminalCap,
             floorLimit,
             floorLimit,
             floorLimit,
@@ -290,14 +284,16 @@ object EmvUtil {
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_JCB, tags, contactlessValues)
     }
     private fun setQpbocTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
-        val chipValues = arrayOf("E0", "F8", "F8", "E8", "00")
-        val tags = arrayOf("DF69", "DF70", "DF71", "DF72", "DF73")
-        val contactlessValues = arrayOf("E0", "F8", "F8", "E8", "00")
+        val terminalCap = config.terminalCap9F33.ifEmpty { "E0F8C8" }
+        val tags = arrayOf("9F33", "DF69", "DF70", "DF71", "DF72", "DF73")
+        val chipValues = arrayOf(terminalCap, "E0", "F8", "F8", "E8", "00")
+        val contactlessValues = arrayOf(terminalCap, "E0", "F8", "F8", "E8", "00")
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, chipValues)
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, contactlessValues)
     }
     private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
+            "9F33",   // Terminal Capabilities ← ADDED
             "DF7F",   // AID - Application Identifier
             "DF8134", // NAPAS-specific tag
             "DF8133", // NAPAS-specific tag (mCTLSAppCapa)
@@ -331,7 +327,10 @@ object EmvUtil {
             ResourceHelper.getDefaultTlvValues()
         }
 
+        val terminalCap = config.terminalCap9F33.ifEmpty { "E0F8C8" }
+
         val chipValues = arrayOf(
+            terminalCap,                                       // 9F33
             config.aid9F06.ifEmpty { "A0000007271010" },  // DF7F
             "D9",                                          // DF8134
             "3200E043F9",                                  // DF8133
@@ -354,6 +353,7 @@ object EmvUtil {
         )
 
         val contactlessValues = arrayOf(
+            terminalCap,                                       // 9F33
             config.aid9F06.ifEmpty { "A0000007271010" },  // DF7F
             "D9",                                          // DF8134
             "3200E043F9",                                  // DF8133
@@ -380,6 +380,7 @@ object EmvUtil {
     }
     private fun setPayWaveTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
+            "9F33",   // Terminal Capabilities ← ADDED
             "DF8117", "DF8118", "DF8119", "DF811B", "DF811D", "DF811E",
             "DF811F", "DF8120", "DF8121", "DF8122", "DF8123", "DF8124",
             "DF8125", "DF812C"
@@ -398,7 +399,10 @@ object EmvUtil {
         }
 
         val floorLimit = config.floorLimit9F1B.ifEmpty { "000005000000" }
+        val terminalCap = config.terminalCap9F33.ifEmpty { "E0F8C8" }
+
         val chipValues = arrayOf(
+            terminalCap,
             floorLimit,
             "000000000000",
             "000000999999",
@@ -416,6 +420,7 @@ object EmvUtil {
         )
 
         val contactlessValues = arrayOf(
+            terminalCap,
             floorLimit,
             "000000000000",
             "000000999999",
@@ -437,6 +442,7 @@ object EmvUtil {
     }
     private fun setPayPassTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
+            "9F33",   // Terminal Capabilities ← ADDED
             "DF8117", "DF8118", "DF8119", "DF811B", "DF811D", "DF811E",
             "DF811F", "DF8120", "DF8121", "DF8122", "DF8123", "DF8124",
             "DF8125", "DF812C"
@@ -455,8 +461,10 @@ object EmvUtil {
         }
 
         val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
+        val terminalCap = config.terminalCap9F33.ifEmpty { "E0F8C8" }
 
         val chipValues = arrayOf(
+            terminalCap,                                     // 9F33 - Card Data Input Capability
             floorLimit,                      // DF8117 - Card Data Input Capability
             "000000000000",                  // DF8118 - Chip CVM Capability
             "000000999999",                  // DF8119 - Chip CVM Capability No CVM
@@ -474,6 +482,7 @@ object EmvUtil {
         )
 
         val contactlessValues = arrayOf(
+            terminalCap,                             // 9F33 - Card Data Input Capability
             floorLimit,                            // DF8117 - Card Data Input Capability
             "000000000000",                        // DF8118 - Chip CVM Capability
             "000000999999",                        // DF8119 - Chip CVM Capability No CVM
@@ -504,11 +513,14 @@ object EmvUtil {
             "DF8170"   // Additional Terminal Capabilities
         )
 
+        // AMEX có thể override 9F33 riêng, nếu không có thì dùng default
+        val terminalCap = config.terminalCap9F33.ifEmpty { "E0B8C8" }
+
         val chipValues = arrayOf(
             "C0",        // 9F6D: Contactless Reader Capabilities
             "D8A00000",  // 9F6E: Third Party Data / Form Factor Indicator
             "00",        // DF8168: Card Data Input Capability
-            "E0B8C8",    // 9F33: Terminal Capabilities (AMEX-specific)
+            terminalCap, // 9F33: Terminal Capabilities (AMEX-specific, dùng config)
             "",          // DF8167: CVM Capability - CVM Required
             "00",        // DF8169: CVM Capability - No CVM Required
             "60"         // DF8170: Additional Terminal Capabilities
@@ -518,7 +530,7 @@ object EmvUtil {
             "C0",        // 9F6D: Contactless Reader Capabilities
             "D8A00000",  // 9F6E: Third Party Data / Form Factor Indicator
             "00",        // DF8168: Card Data Input Capability
-            "E0B8C8",    // 9F33: Terminal Capabilities (AMEX-specific)
+            terminalCap, // 9F33: Terminal Capabilities (AMEX-specific, dùng config)
             "",          // DF8167: CVM Capability - CVM Required
             "00",        // DF8169: CVM Capability - No CVM Required
             "60"         // DF8170: Additional Terminal Capabilities

@@ -108,8 +108,17 @@ abstract class BaseCardProcessor(
             val outData = ByteArray(2048)
             val f55Tags = F55Manager.getF55TagsRequired(detectedCardType, cardType)
             val tvlOpCode = F55Manager.getTLVOpCode(detectedCardType, cardType)
+
+            // 🔥 FIX: 9F33
+            try {
+                emvOpt.setTlv(tvlOpCode, "9F33", "E0F8C8")
+                emvOpt.setTlv(AidlConstants.EMV.TLVOpCode.OP_NORMAL, "9F33", "E0F8C8")
+            } catch (_: Exception) {
+            }
+
             val length = emvOpt.getTlvList(tvlOpCode, f55Tags, outData)
 
+            // 🔥 FIX: F55
             var f55Hex = if (length > 0) {
                 val copy = outData.copyOf(length)
                 ByteUtil.bytes2HexStr(copy) + "9F0306000000000000"
@@ -155,7 +164,6 @@ abstract class BaseCardProcessor(
                     hasSignature = !transactionHasPin,
                     transactionAmount = transactionAmount
                 )
-                Log.d("CVM_DEBUG", "9F34 from Result = $cvmResult")
                 f55Hex = CardHelper.updateCvmResult(f55Hex, cvmResult)
             }
 
