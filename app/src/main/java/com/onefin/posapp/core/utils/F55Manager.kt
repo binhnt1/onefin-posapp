@@ -48,7 +48,7 @@ object F55Manager {
     )
     private val VPB_F55_TAGS_VCCS_CONTACTLESS = arrayOf(
         "5F2A", "5F34", "82", "84", "95", "9A", "9C", "9F02", "9F10",
-        "9F1A", EMVTag.CHIP_TC, "9F27", "9F36", "9F37", "9F34"
+        "9F1A", EMVTag.CHIP_TC, "9F27", "9F33", "9F36", "9F37", "9F34"
     )
 
     private val VPB_F55_TAGS_JCB_CONTACT = arrayOf(
