@@ -142,22 +142,27 @@ abstract class BaseCardProcessor(
                 else -> "master" // fallback
             }
 
-            // Load CVM config and get limit for this card type and entry mode
+            // Load CVM config and override 9F34 byte 3 (CVM Result) to "02" (Successful)
+            // Byte 1-2 (CVM Rule from tag 8E on card) must be preserved — DO NOT override
+            val cvmConfig = ResourceHelper.loadCvmFromAssets(context)
+            val cvmLimit = ResourceHelper.getCvmLimitAmount(cvmConfig, cardBrand, entryMode)
             val isVirtualCard = detectVirtualCard(f55Hex, detectedCardType)
-            if (detectedCardType == CardProviderType.MASTER) {
-                val cvmConfig = ResourceHelper.loadCvmFromAssets(context)
-                val cvmLimit = ResourceHelper.getCvmLimitAmount(cvmConfig, cardBrand, entryMode)
 
-                val cvmResult = CardHelper.getCvmResult(
-                    cvmLimit = cvmLimit,
-                    hasPin = transactionHasPin,
-                    isVirtualCard = isVirtualCard,
-                    hasSignature = !transactionHasPin,
-                    transactionAmount = transactionAmount
-                )
-                Log.d("CVM_DEBUG", "9F34 from Result = $cvmResult")
-                f55Hex = CardHelper.updateCvmResult(f55Hex, cvmResult)
-            }
+            // Read original 9F34 from the chip data (preserves byte 1-2 CVM Rule from tag 8E)
+            val original9F34 = f55TagsMap[F55Manager.CVM_RESULTS]?.value ?: "1F0000"
+
+            // Determine if CVM was successful
+            val cvmSuccessful = CardHelper.isCvmSuccessful(
+                transactionAmount = transactionAmount,
+                cvmLimit = cvmLimit,
+                hasPin = transactionHasPin,
+                hasSignature = !transactionHasPin,
+                isVirtualCard = isVirtualCard
+            )
+
+            // Override 9F34: preserve byte 1-2 (CVM Rule), set byte 3 to "02" (Successful)
+            f55Hex = CardHelper.updateCvmResult(f55Hex, original9F34, cvmSuccessful)
+            Log.d("CVM_DEBUG", "9F34 original = $original9F34, successful = $cvmSuccessful, final = ${f55TagsMap[F55Manager.CVM_RESULTS]?.value}")
 
             // 2. Get Additional Tags (for card details) ⭐ QUAN TRỌNG
             val additionalTags = arrayOf(
