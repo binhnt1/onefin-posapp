@@ -15,6 +15,7 @@ object EMVTag {
     const val CHIP_APP_ID_84 = "84"
     const val CHIP_TC = "9F26"
     const val POS_ENTRY_MODE = "9F39"
+    const val TERM_CAPABILITY = "9F33"
     const val CVM_RESULTS = "9F34"
     const val CVM_LIST = "8E"
     const val TAG_9F41_F62 = "9F41"

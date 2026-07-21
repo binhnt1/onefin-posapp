@@ -126,11 +126,23 @@ abstract class BaseCardProcessor(
                 ""
             }
 
+            // Parse F55 TLV immediately so we can read original 9F34
+            val f55TagsMap = TLVUtil.buildTLVMap(f55Hex)
+
             // Load CVM config from CVM.json to get the correct limit based on card type and entry mode
             val transactionHasPin = !currentPinBlock.isNullOrEmpty()
 
             // Get transaction amount from currentPaymentAppRequest
             val transactionAmount = currentPaymentAppRequest?.merchantRequestData?.amount ?: 0L
+
+            // === LOG: Read raw 9F33 and 9F34 from chip ===
+            val raw9F33 = f55TagsMap[EMVTag.TERM_CAPABILITY]?.value ?: "N/A"
+            val raw9F34 = f55TagsMap[EMVTag.CVM_RESULTS]?.value ?: "N/A"
+            Log.d("CVM_DEBUG", "========== RAW FROM CHIP ==========")
+            Log.d("CVM_DEBUG", "9F33 (Term Capability) = $raw9F33")
+            Log.d("CVM_DEBUG", "9F34 (CVM Results)     = $raw9F34")
+            Log.d("CVM_DEBUG", "Card Brand: $detectedCardType | Entry: $cardType | Amount: $transactionAmount | PIN: $transactionHasPin")
+            Log.d("CVM_DEBUG", "========== RAW FROM CHIP ==========")
 
             // Determine entry mode based on cardType
             val entryMode = when (cardType) {
@@ -158,7 +170,7 @@ abstract class BaseCardProcessor(
             val isVirtualCard = detectVirtualCard(f55Hex, detectedCardType)
 
             // Read original 9F34 from the chip data (preserves byte 1-2 CVM Rule from tag 8E)
-            val original9F34 = f55TagsMap[F55Manager.CVM_RESULTS]?.value ?: "1F0000"
+            val original9F34 = f55TagsMap[EMVTag.CVM_RESULTS]?.value ?: "1F0000"
 
             // Determine if CVM was successful
             val cvmSuccessful = CardHelper.isCvmSuccessful(
@@ -171,7 +183,8 @@ abstract class BaseCardProcessor(
 
             // Override 9F34: preserve byte 1-2 (CVM Rule), set byte 3 to "02" (Successful)
             f55Hex = CardHelper.updateCvmResult(f55Hex, original9F34, cvmSuccessful)
-            Log.d("CVM_DEBUG", "9F34 original = $original9F34, successful = $cvmSuccessful, final = ${f55TagsMap[F55Manager.CVM_RESULTS]?.value}")
+            Log.d("CVM_DEBUG", "9F34 original = $original9F34, successful = $cvmSuccessful, final = ${f55TagsMap[EMVTag.CVM_RESULTS]?.value}")
+            Log.d("CVM_DEBUG", "========== CVM DEBUG END ==========")
 
             // 2. Get Additional Tags (for card details) ⭐ QUAN TRỌNG
             val additionalTags = arrayOf(
@@ -198,8 +211,7 @@ abstract class BaseCardProcessor(
             // 3. Parse Card Details từ cardDetailsHex (KHÔNG phải f55Hex)
             val tagsMap = TLVUtil.buildTLVMap(cardDetailsHex)
 
-            // ALSO parse f55Hex để lấy TC và AID (chúng thường nằm trong F55)
-            val f55TagsMap = TLVUtil.buildTLVMap(f55Hex)
+            // f55TagsMap already parsed above (for reading original 9F34)
 
             val track1 = tagsMap[EMVTag.TRACK_1_DATA]?.value ?: ""
             val track3 = tagsMap[EMVTag.TRACK_3_DATA]?.value ?: ""
