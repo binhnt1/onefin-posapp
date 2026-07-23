@@ -2,9 +2,6 @@ package com.onefin.posapp.core.managers.helpers
 
 import android.content.Context
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.util.Log
 import com.atg.pos.domain.entities.payment.ByteUtil
 import com.atg.pos.domain.entities.payment.TLVUtil
 import com.onefin.posapp.core.models.Terminal
@@ -24,6 +21,7 @@ import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadListenerV2
 import com.sunmi.pay.hardware.aidlv2.pinpad.PinPadOptV2
 import com.sunmi.pay.hardware.aidlv2.readcard.ReadCardOptV2
 import com.sunmi.pay.hardware.aidlv2.security.SecurityOptV2
+import timber.log.Timber
 
 abstract class BaseCardProcessor(
     protected val context: Context,
@@ -192,7 +190,7 @@ abstract class BaseCardProcessor(
             val f9F34 = tagsMap[EMVTag.CVM_RESULTS]?.value ?: ""
             val f9F33 = tagsMap[EMVTag.TERM_CAPABILITY]?.value ?: ""
             val cardBrand = CardProviderType.getCardTypeName(detectedCardType ?: CardProviderType.ATM)
-            Log.d("CardDebug", "Card: $cardBrand | Entry: ${cardType.name} | 9F33: $f9F33 | 9F34: $f9F34")
+            Timber.tag("CardDebug").d("Card: $cardBrand | Entry: ${cardType.name} | 9F33: $f9F33 | 9F34: $f9F34")
 
             // 5. Build request với F55 Data
             val requestSale = CardHelper.buildRequestSale(

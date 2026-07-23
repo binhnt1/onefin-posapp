@@ -175,16 +175,12 @@ object EmvUtil {
             if (len < 0) {
                 return false
             }
+
+            // KSN
             val ksnBytes = dataOut.copyOf(len)
-            Log.d("injectKeys", "KSN: ${ksnBytes.joinToString("") { "%02X".format(it) }}")
 
             // BDK
             val bdkBytes = UtilHelper.hexStringToByteArray(terminal.bdk.toString())
-            Log.d("injectKeys", "BDK: ${terminal.bdk}")
-            val bdkHex = bdkBytes.joinToString("") { "%02X".format(it) }
-            Log.d("injectKeys", "BDK bytes as hex: $bdkHex")
-            Log.d("injectKeys", "BDK bytes length: ${bdkBytes.size}") // phải = 16
-
             val result = securityOpt.saveKeyDukpt(
                 7,          // keyType
                 bdkBytes,
@@ -193,7 +189,6 @@ object EmvUtil {
                 1,          // algorithmType DES
                 1           // keyIndex
             )
-            Log.d("injectKeys", "saveKeyDukpt result: $result")
             result == 0
         } catch (_: Exception) {
             false
