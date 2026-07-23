@@ -2,6 +2,8 @@ package com.onefin.posapp.core.managers.helpers
 
 import android.content.Context
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.atg.pos.domain.entities.payment.ByteUtil
 import com.atg.pos.domain.entities.payment.TLVUtil
@@ -106,17 +108,10 @@ abstract class BaseCardProcessor(
             val outData = ByteArray(2048)
             val f55Tags = F55Manager.getF55TagsRequired(detectedCardType, cardType)
             val tvlOpCode = F55Manager.getTLVOpCode(detectedCardType, cardType)
-            val length = emvOpt.getTlvList(tvlOpCode, f55Tags, outData)
+            var length = emvOpt.getTlvList(tvlOpCode, f55Tags, outData)
             val transactionHasPin = !currentPinBlock.isNullOrEmpty()
 
-            // 🔥 FIX: F55
-            val f55Hex = if (length > 0) {
-                val copy = outData.copyOf(length)
-                ByteUtil.bytes2HexStr(copy) + "9F0306000000000000"
-            } else {
-                ""
-            }
-
+            var f55Hex = if (length > 0) ByteUtil.bytes2HexStr(outData.copyOf(length)) else ""
 
             // 2. Get Additional Tags (for card details) ⭐ QUAN TRỌNG
             val additionalTags = arrayOf(
@@ -130,7 +125,9 @@ abstract class BaseCardProcessor(
                 EMVTag.CHIP_APP_ID_84,   // AID
                 EMVTag.CHIP_APP_ID,   // AID fallback
                 EMVTag.CHIP_TC, // TC
-                EMVTag.POS_ENTRY_MODE  // POS Entry Mode
+                EMVTag.POS_ENTRY_MODE,  // POS Entry Mode
+                EMVTag.TERM_CAPABILITY, // 9F33
+                EMVTag.CVM_RESULTS // 9F34
             )
             val additionalData = ByteArray(2048)
             val additionalLength = emvOpt.getTlvList(tvlOpCode, additionalTags, additionalData)
@@ -139,9 +136,8 @@ abstract class BaseCardProcessor(
             } else {
                 ""
             }
-
-            // 3. Parse Card Details từ cardDetailsHex (KHÔNG phải f55Hex)
             val tagsMap = TLVUtil.buildTLVMap(cardDetailsHex)
+
             val track1 = tagsMap[EMVTag.TRACK_1_DATA]?.value ?: ""
             val track3 = tagsMap[EMVTag.TRACK_3_DATA]?.value ?: ""
             var track2 = tagsMap[EMVTag.TRACK_2_DATA]?.value ?: ""
@@ -191,6 +187,12 @@ abstract class BaseCardProcessor(
                         .joinToString("")
                 } catch (e: Exception) { "" }
             } else ""
+
+            // Log card info and CVM results
+            val f9F34 = tagsMap[EMVTag.CVM_RESULTS]?.value ?: ""
+            val f9F33 = tagsMap[EMVTag.TERM_CAPABILITY]?.value ?: ""
+            val cardBrand = CardProviderType.getCardTypeName(detectedCardType ?: CardProviderType.ATM)
+            Log.d("CardDebug", "Card: $cardBrand | Entry: ${cardType.name} | 9F33: $f9F33 | 9F34: $f9F34")
 
             // 5. Build request với F55 Data
             val requestSale = CardHelper.buildRequestSale(
@@ -303,6 +305,33 @@ abstract class BaseCardProcessor(
 
     private fun onEmvOnlineProc() {
         try {
+            val outData = ByteArray(64)
+            val tvlOpCode = F55Manager.getTLVOpCode(detectedCardType, cardType)
+            val len = emvOpt.getTlvList(tvlOpCode, arrayOf("9F34"), outData)
+
+            // 9F33
+            emvOpt.setTlv(tvlOpCode, "9F33", "E0F8C8")
+
+            // 9F34
+            var cvm9F34 = ""
+            if (len > 0) {
+                val map = TLVUtil.buildTLVMap(ByteUtil.bytes2HexStr(outData.copyOf(len)))
+                val current9F34 = map["9F34"]?.value ?: ""
+                if (current9F34.length == 6) {
+                    cvm9F34 = current9F34.substring(0, 4) + "02"
+                }
+            }
+            if (cvm9F34.isNotEmpty())
+                emvOpt.setTlv(tvlOpCode, "9F34", cvm9F34)
+            else {
+                val transactionHasPin = !currentPinBlock.isNullOrEmpty()
+                cvm9F34 = if (transactionHasPin) {
+                    "420302" // Online PIN Pass
+                } else {
+                    "1E0302" // No CVM Required Pass (hoặc "1E0302" tùy quy định Acquirer)
+                }
+                emvOpt.setTlv(tvlOpCode, "9F34", cvm9F34)
+            }
             val onlineResultStatus = AidlConstants.EMV.OnlineResult.ONLINE_APPROVAL
             val importResult = emvOpt.importOnlineProcStatus(onlineResultStatus, null, null, ByteArray(1))
             if (importResult < 0) {
@@ -358,14 +387,6 @@ abstract class BaseCardProcessor(
     }
     private fun onEmvAppFinalSelect(tag9F06Value: String?) {
         try {
-            // fix 9F33
-            detectedCardType = CardProviderType.fromAid(tag9F06Value)
-            val tvlOpCode = F55Manager.getTLVOpCode(detectedCardType, cardType)
-            try {
-                emvOpt.setTlv(tvlOpCode, "9F33", "E0F8C8")
-            } catch (_: Exception) {
-            }
-
             emvOpt.importAppFinalSelectStatus(0)
         } catch (e: Exception) {
             handleError(PaymentResult.Error.from(
