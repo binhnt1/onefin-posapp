@@ -380,7 +380,6 @@ object EmvUtil {
     }
     private fun setPayWaveTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
-            "9F33",   // Terminal Capabilities ← ADDED
             "DF8117", "DF8118", "DF8119", "DF811B", "DF811D", "DF811E",
             "DF811F", "DF8120", "DF8121", "DF8122", "DF8123", "DF8124",
             "DF8125", "DF812C"
@@ -399,13 +398,10 @@ object EmvUtil {
         }
 
         val floorLimit = config.floorLimit9F1B.ifEmpty { "000005000000" }
-        val terminalCap = config.terminalCap9F33.ifEmpty { "E0F8C8" }
-
         val chipValues = arrayOf(
-            terminalCap,
-            floorLimit,
-            "000000000000",
-            "000000999999",
+            "E0",
+            "08",
+            "F0",
             "30",
             "02",
             chipCvm.cvmRequiredLimit,
@@ -420,10 +416,9 @@ object EmvUtil {
         )
 
         val contactlessValues = arrayOf(
-            terminalCap,
-            floorLimit,
-            "000000000000",
-            "000000999999",
+            "E0",
+            "08",
+            "F0",
             "30",
             "02",
             contactlessCvm.cvmRequiredLimit,
@@ -442,7 +437,6 @@ object EmvUtil {
     }
     private fun setPayPassTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
-            "9F33",   // Terminal Capabilities ← ADDED
             "DF8117", "DF8118", "DF8119", "DF811B", "DF811D", "DF811E",
             "DF811F", "DF8120", "DF8121", "DF8122", "DF8123", "DF8124",
             "DF8125", "DF812C"
@@ -461,13 +455,10 @@ object EmvUtil {
         }
 
         val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
-        val terminalCap = config.terminalCap9F33.ifEmpty { "E0F8C8" }
-
         val chipValues = arrayOf(
-            terminalCap,                                     // 9F33 - Card Data Input Capability
-            floorLimit,                      // DF8117 - Card Data Input Capability
-            "000000000000",                  // DF8118 - Chip CVM Capability
-            "000000999999",                  // DF8119 - Chip CVM Capability No CVM
+            "E0",
+            "08",
+            "F0",
             "30",                            // DF811B - Kernel Configuration
             "02",                            // DF811D - Status Check Support
             chipCvm.cvmRequiredLimit,        // DF811E - CVM Required Limit
@@ -482,10 +473,9 @@ object EmvUtil {
         )
 
         val contactlessValues = arrayOf(
-            terminalCap,                             // 9F33 - Card Data Input Capability
-            floorLimit,                            // DF8117 - Card Data Input Capability
-            "000000000000",                        // DF8118 - Chip CVM Capability
-            "000000999999",                        // DF8119 - Chip CVM Capability No CVM
+            "E0",
+            "08",
+            "F0",
             "30",                                  // DF811B - Kernel Configuration
             "02",                                  // DF811D - Status Check Support
             contactlessCvm.cvmRequiredLimit,       // DF811E - CVM Required Limit
@@ -513,14 +503,11 @@ object EmvUtil {
             "DF8170"   // Additional Terminal Capabilities
         )
 
-        // AMEX có thể override 9F33 riêng, nếu không có thì dùng default
-        val terminalCap = config.terminalCap9F33.ifEmpty { "E0B8C8" }
-
         val chipValues = arrayOf(
             "C0",        // 9F6D: Contactless Reader Capabilities
             "D8A00000",  // 9F6E: Third Party Data / Form Factor Indicator
             "00",        // DF8168: Card Data Input Capability
-            terminalCap, // 9F33: Terminal Capabilities (AMEX-specific, dùng config)
+            "E0F8C8", // 9F33: Terminal Capabilities (AMEX-specific, dùng config)
             "",          // DF8167: CVM Capability - CVM Required
             "00",        // DF8169: CVM Capability - No CVM Required
             "60"         // DF8170: Additional Terminal Capabilities
@@ -530,7 +517,7 @@ object EmvUtil {
             "C0",        // 9F6D: Contactless Reader Capabilities
             "D8A00000",  // 9F6E: Third Party Data / Form Factor Indicator
             "00",        // DF8168: Card Data Input Capability
-            terminalCap, // 9F33: Terminal Capabilities (AMEX-specific, dùng config)
+            "E0F8C8", // 9F33: Terminal Capabilities (AMEX-specific, dùng config)
             "",          // DF8167: CVM Capability - CVM Required
             "00",        // DF8169: CVM Capability - No CVM Required
             "60"         // DF8170: Additional Terminal Capabilities
