@@ -204,7 +204,7 @@ object EmvUtil {
         val config: EvmConfig = terminal?.evmConfigs?.firstOrNull() ?: EvmConfig()
 
         val globalTags = arrayOf(
-            "9F1A", "5F2A", "5F36", "9F35", "9F40",
+            "9F33", "9F1A", "5F2A", "5F36", "9F35", "9F40",
             "9F66", "9F09", "9F1C", "9F15", "9F16", "9F1E"
         )
 
@@ -215,6 +215,7 @@ object EmvUtil {
             else -> "3600C080"
         }
         val globalValues = arrayOf(
+            "E0F8C8",
             config.countryCode9F1A,
             config.transCurrencyCode5F2A,
             config.transCurrencyExp,
@@ -232,9 +233,9 @@ object EmvUtil {
     }
     private fun setJcbTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
-            "9F33",  // Terminal Capabilities
-            "DF8117", "DF8118", "DF8119", "DF811F", "DF811E", "DF812C",
-            "DF8123", "DF8124", "DF8125", "DF8126"
+            "9F33", "DF8117", "DF8118", "DF8119", "DF811B", "DF811D", "DF811E",
+            "DF811F", "DF8120", "DF8121", "DF8122", "DF8123", "DF8124",
+            "DF8125", "DF812C"
         )
 
         val chipCvm = if (cvmConfig != null) {
@@ -249,35 +250,40 @@ object EmvUtil {
             ResourceHelper.getDefaultTlvValues()
         }
 
-        val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
-        val terminalCap = config.terminalCap9F33.ifEmpty { "E0F8C8" }
-
         val chipValues = arrayOf(
-            terminalCap,
-            floorLimit,
-            floorLimit,
-            floorLimit,
-            "E8",
-            "00",
-            floorLimit,
+            "E0F8C8",
+            "E0",                      // DF8117 - Card Data Input Capability
+            "F0",                  // DF8118 - Chip CVM Capability
+            "08",                  // DF8119 - Chip CVM Capability No CVM
+            "30",
+            "02",
+            chipCvm.cvmRequiredLimit,
+            chipCvm.contactlessTransLimit,
+            "000000999999",
+            chipCvm.contactlessCvmLimit,
+            "0000000000",
             config.tacDefault,
             config.tacDenial,
             config.tacOnline,
-            chipCvm.cvmRequiredLimit
+            chipCvm.readerCvmRequiredLimit
         )
 
         val contactlessValues = arrayOf(
-            terminalCap,
-            floorLimit,
-            floorLimit,
-            floorLimit,
-            contactlessCvm.contactlessTransLimit,
+            "E0F8C8",
+            "E0",                      // DF8117 - Card Data Input Capability
+            "F0",                  // DF8118 - Chip CVM Capability
+            "08",                  // DF8119 - Chip CVM Capability No CVM
+            "30",
+            "02",
             contactlessCvm.cvmRequiredLimit,
-            contactlessCvm.readerCvmRequiredLimit,
+            contactlessCvm.contactlessTransLimit,
+            "000000999999",
+            contactlessCvm.contactlessCvmLimit,
+            "0000000000",
             config.tacDefault,
             config.tacDenial,
             config.tacOnline,
-            contactlessCvm.cvmRequiredLimit
+            contactlessCvm.readerCvmRequiredLimit
         )
 
         emv.setTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, tags, chipValues)
@@ -293,7 +299,6 @@ object EmvUtil {
     }
     private fun setNapasTlvs(emv: EMVOptV2, config: EvmConfig, cvmConfig: CvmConfig?) {
         val tags = arrayOf(
-            "9F33",   // Terminal Capabilities ← ADDED
             "DF7F",   // AID - Application Identifier
             "DF8134", // NAPAS-specific tag
             "DF8133", // NAPAS-specific tag (mCTLSAppCapa)
@@ -327,17 +332,14 @@ object EmvUtil {
             ResourceHelper.getDefaultTlvValues()
         }
 
-        val terminalCap = config.terminalCap9F33.ifEmpty { "E0F8C8" }
-
         val chipValues = arrayOf(
-            terminalCap,                                       // 9F33
             config.aid9F06.ifEmpty { "A0000007271010" },  // DF7F
             "D9",                                          // DF8134
             "3200E043F9",                                  // DF8133
             "26000080",                                    // 9F66
             "E0",                                          // DF8117
-            "08",                                          // DF8118
-            "F0",                                          // DF8119
+            "F0",                                          // DF8118
+            "08",                                          // DF8119
             "9F6A04",                                      // DF811A
             "30",                                          // DF811B
             "02",                                          // DF811D
@@ -353,14 +355,13 @@ object EmvUtil {
         )
 
         val contactlessValues = arrayOf(
-            terminalCap,                                       // 9F33
             config.aid9F06.ifEmpty { "A0000007271010" },  // DF7F
             "D9",                                          // DF8134
             "3200E043F9",                                  // DF8133
             "26000080",                                    // 9F66
             "E0",                                          // DF8117
-            "08",                                          // DF8118
-            "F0",                                          // DF8119
+            "F0",                                          // DF8118
+            "08",                                          // DF8119
             "9F6A04",                                      // DF811A
             "30",                                          // DF811B
             "02",                                          // DF811D
@@ -397,11 +398,10 @@ object EmvUtil {
             ResourceHelper.getDefaultTlvValues()
         }
 
-        val floorLimit = config.floorLimit9F1B.ifEmpty { "000005000000" }
         val chipValues = arrayOf(
-            "E0",
-            "08",
-            "F0",
+            "E0",                      // DF8117 - Card Data Input Capability
+            "F0",                  // DF8118 - Chip CVM Capability
+            "08",                  // DF8119 - Chip CVM Capability No CVM
             "30",
             "02",
             chipCvm.cvmRequiredLimit,
@@ -416,9 +416,9 @@ object EmvUtil {
         )
 
         val contactlessValues = arrayOf(
-            "E0",
-            "08",
-            "F0",
+            "E0",                      // DF8117 - Card Data Input Capability
+            "F0",                  // DF8118 - Chip CVM Capability
+            "08",                  // DF8119 - Chip CVM Capability No CVM
             "30",
             "02",
             contactlessCvm.cvmRequiredLimit,
@@ -454,11 +454,10 @@ object EmvUtil {
             ResourceHelper.getDefaultTlvValues()
         }
 
-        val floorLimit = config.floorLimit9F1B.ifEmpty { "000000500000" }
         val chipValues = arrayOf(
-            "E0",
-            "08",
-            "F0",
+            "E0",                      // DF8117 - Card Data Input Capability
+            "F0",                  // DF8118 - Chip CVM Capability
+            "08",                  // DF8119 - Chip CVM Capability No CVM
             "30",                            // DF811B - Kernel Configuration
             "02",                            // DF811D - Status Check Support
             chipCvm.cvmRequiredLimit,        // DF811E - CVM Required Limit
@@ -473,9 +472,9 @@ object EmvUtil {
         )
 
         val contactlessValues = arrayOf(
-            "E0",
-            "08",
-            "F0",
+            "E0",                      // DF8117 - Card Data Input Capability
+            "F0",                  // DF8118 - Chip CVM Capability
+            "08",                  // DF8119 - Chip CVM Capability No CVM
             "30",                                  // DF811B - Kernel Configuration
             "02",                                  // DF811D - Status Check Support
             contactlessCvm.cvmRequiredLimit,       // DF811E - CVM Required Limit
@@ -503,11 +502,14 @@ object EmvUtil {
             "DF8170"   // Additional Terminal Capabilities
         )
 
+        // AMEX có thể override 9F33 riêng, nếu không có thì dùng default
+        val terminalCap = config.terminalCap9F33.ifEmpty { "E0F8C8" }
+
         val chipValues = arrayOf(
             "C0",        // 9F6D: Contactless Reader Capabilities
             "D8A00000",  // 9F6E: Third Party Data / Form Factor Indicator
             "00",        // DF8168: Card Data Input Capability
-            "E0F8C8", // 9F33: Terminal Capabilities (AMEX-specific, dùng config)
+            terminalCap, // 9F33: Terminal Capabilities (AMEX-specific, dùng config)
             "",          // DF8167: CVM Capability - CVM Required
             "00",        // DF8169: CVM Capability - No CVM Required
             "60"         // DF8170: Additional Terminal Capabilities
@@ -517,7 +519,7 @@ object EmvUtil {
             "C0",        // 9F6D: Contactless Reader Capabilities
             "D8A00000",  // 9F6E: Third Party Data / Form Factor Indicator
             "00",        // DF8168: Card Data Input Capability
-            "E0F8C8", // 9F33: Terminal Capabilities (AMEX-specific, dùng config)
+            terminalCap, // 9F33: Terminal Capabilities (AMEX-specific, dùng config)
             "",          // DF8167: CVM Capability - CVM Required
             "00",        // DF8169: CVM Capability - No CVM Required
             "60"         // DF8170: Additional Terminal Capabilities
