@@ -11,10 +11,8 @@ import com.onefin.posapp.core.models.data.PaymentResult
 import com.onefin.posapp.core.models.data.RequestSale
 import com.onefin.posapp.core.models.enums.CardProviderType
 import com.onefin.posapp.core.utils.CardHelper
-import com.onefin.posapp.core.utils.CardHelper.detectVirtualCard
 import com.onefin.posapp.core.utils.EMVTag
 import com.onefin.posapp.core.utils.F55Manager
-import com.onefin.posapp.core.utils.ResourceHelper
 import com.sunmi.pay.hardware.aidl.AidlConstants
 import com.sunmi.pay.hardware.aidlv2.bean.EMVCandidateV2
 import com.sunmi.pay.hardware.aidlv2.bean.PinPadConfigV2
@@ -109,55 +107,16 @@ abstract class BaseCardProcessor(
             val f55Tags = F55Manager.getF55TagsRequired(detectedCardType, cardType)
             val tvlOpCode = F55Manager.getTLVOpCode(detectedCardType, cardType)
             val length = emvOpt.getTlvList(tvlOpCode, f55Tags, outData)
+            val transactionHasPin = !currentPinBlock.isNullOrEmpty()
 
-            var f55Hex = if (length > 0) {
+            // 🔥 FIX: F55
+            val f55Hex = if (length > 0) {
                 val copy = outData.copyOf(length)
                 ByteUtil.bytes2HexStr(copy) + "9F0306000000000000"
             } else {
                 ""
             }
 
-            // Load CVM config from CVM.json to get the correct limit based on card type and entry mode
-            val transactionHasPin = !currentPinBlock.isNullOrEmpty()
-
-            // Get transaction amount from currentPaymentAppRequest
-            val transactionAmount = currentPaymentAppRequest?.merchantRequestData?.amount ?: 0L
-
-            // Determine entry mode based on cardType
-            val entryMode = when (cardType) {
-                AidlConstants.CardType.IC -> "chip"
-                AidlConstants.CardType.NFC -> "contactless"
-                AidlConstants.CardType.MAGNETIC -> "magstripe"
-                else -> "chip" // fallback
-            }
-
-            // Get card brand name for CVM config lookup
-            val cardBrand = when (detectedCardType) {
-                CardProviderType.JCB -> "jcb"
-                CardProviderType.AE -> "amex"
-                CardProviderType.VISA -> "visa"
-                CardProviderType.NAPAS -> "napas"
-                CardProviderType.MASTER -> "master"
-                CardProviderType.UNION -> "unionpay"
-                else -> "master" // fallback
-            }
-
-            // Load CVM config and get limit for this card type and entry mode
-            val isVirtualCard = detectVirtualCard(f55Hex, detectedCardType)
-            if (detectedCardType == CardProviderType.MASTER) {
-                val cvmConfig = ResourceHelper.loadCvmFromAssets(context)
-                val cvmLimit = ResourceHelper.getCvmLimitAmount(cvmConfig, cardBrand, entryMode)
-
-                val cvmResult = CardHelper.getCvmResult(
-                    cvmLimit = cvmLimit,
-                    hasPin = transactionHasPin,
-                    isVirtualCard = isVirtualCard,
-                    hasSignature = !transactionHasPin,
-                    transactionAmount = transactionAmount
-                )
-                Log.d("CVM_DEBUG", "9F34 from Result = $cvmResult")
-                f55Hex = CardHelper.updateCvmResult(f55Hex, cvmResult)
-            }
 
             // 2. Get Additional Tags (for card details) ⭐ QUAN TRỌNG
             val additionalTags = arrayOf(
@@ -174,7 +133,7 @@ abstract class BaseCardProcessor(
                 EMVTag.POS_ENTRY_MODE  // POS Entry Mode
             )
             val additionalData = ByteArray(2048)
-            val additionalLength = emvOpt.getTlvList(AidlConstants.EMV.TLVOpCode.OP_NORMAL, additionalTags, additionalData)
+            val additionalLength = emvOpt.getTlvList(tvlOpCode, additionalTags, additionalData)
             val cardDetailsHex = if (additionalLength > 0) {
                 ByteUtil.bytes2HexStr(additionalData.copyOf(additionalLength))
             } else {
@@ -183,10 +142,6 @@ abstract class BaseCardProcessor(
 
             // 3. Parse Card Details từ cardDetailsHex (KHÔNG phải f55Hex)
             val tagsMap = TLVUtil.buildTLVMap(cardDetailsHex)
-
-            // ALSO parse f55Hex để lấy TC và AID (chúng thường nằm trong F55)
-            val f55TagsMap = TLVUtil.buildTLVMap(f55Hex)
-
             val track1 = tagsMap[EMVTag.TRACK_1_DATA]?.value ?: ""
             val track3 = tagsMap[EMVTag.TRACK_3_DATA]?.value ?: ""
             var track2 = tagsMap[EMVTag.TRACK_2_DATA]?.value ?: ""
@@ -212,14 +167,14 @@ abstract class BaseCardProcessor(
 
             // 4. Extract other fields
             // Lấy TC từ f55 trước, fallback sang cardDetailsHex
-            val tc = f55TagsMap[EMVTag.CHIP_TC]?.value
+            val tc = tagsMap[EMVTag.CHIP_TC]?.value
                 ?: tagsMap[EMVTag.CHIP_TC]?.value
                 ?: ""
 
 
             // Lấy AID từ f55 trước, fallback sang cardDetailsHex
-            val aid = f55TagsMap[EMVTag.CHIP_APP_ID]?.value
-                ?: f55TagsMap[EMVTag.CHIP_APP_ID_84]?.value
+            val aid = tagsMap[EMVTag.CHIP_APP_ID]?.value
+                ?: tagsMap[EMVTag.CHIP_APP_ID_84]?.value
                 ?: tagsMap[EMVTag.CHIP_APP_ID]?.value
                 ?: tagsMap[EMVTag.CHIP_APP_ID_84]?.value
                 ?: ""
@@ -403,7 +358,14 @@ abstract class BaseCardProcessor(
     }
     private fun onEmvAppFinalSelect(tag9F06Value: String?) {
         try {
+            // fix 9F33
             detectedCardType = CardProviderType.fromAid(tag9F06Value)
+            val tvlOpCode = F55Manager.getTLVOpCode(detectedCardType, cardType)
+            try {
+                emvOpt.setTlv(tvlOpCode, "9F33", "E0F8C8")
+            } catch (_: Exception) {
+            }
+
             emvOpt.importAppFinalSelectStatus(0)
         } catch (e: Exception) {
             handleError(PaymentResult.Error.from(

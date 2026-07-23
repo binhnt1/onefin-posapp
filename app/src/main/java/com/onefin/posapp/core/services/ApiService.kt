@@ -8,7 +8,6 @@ import com.onefin.posapp.core.config.ApiConstants
 import com.onefin.posapp.core.config.AppConfig
 import com.onefin.posapp.core.config.StorageKeys
 import com.onefin.posapp.core.models.ApiResponseModel
-import com.onefin.posapp.core.models.ResultType
 import com.onefin.posapp.core.utils.EncryptHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
