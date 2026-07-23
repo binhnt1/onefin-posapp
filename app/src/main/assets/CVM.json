@@ -57,7 +57,7 @@
             },
             "contactless": {
                 "signature": {
-                    "amount": 900001,
+                    "amount": 1000000,
                     "needSign": "Y"
                 }
             },
@@ -81,7 +81,7 @@
           },
           "contactless": {
             "signature": {
-              "amount": 900001,
+              "amount": 1000000,
               "needSign": "Y"
             }
           },
@@ -137,7 +137,7 @@
             },
             "contactless": {
                 "signature": {
-                    "amount": 2000000,
+                    "amount": 1000000,
                     "needSign": "Y"
                 }
             },

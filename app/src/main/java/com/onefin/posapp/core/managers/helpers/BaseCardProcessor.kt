@@ -126,7 +126,7 @@ abstract class BaseCardProcessor(
                 EMVTag.CHIP_APP_ID,   // AID fallback
                 EMVTag.CHIP_TC, // TC
                 EMVTag.POS_ENTRY_MODE,  // POS Entry Mode
-                EMVTag.TERM_CAPABILITY, // 9F33
+                EMVTag.TERM_CAPABILITY,
                 EMVTag.CVM_RESULTS // 9F34
             )
             val additionalData = ByteArray(2048)
@@ -387,6 +387,7 @@ abstract class BaseCardProcessor(
     }
     private fun onEmvAppFinalSelect(tag9F06Value: String?) {
         try {
+            detectedCardType = CardProviderType.fromAid(tag9F06Value)
             emvOpt.importAppFinalSelectStatus(0)
         } catch (e: Exception) {
             handleError(PaymentResult.Error.from(
@@ -485,10 +486,8 @@ abstract class BaseCardProcessor(
                     }
                 }
                 if (napasIndex >= 0) {
-                    Log.d("AppSelect", "Dual-brand card detected: selecting NAPAS at index $napasIndex")
                     napasIndex
                 } else {
-                    Log.d("AppSelect", "Single-brand card: selecting index 0")
                     0
                 }
             } else {
