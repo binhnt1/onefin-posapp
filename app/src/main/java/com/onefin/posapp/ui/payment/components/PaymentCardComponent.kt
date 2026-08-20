@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -90,6 +91,7 @@ fun ModernBillCard(
     isMemberCard: Boolean,
     billNumber: String?,
     referenceId: String?,
+    so: String? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -107,65 +109,50 @@ fun ModernBillCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(16.dp)
             ) {
-                // Logo TO HƠN: 64dp (thay vì 56dp cũ)
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .background(
-                            color = Color.White,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = Color(0xFFE5E7EB),
-                            shape = RoundedCornerShape(8.dp)
-                        ),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.logo),
-                        contentDescription = "Logo",
-                        modifier = Modifier.height(28.dp), // TO HƠN: 28dp thay vì 24dp
-                        contentScale = ContentScale.Fit
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    // SỐ TIỀN TO HƠN: 32sp (thay vì 24sp cũ)
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(Color.White, shape = RoundedCornerShape(8.dp))
+                            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.logo),
+                            contentDescription = "Logo",
+                            modifier = Modifier.height(24.dp),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = UtilHelper.formatCurrency(amount, "đ"),
-                        fontSize = 32.sp,
+                        fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF111827)
                     )
+                }
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                if (billNumber != null || referenceId != null || so != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(color = Color(0xFFE5E7EB))
 
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        if (billNumber != null) {
-                            Text(
-                                text = "Bill: $billNumber",
-                                fontSize = 12.sp,
-                                color = Color(0xFF6B7280)
-                            )
-                        }
-                        if (referenceId != null) {
-                            Text(
-                                text = "• Ref: $referenceId",
-                                fontSize = 12.sp,
-                                color = Color(0xFF6B7280)
-                            )
-                        }
+                    if (billNumber != null) {
+                        InfoRow(label = "Số HĐ/Invoice", value = billNumber)
+                    }
+                    if (so != null) {
+                        InfoRow(label = "Mã SO", value = so)
+                    }
+                    if (referenceId != null) {
+                        InfoRow(label = "Mã YC/Request ID", value = referenceId)
                     }
                 }
             }

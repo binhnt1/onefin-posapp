@@ -493,7 +493,8 @@ fun PaymentCardScreen(
                 amount = amount,
                 isMemberCard = isMemberCard,
                 billNumber = paymentAppRequest.merchantRequestData?.billNumber,
-                referenceId = paymentAppRequest.merchantRequestData?.referenceId
+                referenceId = paymentAppRequest.merchantRequestData?.referenceId,
+                so = paymentAppRequest.merchantRequestData?.so
             )
 
             Spacer(modifier = Modifier.height(24.dp))

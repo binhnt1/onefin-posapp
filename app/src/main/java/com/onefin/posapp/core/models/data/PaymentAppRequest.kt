@@ -26,6 +26,9 @@ data class MerchantRequestData(
     @SerializedName("reference_id")
     val referenceId: String? = null,
 
+    @SerializedName("so")
+    val so: String? = null,
+
     // Mã nhân viên
     @SerializedName("tid")
     var tid: String? = null,

@@ -26,7 +26,12 @@ import com.onefin.posapp.R
 import com.onefin.posapp.core.utils.UtilHelper
 import com.onefin.posapp.core.utils.VietQRHelper
 import com.onefin.posapp.ui.base.BaseActivity
+import com.onefin.posapp.ui.payment.components.InfoRow
+import com.onefin.posapp.ui.payment.components.ModernBillCard
 import com.onefin.posapp.ui.theme.PosAppTheme
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import javax.inject.Inject
@@ -49,6 +54,8 @@ class QRCodeDisplayActivity : BaseActivity() {
             val serial = storageService.getSerial()
             val account = storageService.getAccount()
             val billNumber = requestData.merchantRequestData?.billNumber
+            val referenceId = requestData.merchantRequestData?.referenceId
+            val so = requestData.merchantRequestData?.so
             if (account != null) {
                 setContent {
                     PosAppTheme {
@@ -59,6 +66,9 @@ class QRCodeDisplayActivity : BaseActivity() {
                             bankNapasId = account.terminal.bankNapasId,
                             accountNumber = account.terminal.accountNumber,
                             amount = requestData.merchantRequestData?.amount ?: 0,
+                            billNumber = billNumber,
+                            referenceId = referenceId,
+                            so = so,
                         )
                     }
                 }
@@ -107,6 +117,9 @@ fun QRCodeDisplayScreen(
     bankNapasId: String,
     description: String,
     accountNumber: String,
+    billNumber: String? = null,
+    referenceId: String? = null,
+    so: String? = null,
     onCancel: () -> Unit
 ) {
     val context = LocalContext.current as Activity
@@ -174,15 +187,25 @@ fun QRCodeDisplayScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            ModernBillCard(
+                amount = amount,
+                isMemberCard = false,
+                billNumber = billNumber,
+                referenceId = referenceId,
+                so = so
+            )
+
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 color = Color.White,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD0D5DD))
+                border = BorderStroke(1.dp, Color(0xFFD0D5DD))
             ) {
                 Column(
                     modifier = Modifier
@@ -207,89 +230,38 @@ fun QRCodeDisplayScreen(
                             modifier = Modifier.height(logoHeight)
                         )
                     }
+
                     var qrSize = LocalConfiguration.current.screenWidthDp.dp - 64.dp
-                    if (isP2) {
-                        qrSize *= 0.75f
-                    }
+                    if (isP2) qrSize *= 0.75f
+                    QRCodeImage(data = vietQRString, size = qrSize)
 
-                    QRCodeImage(
-                        data = vietQRString,
-                        size = qrSize,
+                    HorizontalDivider(color = Color(0xFFEAECF0))
+                    Spacer(modifier = Modifier.height(if (isP2) 8.dp else 12.dp))
+                    Text(
+                        text = accountName.uppercase(),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF101828)
                     )
-
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        HorizontalDivider(
-                            color = Color(0xFFEAECF0)
-                        )
-                        Spacer(modifier = Modifier.height(if (isP2) 8.dp else 16.dp))
-                        Text(
-                            text = accountName.uppercase(),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF101828)
-                        )
-                        Spacer(modifier = Modifier.height(if (isP2) 2.dp else 4.dp))
-                        Text(
-                            text = accountNumber,
-                            fontSize = 16.sp,
-                            color = Color(0xFF475467)
-                        )
-                        Spacer(modifier = Modifier.height(if (isP2) 8.dp else 16.dp))
-                        HorizontalDivider(
-                            color = Color(0xFFEAECF0)
-                        )
-                        Spacer(modifier = Modifier.height(if (isP2) 8.dp else 16.dp))
-                        Text(
-                            text = stringResource(R.string.qr_display_scan_instruction),
-                            fontSize = 14.sp,
-                            color = Color(0xFF475467),
-                            textAlign = TextAlign.Center
-                        )
-                        Text(
-                            text = stringResource(R.string.qr_display_single_use_note),
-                            fontSize = 14.sp,
-                            color = Color(0xFF475467),
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(if (isP2) 8.dp else 16.dp))
-                        Text(
-                            text = UtilHelper.formatCurrency(amount.toString(), "đ"),
-                            fontSize = amountFontSize,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF101828)
-                        )
-                        Spacer(modifier = Modifier.height(if (isP2) 4.dp else 8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = "Nội dung:",
-                                fontSize = 14.sp,
-                                color = Color(0xFFD92D20), // Đỏ nổi bật cho label
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = description,
-                                fontSize = 14.sp,
-                                color = Color(0xFF1D5D9B), // Xanh đậm cho nội dung
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(if (isP2) 1.dp else 2.dp))
-                        Text(
-                            text = stringResource(id = R.string.qr_auto_cancel_countdown, countdown),
-                            fontSize = 14.sp,
-                            color = Color(0xFFD92D20),
-                            textAlign = TextAlign.Center
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(if (isP2) 2.dp else 4.dp))
+                    Text(
+                        text = accountNumber,
+                        fontSize = 16.sp,
+                        color = Color(0xFF475467)
+                    )
+                    Spacer(modifier = Modifier.height(if (isP2) 8.dp else 12.dp))
+                    HorizontalDivider(color = Color(0xFFEAECF0))
+                    Spacer(modifier = Modifier.height(if (isP2) 6.dp else 10.dp))
+                    Text(
+                        text = stringResource(id = R.string.qr_auto_cancel_countdown, countdown),
+                        fontSize = 14.sp,
+                        color = Color(0xFFD92D20),
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }

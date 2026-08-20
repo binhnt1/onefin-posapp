@@ -22,7 +22,7 @@ class ReceiptPrinter(
 
     companion object {
         private const val TAG = "ReceiptPrinter"
-        private const val PAPER_WIDTH = 32
+        private const val PAPER_WIDTH = 38
     }
 
     suspend fun printReceipt(
@@ -40,19 +40,9 @@ class ReceiptPrinter(
 
             printHeader(terminal)
             printTransactionType(transaction)
-            if (transaction.remark.isNotEmpty()) {
-                printerHelper.printTextWithFormat(
-                    isBold = true,
-                    text = transaction.remark,
-                    alignment = PrinterHelper.ALIGN_CENTER,
-                    fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
-                )
-                printerHelper.printDivider("-", PAPER_WIDTH)
-            }
 
             printTransactionInfo(transaction)
             printAmountSection(transaction)
-            printStatusSection(transaction)
 
             printSignatureSection(null)
             printFooter(terminal)
@@ -80,19 +70,9 @@ class ReceiptPrinter(
 
             printHeader(terminal)
             printTransactionType(transaction)
-            if (transaction.remark.isNotEmpty()) {
-                printerHelper.printTextWithFormat(
-                    isBold = true,
-                    text = transaction.remark,
-                    alignment = PrinterHelper.ALIGN_CENTER,
-                    fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
-                )
-                printerHelper.printDivider("-", PAPER_WIDTH)
-            }
 
             printTransactionInfo(transaction)
             printAmountSection(transaction)
-            printStatusSection(transaction)
 
             printSignatureSection(signatureBitmap)
             printFooter(terminal)
@@ -163,10 +143,10 @@ class ReceiptPrinter(
     }
 
     // Hàm helper tạo bitmap từ text
-    private fun createTextBitmap(text: String): Bitmap {
+    private fun createTextBitmap(text: String, textSize: Float = 28f): Bitmap {
         val paint = android.graphics.Paint().apply {
             color = android.graphics.Color.BLACK
-            textSize = 28f
+            this.textSize = textSize
             textAlign = android.graphics.Paint.Align.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             isAntiAlias = true
@@ -479,20 +459,13 @@ class ReceiptPrinter(
     }
 
     private suspend fun printHeader(terminal: Terminal) {
-        printerHelper.printDoubleDivider(PAPER_WIDTH)
-
-        // Load 3 logos: Bank (left), Merchant (center), OneFin text (right)
+        // Load bank logo on the left and OneFin text on the right
         val bankLogoBitmap = loadBankLogo(terminal.bankLogo ?: "")
-        val merchantLogoBitmap = loadMerchantLogo(terminal.logo)
-        val onefinTextBitmap = createTextBitmap("OneFin")
+        val onefinTextBitmap = createTextBitmap("OneFin", textSize = 30f * 1.2f)
 
-        // Print combined logos if at least one exists
-        if (bankLogoBitmap != null || merchantLogoBitmap != null) {
-            val combinedBitmap =
-                combineThreeLogos(bankLogoBitmap, merchantLogoBitmap, onefinTextBitmap)
-            if (combinedBitmap != null) {
-                printerHelper.printBitmap(combinedBitmap)
-            }
+        val combinedBitmap = combineTwoLogos(bankLogoBitmap, onefinTextBitmap)
+        if (combinedBitmap != null) {
+            printerHelper.printBitmap(combinedBitmap)
         }
 
         printerHelper.printTextWithFormat(
@@ -502,25 +475,11 @@ class ReceiptPrinter(
             isBold = true
         )
 
-        printerHelper.printDivider("-", PAPER_WIDTH)
+        printerHelper.printNewLine(1)
 
-        if (terminal.phone.isNotEmpty()) {
-            printerHelper.printTextWithFormat(
-                text = "SĐT/Phone: ${terminal.phone}",
-                alignment = PrinterHelper.ALIGN_CENTER,
-                fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-            )
-        }
-
-        printerHelper.printTextWithFormat(
-            text = "MID: ${terminal.mid}",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-        )
-
-        printerHelper.printTextWithFormat(
-            text = "TID: ${terminal.tid}",
-            alignment = PrinterHelper.ALIGN_CENTER,
+        printerHelper.printTwoColumnsWithFormat(
+            left = "MID: ${terminal.mid}",
+            right = "TID: ${terminal.tid}",
             fontSize = PrinterHelper.TEXT_SIZE_NORMAL
         )
 
@@ -529,13 +488,12 @@ class ReceiptPrinter(
 
     private fun printTransactionType(transaction: Transaction) {
         printerHelper.printTextWithFormat(
-            text = "HÓA ĐƠN THANH TOÁN/PAYMENT INVOICE",
+            text = "HÓA ĐƠN/INVOICE",
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
             isBold = true
         )
-
-        printerHelper.printDoubleDivider(PAPER_WIDTH)
+        printerHelper.printNewLine(1)
     }
 
     private fun printTransactionInfo(transaction: Transaction) {
@@ -570,11 +528,7 @@ class ReceiptPrinter(
             // Loại thẻ - Source
             printerHelper.printTwoColumns("Loại thẻ/Card:", transaction.getCardTypeText(context))
 
-            // Phương thức (Card Mode)
-            val cardModeText = transaction.getCardModeText()
-            if (cardModeText.isNotEmpty()) {
-                printerHelper.printTwoColumns("Phương thức/Method:", cardModeText)
-            }
+            // Phương thức (Card Mode) đã bỏ
 
             // Số thẻ
             if (transaction.accountNumber.isNotEmpty()) {
@@ -631,46 +585,23 @@ class ReceiptPrinter(
                 printerHelper.printTwoColumns("Mã chuẩn chi/App Code:", transaction.approvedCode)
             }
         }
-
-        printerHelper.printDivider("-", PAPER_WIDTH)
     }
 
     private fun printAmountSection(transaction: Transaction) {
-        val amountStr = printerHelper.formatCurrencyWithPadding(transaction.totalTransAmt, 15)
-        printerHelper.printTwoColumns("Số tiền/Amount:", amountStr)
-
-        if (transaction.feeTransAmt > 0) {
-            val feeStr = printerHelper.formatCurrencyWithPadding(transaction.feeTransAmt, 15)
-            printerHelper.printTwoColumns("Phí GD/Fee:", feeStr)
-        }
-
-        printerHelper.printDoubleDivider(PAPER_WIDTH)
-
-        val totalStr = printerHelper.formatCurrencyWithPadding(transaction.totalTransAmt, 15)
-        printerHelper.printTextWithFormat(
-            text = "TỔNG CỘNG/TOTAL:",
-            alignment = PrinterHelper.ALIGN_LEFT,
-            fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
+        val total = printerHelper
+            .formatCurrencyWithPadding(transaction.totalTransAmt, 15)
+            .trim()
+        printerHelper.printTwoColumnsWithFormat(
+            left = "TỔNG TIỀN/TOTAL:",
+            right = total,
+            fontSize = PrinterHelper.TEXT_SIZE_NORMAL,
             isBold = true
         )
-        printerHelper.printTextWithFormat(
-            text = totalStr,
-            alignment = PrinterHelper.ALIGN_RIGHT,
-            fontSize = PrinterHelper.TEXT_SIZE_LARGE,
-            isBold = true
-        )
-
-        printerHelper.printDoubleDivider(PAPER_WIDTH)
     }
 
     private fun printStatusSection(transaction: Transaction) {
         val statusInfo = transaction.getReceiptStatusInfo(context)
         printerHelper.printTwoColumns("Trạng thái/Status:", statusInfo.text)
-
-        val settledDate = transaction.getFormattedSettledDateTime()
-        if (settledDate.isNotEmpty()) {
-            printerHelper.printTwoColumns("Ngày quyết toán/Settled Date:", settledDate)
-        }
     }
 
     private fun printNotesSection(notes: String) {
@@ -707,57 +638,12 @@ class ReceiptPrinter(
             printerHelper.printDivider("-", PAPER_WIDTH)
         }
 
-        printerHelper.printTextWithFormat(
-            text = "Cảm ơn quý khách!/Thank you, customers!",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL,
-            isBold = true
-        )
-
-        printerHelper.printTextWithFormat(
-            text = "Hẹn gặp lại!/See you again!",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-        )
-
-        printerHelper.printNewLine(1)
-        printerHelper.printTextWithFormat(
-            text = "Hotline: 1900996688",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-        )
-
-        printerHelper.printDivider("-", PAPER_WIDTH)
-
         // Footer terms
         printerHelper.printTextWithFormat(
             text = "NO REFUND/KHÔNG HOÀN TRẢ",
             alignment = PrinterHelper.ALIGN_CENTER,
             fontSize = PrinterHelper.TEXT_SIZE_NORMAL
         )
-
-        printerHelper.printDivider("-", PAPER_WIDTH)
-
-        printerHelper.printTextWithFormat(
-            text = "Powered by OneFin POS",
-            alignment = PrinterHelper.ALIGN_CENTER,
-            fontSize = PrinterHelper.TEXT_SIZE_NORMAL
-        )
-
-        printerHelper.printDoubleDivider(PAPER_WIDTH)
-    }
-
-    private suspend fun loadMerchantLogo(logoUrl: String): Bitmap? = withContext(Dispatchers.IO) {
-        try {
-            if (logoUrl.isEmpty()) return@withContext null
-
-            val url = URL(logoUrl)
-            val bitmap = BitmapFactory.decodeStream(url.openConnection().getInputStream())
-
-            resizeBitmap(bitmap, 150, 80)
-        } catch (_: Exception) {
-            null
-        }
     }
 
     private suspend fun loadBankLogo(logoUrl: String): Bitmap? = withContext(Dispatchers.IO) {
@@ -808,7 +694,7 @@ class ReceiptPrinter(
         val paperWidthPx = 384
 
         // THÊM MARGIN BOTTOM
-        val marginBottom = 40
+        val marginBottom = 20
 
         val maxHeight = maxOf(left.height, right.height) + marginBottom // Thêm margin vào height
 
@@ -824,50 +710,6 @@ class ReceiptPrinter(
         val rightX = (paperWidthPx - right.width).toFloat()
         val rightY = (maxHeight - marginBottom - right.height) / 2f // Trừ margin khi tính Y
         canvas.drawBitmap(right, rightX, rightY, null)
-
-        return combinedBitmap
-    }
-
-    private fun combineThreeLogos(
-        leftBitmap: Bitmap?,
-        centerBitmap: Bitmap?,
-        rightBitmap: Bitmap?
-    ): Bitmap? {
-        // If all logos are null, return null
-        if (leftBitmap == null && centerBitmap == null && rightBitmap == null) return null
-
-        val paperWidthPx = 384
-        val marginBottom = 40
-
-        // Collect non-null bitmaps
-        val logos = listOfNotNull(leftBitmap, centerBitmap, rightBitmap)
-        if (logos.isEmpty()) return null
-
-        val maxHeight = logos.maxOf { it.height } + marginBottom
-
-        val combinedBitmap = createBitmap(paperWidthPx, maxHeight)
-        val canvas = android.graphics.Canvas(combinedBitmap)
-        canvas.drawColor(android.graphics.Color.WHITE)
-
-        // Draw left logo (bank)
-        leftBitmap?.let { bitmap ->
-            val y = (maxHeight - marginBottom - bitmap.height) / 2f
-            canvas.drawBitmap(bitmap, 0f, y, null)
-        }
-
-        // Draw center logo (merchant)
-        centerBitmap?.let { bitmap ->
-            val x = (paperWidthPx - bitmap.width) / 2f
-            val y = (maxHeight - marginBottom - bitmap.height) / 2f
-            canvas.drawBitmap(bitmap, x, y, null)
-        }
-
-        // Draw right logo (onefin)
-        rightBitmap?.let { bitmap ->
-            val x = (paperWidthPx - bitmap.width).toFloat()
-            val y = (maxHeight - marginBottom - bitmap.height) / 2f
-            canvas.drawBitmap(bitmap, x, y, null)
-        }
 
         return combinedBitmap
     }

@@ -94,6 +94,7 @@ class PaymentHelper @Inject constructor(
         val merchantRequest = MerchantRequestData(
             billNumber = billNumber,
             referenceId = referenceId,
+            so = request.merchantRequestData?.so,
             tid = driverInfo?.employeeCode,
             mid = driverInfo?.driverNumber,
             additionalData = additionalData,

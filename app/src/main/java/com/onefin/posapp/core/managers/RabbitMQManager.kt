@@ -3,6 +3,8 @@ package com.onefin.posapp.core.managers
 import android.app.Activity.RESULT_OK
 import android.content.Context
 import android.content.Intent
+import android.os.PowerManager
+import android.view.WindowManager
 import com.google.gson.Gson
 import com.onefin.posapp.core.models.ResultApi
 import com.onefin.posapp.core.models.Transaction
@@ -235,6 +237,7 @@ class RabbitMQManager @Inject constructor(
     }
 
     private fun handlePaymentRequest(notify: RabbitNotify) {
+        wakeScreen()
         val paymentJson = notify.jsonObject
         if (paymentJson.isNullOrEmpty())
             return
@@ -374,6 +377,21 @@ class RabbitMQManager @Inject constructor(
         }
     }
 
+    private fun wakeScreen() {
+        try {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            if (!powerManager.isInteractive) {
+                @Suppress("DEPRECATION")
+                val wakeLock = powerManager.newWakeLock(
+                    PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                    "posapp:paymentRequest"
+                )
+                wakeLock.acquire(10_000L)
+                wakeLock.release()
+            }
+        } catch (_: Exception) { }
+    }
+
     private fun handleQrPayment(paymentRequest: PaymentAppRequest) {
         try {
             storageService.getAccount() ?: return
@@ -407,7 +425,7 @@ class RabbitMQManager @Inject constructor(
             storageService.getAccount() ?: return
             val driverInfo = storageService.getDriverInfo()
             val paymentRequestData = paymentHelper.createPaymentAppRequest(paymentRequest, driverInfo)
-            val intent = Intent(context, TransparentPaymentActivity::class.java).apply {
+            val intent = Intent(context, PaymentCardActivity::class.java).apply {
                 putExtra("REQUEST_DATA", paymentRequestData)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }

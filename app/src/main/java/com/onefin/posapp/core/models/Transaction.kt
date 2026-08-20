@@ -133,7 +133,7 @@ data class Transaction(
         if (accountNumber.length < 4) return accountNumber
         val last4 = accountNumber.takeLast(4)
         val first4 = accountNumber.take(4)
-        return "$first4 **** **** $last4"
+        return "$first4********$last4"
     }
 
     fun getFormattedDate(): String {

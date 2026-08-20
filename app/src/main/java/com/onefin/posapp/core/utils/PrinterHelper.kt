@@ -15,10 +15,10 @@ class PrinterHelper(private val context: Context) {
         const val ALIGN_CENTER = 1
         const val ALIGN_RIGHT = 2
 
-        const val TEXT_SIZE_NORMAL = 24f
-        const val TEXT_SIZE_MEDIUM = 28f
-        const val TEXT_SIZE_LARGE = 32f
-        const val TEXT_SIZE_XLARGE = 40f
+        const val TEXT_SIZE_NORMAL = 21f
+        const val TEXT_SIZE_MEDIUM = 25f
+        const val TEXT_SIZE_LARGE = 29f
+        const val TEXT_SIZE_XLARGE = 37f
     }
 
     private val printerService: SunmiPrinterService?
@@ -52,21 +52,8 @@ class PrinterHelper(private val context: Context) {
         }
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun setPrintDensity(density: Int) {
-        try {
-            val validDensity = density.coerceIn(0, 15)
-
-            printerService?.sendRAWData(
-                byteArrayOf(0x1D, 0x28, 0x4B, 0x02, 0x00, 0x32, validDensity.toByte()),
-                null
-            )
-
-            printerService?.sendRAWData(
-                byteArrayOf(0x1B, 0x37, 0x0A, 0x64, 0x64),
-                null
-            )
-        } catch (_: RemoteException) {
-        }
     }
 
     fun setAlignment(alignment: Int, callback: InnerResultCallback? = null) {
@@ -124,7 +111,7 @@ class PrinterHelper(private val context: Context) {
         }
     }
 
-    fun printDivider(char: String = "-", length: Int = 32) {
+    fun printDivider(char: String = "-", length: Int = 38) {
         try {
             val divider = char.repeat(length)
             printTextWithFormat(divider, ALIGN_CENTER)
@@ -132,14 +119,29 @@ class PrinterHelper(private val context: Context) {
         }
     }
 
-    fun printDoubleDivider(length: Int = 32) {
+    fun printDoubleDivider(length: Int = 38) {
         printDivider("=", length)
     }
 
-    fun printTwoColumns(left: String, right: String, totalWidth: Int = 31) {
+    fun printTwoColumns(left: String, right: String, totalWidth: Int = 38) {
+        printTwoColumnsWithFormat(left, right, TEXT_SIZE_NORMAL, totalWidth)
+    }
+
+    fun printTwoColumnsWithFormat(
+        left: String,
+        right: String,
+        fontSize: Float,
+        totalWidth: Int = 38,
+        isBold: Boolean = false
+    ) {
         try {
+            setFontSize(fontSize)
             val rightLength = right.length
-            val leftMaxWidth = totalWidth - rightLength - 1 // Trừ 1 space tối thiểu
+            val leftMaxWidth = totalWidth - rightLength - 1
+
+            if (isBold) {
+                printerService?.sendRAWData(byteArrayOf(0x1B, 0x45, 0x01), null)
+            }
 
             if (left.length <= leftMaxWidth) {
                 // Left vừa đủ, in trên 1 dòng
@@ -165,6 +167,11 @@ class PrinterHelper(private val context: Context) {
                 printText(spaces + right)
                 printNewLine()
             }
+
+            if (isBold) {
+                printerService?.sendRAWData(byteArrayOf(0x1B, 0x45, 0x00), null)
+            }
+            setFontSize(TEXT_SIZE_NORMAL)
         } catch (_: Exception) {
         }
     }
