@@ -57,6 +57,9 @@ data class Terminal(
     
     @SerializedName("SystemConfig")
     val systemConfig: SystemConfig? = null,
+
+    @SerializedName("MerchantCompanyName")
+    val merchantCompanyName: String = "",
     
     @SerializedName("MerchantConfig")
     val merchantConfig: Map<String, Any?>? = null

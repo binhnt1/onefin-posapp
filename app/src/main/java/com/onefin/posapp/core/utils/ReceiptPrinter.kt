@@ -476,6 +476,15 @@ class ReceiptPrinter(
         )
 
         printerHelper.printNewLine(1)
+        if (terminal.merchantCompanyName.isNotEmpty()) {
+            printerHelper.printTextWithFormat(
+                text = terminal.merchantCompanyName,
+                alignment = PrinterHelper.ALIGN_CENTER,
+                fontSize = PrinterHelper.TEXT_SIZE_MEDIUM,
+                isBold = false
+            )
+            printerHelper.printNewLine(1)
+        }
 
         printerHelper.printTwoColumnsWithFormat(
             left = "MID: ${terminal.mid}",
